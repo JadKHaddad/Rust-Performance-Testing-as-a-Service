@@ -72,6 +72,7 @@ async fn upload(mut multipart: Multipart) -> String {
         tokio::fs::remove_dir_all(project_dir).await.unwrap();
         return message;
     }
+    // check if requirements.txt exists
     let requirements_file = project_dir.join("requirements.txt");
     if !requirements_file.exists() {
         message = String::from("No requirements.txt found");
@@ -79,12 +80,7 @@ async fn upload(mut multipart: Multipart) -> String {
         tokio::fs::remove_dir_all(project_dir).await.unwrap();
         return message;
     }
-    if tokio::fs::metadata(&requirements_file).await.unwrap().len() == 0 {
-        message = String::from("requirements.txt is empty");
-        //delete folder
-        tokio::fs::remove_dir_all(project_dir).await.unwrap();
-        return message;
-    }
+    // check if requirements.txt contains locust
     let requirements_file_content = tokio::fs::read_to_string(&requirements_file).await.unwrap();
     if !requirements_file_content.contains("locust") {
         message = String::from("requirements.txt does not contain locust");
