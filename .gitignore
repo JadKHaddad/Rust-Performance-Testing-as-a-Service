@@ -1,3 +1,4 @@
-/target
-/projects
-/environments
+**/target
+**/projects
+**/environments
+**/node_modules
