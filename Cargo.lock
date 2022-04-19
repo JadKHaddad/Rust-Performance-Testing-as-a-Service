@@ -551,6 +551,7 @@ dependencies = [
 name = "ptas"
 version = "0.1.0"
 dependencies = [
+ "parking_lot",
  "poem",
  "tokio",
  "tracing-subscriber",
