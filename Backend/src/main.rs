@@ -1,6 +1,6 @@
 use parking_lot::RwLock;
 use poem::{
-    get, handler,
+    handler, post,
     listener::TcpListener,
     middleware::AddData,
     web::{Data, Html, Multipart},
@@ -253,7 +253,7 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        .at("/", get(index).post(upload))
+        .at("/upload", post(upload))
         .with(AddData::new(installing_tasks))
         .with(AddData::new(currently_installing_projects));
     Server::new(TcpListener::bind("127.0.0.1:3000"))
