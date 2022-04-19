@@ -109,21 +109,40 @@ async fn upload(
     }
 
     //install
-    let pip_location = Path::new(&env_dir).join("bin").join("pip3");
-    let mut cmd = Command::new("/usr/bin/sh")
-        .args(&[
-            "-c",
-            &format!(
-                "virtualenv {} && {} install -r {}",
-                env_dir.to_str().unwrap(),
-                pip_location.to_str().unwrap(),
-                requirements_file.to_str().unwrap()
-            ),
-        ])
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let pip_location_windows = Path::new(&env_dir).join("Scripts").join("pip3");
+    println!("{:?}", pip_location_windows);
+    let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
+    let mut cmd = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(&[
+                "/c",
+                &format!(
+                    "virtualenv {} && {} install -r {}",
+                    env_dir.to_str().unwrap(),
+                    pip_location_windows.to_str().unwrap(),
+                    requirements_file.to_str().unwrap()
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("failed to execute process")
+    } else {
+        Command::new("/usr/bin/sh")
+            .args(&[
+                "-c",
+                &format!(
+                    "virtualenv {} && {} install -r {}",
+                    env_dir.to_str().unwrap(),
+                    pip_location_linux.to_str().unwrap(),
+                    requirements_file.to_str().unwrap()
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("failed to execute process")
+    };
     let mut installing_tasks_guard = installing_tasks.write();
     let project_name = project_dir.file_name().unwrap();
     installing_tasks_guard.insert(project_name.to_str().unwrap().to_owned(), cmd);
