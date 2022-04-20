@@ -1,8 +1,9 @@
 use parking_lot::RwLock;
 use poem::{
-    handler, post,
+    handler,
     listener::TcpListener,
     middleware::AddData,
+    post,
     web::{Data, Html, Multipart},
     EndpointExt, Route, Server,
 };
@@ -166,6 +167,7 @@ async fn upload(
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
                         match cmd.try_wait().unwrap() {
                             Some(exit_status) => {
+                                // process finished
                                 to_be_removed.push(id.to_owned());
                                 // delete on fail
                                 match exit_status.code() {
@@ -184,7 +186,7 @@ async fn upload(
                                     }
                                 }
                             }
-                            None => (),
+                            None => (), // process is running
                         }
                     }
                     for id in to_be_removed.iter() {

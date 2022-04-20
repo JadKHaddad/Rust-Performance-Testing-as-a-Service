@@ -6,6 +6,7 @@
       <button type="button" @click="upload">Upload</button>
       <div>percentCompleted: {{ percentCompleted }}</div>
       <div>uploading: {{ uploading }}</div>
+      <div>response: {{ uploadResponse }}</div>
     </form>
   </div>
 </template>
@@ -17,6 +18,7 @@ export default {
     return {
       uploading: false,
       percentCompleted: 0,
+      uploadResponse: "",
     };
   },
   methods: {
@@ -46,6 +48,7 @@ export default {
         .then((response) => {
           this.uploading = false;
           const data = response.data;
+          this.uploadResponse = data;
           console.log(data);
           if (data.success) {
           } else {
