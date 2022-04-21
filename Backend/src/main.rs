@@ -128,14 +128,17 @@ pub async fn ws(
                                 running_tests_count,
                             },
                         };
-                        for (id, tx) in guard.iter() {
-                            match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    println!(
-                                        "ERROR: INFORMATION THREAD: failed to send message [{}]:\n{:?}",
-                                        id, e
-                                    );
+                        
+                        { //TODO: use the broadcast channel
+                            for (id, tx) in guard.iter() {
+                                match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        println!(
+                                            "ERROR: INFORMATION THREAD: failed to send message [{}]:\n{:?}",
+                                            id, e
+                                        );
+                                    }
                                 }
                             }
                         }

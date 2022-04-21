@@ -117,7 +117,6 @@ pub async fn upload(
 
     //install
     let pip_location_windows = Path::new(&env_dir).join("Scripts").join("pip3");
-    println!("{:?}", pip_location_windows);
     let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
     let cmd = if cfg!(target_os = "windows") {
         Command::new("cmd")
@@ -218,9 +217,9 @@ pub async fn upload(
                     }
                 }
                 // send info
-                let websocket_message = models::WebSocketMessage{
+                let websocket_message = models::WebSocketMessage {
                     event_type: "PROJECTS",
-                    event: models::projects::Event{
+                    event: models::projects::Event {
                         istalling_projects: installing_projects,
                     },
                 };
