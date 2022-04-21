@@ -79,6 +79,7 @@ pub async fn ws(
             let mut clients_guard = clients.write();
             clients_guard.insert(id, tx);
         }
+        //websocket sender
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(rec) = msg {
@@ -89,7 +90,7 @@ pub async fn ws(
             clients_guard.remove(&id_rx);
             println!("WEBSOCKET: SENDER DISCONNECTED: [{}]", id_rx);
         });
-
+        //websocket receiver
         tokio::spawn(async move {
             while rx.changed().await.is_ok() {
                 let msg = String::from(&*rx.borrow());
@@ -99,6 +100,7 @@ pub async fn ws(
             }
             println!("WEBSOCKET: RECEIVER DISCONNECTED: [{}]", id_tx);
         });
+        //websocket broadcast
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
@@ -118,7 +120,7 @@ pub async fn ws(
                                 Ok(_) => {}
                                 Err(e) => {
                                     println!(
-                                        "INFORMATION THREAD: ERROR SENDING MESSAGE TO [{}]:\n{:?}",
+                                        "ERROR: INFORMATION THREAD: failed to send message [{}]:\n{:?}",
                                         id, e
                                     );
                                 }
@@ -150,6 +152,7 @@ async fn main() -> Result<(), std::io::Error> {
     let clients: Arc<RwLock<HashMap<String, Sender<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     let information_thread_running = Arc::new(AtomicBool::new(false));
+    
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
