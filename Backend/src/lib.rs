@@ -49,6 +49,7 @@ pub async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
+    sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut message = String::from("Project uploaded successfully!");
     let mut project_dir = PathBuf::new();
@@ -153,6 +154,7 @@ pub async fn upload(
     println!("{:?}", installing_tasks_guard);
     // run the thread
     if !currently_installing_projects.load(Ordering::SeqCst) {
+        let tx = sender.clone();
         let tokio_currently_installing_projects = currently_installing_projects.clone();
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
@@ -167,6 +169,7 @@ pub async fn upload(
                     }
                     println!("PROJECTS GARBAGE COLLECTOR: Running!");
                     let mut to_be_removed: Vec<String> = Vec::new();
+                    //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
                         match cmd.try_wait() {
                             Ok(Some(exit_status)) => {
@@ -197,9 +200,15 @@ pub async fn upload(
                             }
                         }
                     }
+                    //remove finished
                     for id in to_be_removed.iter() {
                         tokio_tasks_guard.remove_entry(id);
                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] removed!", id);
+                    }
+                    // send info
+                    match tx.send(String::from("PROJECTS INFO")){
+                        Ok(_) => (),
+                        Err(_) => (),
                     }
                 }
                 for id in to_be_deleted.iter() {
@@ -221,6 +230,8 @@ pub async fn upload(
             }
         });
         currently_installing_projects.store(true, Ordering::SeqCst);
+    }else{
+        println!("PROJECTS GARBAGE COLLECTOR: Already running!");
     }
     Ok(message)
 }

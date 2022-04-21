@@ -8,7 +8,7 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Html, Multipart,
+        Data, Multipart,
     },
     EndpointExt, IntoResponse, Route, Server,
 };
@@ -16,41 +16,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
     process::Child,
-    str,
     sync::{atomic::AtomicBool, atomic::Ordering, Arc},
     time::Duration,
 };
-use tokio::sync::watch::Sender;
+use tokio::sync::broadcast::Sender;
 use tokio::time::sleep;
 mod lib;
 
-#[handler]
-async fn index() -> Html<&'static str> {
-    Html(
-        r###"
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <title>Poem / Upload Example</title>
-        </head>
-        <body>
-            <form action="/" enctype="multipart/form-data" method="post">
-                <input type="file" webkitdirectory="" mozdirectory="" name="upload" id="files">
-                <button type="submit">Submit</button>
-            </form>
-        </body>
-        </html>
-        "###,
-    )
-}
 
 #[handler]
 async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
+    sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> String {
-    match lib::upload(multipart, installing_tasks, currently_installing_projects).await {
+    match lib::upload(multipart, installing_tasks, currently_installing_projects, sender).await {
         Ok(message) => message,
         Err(err) => err.to_string(),
     }
@@ -61,12 +42,17 @@ pub async fn ws(
     ws: WebSocket,
     clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
+    sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> impl IntoResponse {
+    let tx = sender.clone();
+    let tx_2 = sender.clone();
+    let mut rx = sender.subscribe();
+
     let clients = Arc::clone(&clients);
     let tokio_information_thread_clients = Arc::clone(&clients);
     let information_thread_running = Arc::clone(&information_thread_running);
     ws.on_upgrade(move |socket| async move {
-        let (tx, mut rx) = tokio::sync::watch::channel(String::from("channel"));
+        //let (tx, mut rx) = tokio::sync::watch::channel(String::from("channel"));
         let (mut sink, mut stream) = socket.split();
         let id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -74,7 +60,7 @@ pub async fn ws(
             .as_micros()
             .to_string();
         let id_rx = id.clone();
-        let id_tx = id.clone();
+        //let id_tx = id.clone();
         {
             let mut clients_guard = clients.write();
             clients_guard.insert(id, tx);
@@ -84,6 +70,10 @@ pub async fn ws(
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(rec) = msg {
                     println!("WEBSOCKET: Received message: [{}], [{}]", rec, id_rx);
+                    //websocket broadcast
+                    if tx_2.send(format!("BROADCAST: [{}] | FROM: [{}]", rec, id_rx)).is_err() {
+                        break;
+                    }
                 }
             }
             let mut clients_guard = clients.write();
@@ -92,15 +82,13 @@ pub async fn ws(
         });
         //websocket receiver
         tokio::spawn(async move {
-            while rx.changed().await.is_ok() {
-                let msg = String::from(&*rx.borrow());
+            while let Ok(msg) = rx.recv().await {
                 if sink.send(Message::Text(msg)).await.is_err() {
                     break;
                 }
             }
-            println!("WEBSOCKET: RECEIVER DISCONNECTED: [{}]", id_tx);
+            //println!("WEBSOCKET: RECEIVER DISCONNECTED: [{}]", id_tx);
         });
-        //websocket broadcast
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
@@ -132,6 +120,9 @@ pub async fn ws(
             });
             information_thread_running.store(true, Ordering::SeqCst);
         }
+        else{
+            println!(" INFORMATION THREAD: Already running!");
+        }
     })
 }
 
@@ -149,7 +140,7 @@ async fn main() -> Result<(), std::io::Error> {
     let currently_installing_projects = Arc::new(AtomicBool::new(false));
 
     //clients
-    let clients: Arc<RwLock<HashMap<String, Sender<String>>>> =
+    let clients: Arc<RwLock<HashMap<String, Sender<std::string::String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     let information_thread_running = Arc::new(AtomicBool::new(false));
     
@@ -159,12 +150,12 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        .at("/upload", post(upload))
-        .at("/ws", get(ws))
+        .at("/upload", post(upload.data(currently_installing_projects)))
+        .at("/ws", get(ws.data(information_thread_running)))
+        .with(AddData::new(tokio::sync::broadcast::channel::<String>(32).0))
         .with(AddData::new(installing_tasks))
-        .with(AddData::new(currently_installing_projects))
-        .with(AddData::new(clients))
-        .with(AddData::new(information_thread_running));
+        .with(AddData::new(clients));
+        
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await
