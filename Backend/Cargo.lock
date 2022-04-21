@@ -590,6 +590,8 @@ dependencies = [
  "futures-util",
  "parking_lot",
  "poem",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing-subscriber",
 ]

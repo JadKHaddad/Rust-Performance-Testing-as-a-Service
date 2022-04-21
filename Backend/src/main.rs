@@ -22,7 +22,8 @@ use std::{
 use tokio::sync::broadcast::Sender;
 use tokio::time::sleep;
 mod lib;
-
+mod models;
+use models::WebSocketMessage;
 
 #[handler]
 async fn upload(
@@ -31,7 +32,22 @@ async fn upload(
     currently_installing_projects: Data<&Arc<AtomicBool>>,
     sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> String {
-    match lib::upload(multipart, installing_tasks, currently_installing_projects, sender).await {
+    match lib::upload(
+        multipart,
+        installing_tasks,
+        currently_installing_projects,
+        sender,
+    )
+    .await
+    {
+        Ok(message) => message,
+        Err(err) => err.to_string(),
+    }
+}
+
+#[handler]
+async fn projects() -> String {
+    match lib::projects().await {
         Ok(message) => message,
         Err(err) => err.to_string(),
     }
@@ -103,8 +119,17 @@ pub async fn ws(
                             break;
                         }
                         println!("INFORMATION THREAD: Running!");
+                        let connected_clients_count = guard.len() as u32;
+                        let running_tests_count = 1;
+                        let websocket_message = WebSocketMessage{
+                            event_type: "INFORMATION",
+                            event: models::information::Event{
+                                connected_clients_count,
+                                running_tests_count,
+                            },
+                        };
                         for (id, tx) in guard.iter() {
-                            match tx.send(String::from("INFORMATION THREAD")) {
+                            match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
                                 Ok(_) => {}
                                 Err(e) => {
                                     println!(
@@ -121,7 +146,7 @@ pub async fn ws(
             information_thread_running.store(true, Ordering::SeqCst);
         }
         else{
-            println!(" INFORMATION THREAD: Already running!");
+            println!("INFORMATION THREAD: Already running!");
         }
     })
 }
@@ -143,7 +168,6 @@ async fn main() -> Result<(), std::io::Error> {
     let clients: Arc<RwLock<HashMap<String, Sender<std::string::String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     let information_thread_running = Arc::new(AtomicBool::new(false));
-    
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
@@ -152,10 +176,12 @@ async fn main() -> Result<(), std::io::Error> {
     let app = Route::new()
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
-        .with(AddData::new(tokio::sync::broadcast::channel::<String>(32).0))
+        .at("/projects", get(projects))
+        .with(AddData::new(
+            tokio::sync::broadcast::channel::<String>(32).0,
+        ))
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));
-        
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await

@@ -1,3 +1,4 @@
+use crate::models;
 use parking_lot::RwLock;
 use poem::web::{Data, Multipart};
 use std::error::Error;
@@ -160,6 +161,7 @@ pub async fn upload(
         tokio::spawn(async move {
             loop {
                 let mut to_be_deleted: Vec<String> = Vec::new();
+                let mut installing_projects: Vec<models::projects::Project> = Vec::new();
                 {
                     let mut tokio_tasks_guard = tokio_installing_tasks.write();
                     if tokio_tasks_guard.len() < 1 {
@@ -171,19 +173,27 @@ pub async fn upload(
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
+                        let mut project = models::projects::Project {
+                            id: id.to_owned(),
+                            status: 0,
+                            error: None,
+                        };
                         match cmd.try_wait() {
                             Ok(Some(exit_status)) => {
                                 // process finished
                                 to_be_removed.push(id.to_owned());
+                                project.status = 1;
                                 // delete on fail
                                 match exit_status.code() {
                                     Some(code) => {
                                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", id, code);
                                         if code != 0 {
+                                            project.status = 2;
                                             if let Some(stderr) = cmd.stderr.take() {
                                                 let err = child_stream_to_vec(stderr);
                                                 if let Ok(error_string) = str::from_utf8(&err) {
                                                     to_be_deleted.push(id.to_owned());
+                                                    project.error = Some(error_string.to_owned());
                                                     println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", id, error_string);
                                                 }
                                             }
@@ -199,17 +209,24 @@ pub async fn upload(
                                 println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", id, e);
                             }
                         }
+                        installing_projects.push(project);
                     }
                     //remove finished
                     for id in to_be_removed.iter() {
                         tokio_tasks_guard.remove_entry(id);
                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] removed!", id);
                     }
-                    // send info
-                    match tx.send(String::from("PROJECTS INFO")){
-                        Ok(_) => (),
-                        Err(_) => (),
-                    }
+                }
+                // send info
+                let websocket_message = models::WebSocketMessage{
+                    event_type: "PROJECTS",
+                    event: models::projects::Event{
+                        istalling_projects: installing_projects,
+                    },
+                };
+                match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
+                    Ok(_) => (),
+                    Err(_) => (),
                 }
                 for id in to_be_deleted.iter() {
                     match tokio::fs::remove_dir_all(Path::new(PROJECTS_DIR).join(id)).await {
@@ -230,8 +247,12 @@ pub async fn upload(
             }
         });
         currently_installing_projects.store(true, Ordering::SeqCst);
-    }else{
+    } else {
         println!("PROJECTS GARBAGE COLLECTOR: Already running!");
     }
     Ok(message)
+}
+
+pub async fn projects() -> Result<String, Box<dyn Error>> {
+    Ok("PROJECTS".to_owned())
 }
