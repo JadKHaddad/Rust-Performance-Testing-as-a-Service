@@ -170,13 +170,16 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
-        .nest(
-            "/download",
-            StaticFilesEndpoint::new(DOWNLOADS_DIR),
-        )
+        .nest("/download", StaticFilesEndpoint::new(DOWNLOADS_DIR))
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await
 }
+
+// #[handler]
+// async fn single_download(req: poem::web::StaticFileRequest) -> poem::error::Result<impl IntoResponse> {
+//     println!("sup");
+//      Ok(req.create_response("path/to/file", true)?)
+// }
