@@ -2,6 +2,7 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
 use poem::{
+    endpoint::StaticFilesEndpoint,
     get, handler,
     listener::TcpListener,
     middleware::AddData,
@@ -24,6 +25,10 @@ use tokio::time::sleep;
 mod lib;
 mod models;
 use models::WebSocketMessage;
+
+pub const DOWNLOADS_DIR: &str = "downloads";
+pub const PROJECTS_DIR: &str = "projects";
+pub const ENVIRONMENTS_DIR: &str = "environments";
 
 #[handler]
 async fn upload(
@@ -59,7 +64,6 @@ pub async fn ws(
     clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
 ) -> impl IntoResponse {
-
     let clients = Arc::clone(&clients);
     let tokio_information_thread_clients = Arc::clone(&clients);
     let information_thread_running = Arc::clone(&information_thread_running);
@@ -148,12 +152,6 @@ pub async fn ws(
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    //create projects dir
-    tokio::fs::create_dir_all(lib::PROJECTS_DIR).await.unwrap();
-    //create environments dir
-    tokio::fs::create_dir_all(lib::ENVIRONMENTS_DIR)
-        .await
-        .unwrap();
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -172,6 +170,10 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
+        .nest(
+            "/download",
+            StaticFilesEndpoint::new(DOWNLOADS_DIR),
+        )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));
     Server::new(TcpListener::bind("127.0.0.1:3000"))

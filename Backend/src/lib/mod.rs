@@ -15,10 +15,8 @@ use std::{
     time::Duration,
 };
 use tokio::sync::watch::Sender;
-use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
-
-pub const PROJECTS_DIR: &str = "projects";
-pub const ENVIRONMENTS_DIR: &str = "environments";
+use tokio::{io::AsyncWriteExt, time::sleep};
+use crate::{PROJECTS_DIR, ENVIRONMENTS_DIR};
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
 where
@@ -81,8 +79,8 @@ pub async fn upload(
         }
         let full_file_name = Path::new(PROJECTS_DIR).join(file_name);
         let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
-        tokio::fs::create_dir_all(full_file_name_prefix).await?;
-        let mut file = File::create(full_file_name).await?;
+        std::fs::create_dir_all(full_file_name_prefix)?;
+        let mut file = tokio::fs::File::create(full_file_name).await?;
         if let Ok(bytes) = field.bytes().await {
             file.write_all(&bytes).await?;
         }
@@ -96,7 +94,7 @@ pub async fn upload(
     if !locust_dir.exists() {
         message = String::from("Locust folder empty or does not exist");
         //delete folder
-        tokio::fs::remove_dir_all(project_dir).await?;
+        std::fs::remove_dir_all(project_dir)?;
         return Ok(message);
     }
     // check if requirements.txt exists
@@ -104,15 +102,15 @@ pub async fn upload(
     if !requirements_file.exists() {
         message = String::from("No requirements.txt found");
         //delete folder
-        tokio::fs::remove_dir_all(project_dir).await?;
+        std::fs::remove_dir_all(project_dir)?;
         return Ok(message);
     }
     // check if requirements.txt contains locust
-    let requirements_file_content = tokio::fs::read_to_string(&requirements_file).await?;
+    let requirements_file_content = std::fs::read_to_string(&requirements_file)?;
     if !requirements_file_content.contains("locust") {
         message = String::from("requirements.txt does not contain locust");
         //delete folder
-        tokio::fs::remove_dir_all(project_dir).await?;
+        std::fs::remove_dir_all(project_dir)?;
         return Ok(message);
     }
 
@@ -160,7 +158,6 @@ pub async fn upload(
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
             loop {
-                let mut to_be_deleted: Vec<String> = Vec::new();
                 let mut installing_projects: Vec<models::projects::Project> = Vec::new();
                 {
                     let mut tokio_tasks_guard = tokio_installing_tasks.write();
@@ -171,6 +168,7 @@ pub async fn upload(
                     }
                     println!("PROJECTS GARBAGE COLLECTOR: Running!");
                     let mut to_be_removed: Vec<String> = Vec::new();
+                    let mut to_be_deleted: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
                         let mut project = models::projects::Project {
@@ -216,6 +214,22 @@ pub async fn upload(
                         tokio_tasks_guard.remove_entry(id);
                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] removed!", id);
                     }
+                    //delete not valid
+                    for id in to_be_deleted.iter() {
+                        match std::fs::remove_dir_all(Path::new(PROJECTS_DIR).join(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
+                            }
+                        };
+                        match std::fs::remove_dir_all(Path::new(ENVIRONMENTS_DIR).join(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
+                            }
+                        };
+                        println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);
+                    }
                 }
                 // send info
                 let websocket_message = models::WebSocketMessage {
@@ -234,21 +248,6 @@ pub async fn upload(
                             );
                         }
                     }
-                }
-                for id in to_be_deleted.iter() {
-                    match tokio::fs::remove_dir_all(Path::new(PROJECTS_DIR).join(id)).await {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
-                        }
-                    };
-                    match tokio::fs::remove_dir_all(Path::new(ENVIRONMENTS_DIR).join(id)).await {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
-                        }
-                    };
-                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);
                 }
                 sleep(Duration::from_secs(3)).await;
             }
