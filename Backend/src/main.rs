@@ -19,7 +19,7 @@ use std::{
     sync::{atomic::AtomicBool, atomic::Ordering, Arc},
     time::Duration,
 };
-use tokio::sync::broadcast::Sender;
+use tokio::sync::watch::Sender;
 use tokio::time::sleep;
 mod lib;
 mod models;
@@ -30,13 +30,13 @@ async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
-    sender: Data<&tokio::sync::broadcast::Sender<String>>,
+    clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
 ) -> String {
     match lib::upload(
         multipart,
         installing_tasks,
         currently_installing_projects,
-        sender,
+        clients,
     )
     .await
     {
@@ -58,17 +58,13 @@ pub async fn ws(
     ws: WebSocket,
     clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
-    sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> impl IntoResponse {
-    let tx = sender.clone();
-    let tx_2 = sender.clone();
-    let mut rx = sender.subscribe();
 
     let clients = Arc::clone(&clients);
     let tokio_information_thread_clients = Arc::clone(&clients);
     let information_thread_running = Arc::clone(&information_thread_running);
     ws.on_upgrade(move |socket| async move {
-        //let (tx, mut rx) = tokio::sync::watch::channel(String::from("channel"));
+        let (tx, mut rx) = tokio::sync::watch::channel(String::from("channel"));
         let (mut sink, mut stream) = socket.split();
         let id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -76,7 +72,7 @@ pub async fn ws(
             .as_micros()
             .to_string();
         let id_rx = id.clone();
-        //let id_tx = id.clone();
+        let id_tx = id.clone();
         {
             let mut clients_guard = clients.write();
             clients_guard.insert(id, tx);
@@ -87,9 +83,7 @@ pub async fn ws(
                 if let Message::Text(rec) = msg {
                     println!("WEBSOCKET: Received message: [{}], [{}]", rec, id_rx);
                     //websocket broadcast
-                    if tx_2.send(format!("BROADCAST: [{}] | FROM: [{}]", rec, id_rx)).is_err() {
-                        break;
-                    }
+
                 }
             }
             let mut clients_guard = clients.write();
@@ -98,12 +92,13 @@ pub async fn ws(
         });
         //websocket receiver
         tokio::spawn(async move {
-            while let Ok(msg) = rx.recv().await {
+            while rx.changed().await.is_ok() {
+                let msg = String::from(&*rx.borrow());
                 if sink.send(Message::Text(msg)).await.is_err() {
                     break;
                 }
             }
-            //println!("WEBSOCKET: RECEIVER DISCONNECTED: [{}]", id_tx);
+            println!("WEBSOCKET: RECEIVER DISCONNECTED: [{}]", id_tx);
         });
 
         //run information thread
@@ -128,17 +123,14 @@ pub async fn ws(
                                 running_tests_count,
                             },
                         };
-                        
-                        { //TODO: use the broadcast channel
-                            for (id, tx) in guard.iter() {
-                                match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        println!(
-                                            "ERROR: INFORMATION THREAD: failed to send message [{}]:\n{:?}",
-                                            id, e
-                                        );
-                                    }
+                        for (id, tx) in guard.iter() {
+                            match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!(
+                                        "ERROR: INFORMATION THREAD: failed to send message [{}]:\n{:?}",
+                                        id, e
+                                    );
                                 }
                             }
                         }
@@ -180,9 +172,6 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
-        .with(AddData::new(
-            tokio::sync::broadcast::channel::<String>(32).0,
-        ))
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));
     Server::new(TcpListener::bind("127.0.0.1:3000"))

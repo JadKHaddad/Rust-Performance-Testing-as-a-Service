@@ -14,6 +14,7 @@ use std::{
     },
     time::Duration,
 };
+use tokio::sync::watch::Sender;
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 
 pub const PROJECTS_DIR: &str = "projects";
@@ -50,7 +51,7 @@ pub async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
-    sender: Data<&tokio::sync::broadcast::Sender<String>>,
+    clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut message = String::from("Project uploaded successfully!");
     let mut project_dir = PathBuf::new();
@@ -154,7 +155,7 @@ pub async fn upload(
     println!("{:?}", installing_tasks_guard);
     // run the thread
     if !currently_installing_projects.load(Ordering::SeqCst) {
-        let tx = sender.clone();
+        let clients = Arc::clone(&clients);
         let tokio_currently_installing_projects = currently_installing_projects.clone();
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
@@ -223,9 +224,16 @@ pub async fn upload(
                         istalling_projects: installing_projects,
                     },
                 };
-                match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
-                    Ok(_) => (),
-                    Err(_) => (),
+                for (id, tx) in clients.read().iter() {
+                    match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!(
+                                "PROJECTS GARBAGE COLLECTOR: failed to send message [{}]:\n{:?}",
+                                id, e
+                            );
+                        }
+                    }
                 }
                 for id in to_be_deleted.iter() {
                     match tokio::fs::remove_dir_all(Path::new(PROJECTS_DIR).join(id)).await {
