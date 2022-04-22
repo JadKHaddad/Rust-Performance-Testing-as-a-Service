@@ -28,6 +28,7 @@ use models::WebSocketMessage;
 
 pub const DOWNLOADS_DIR: &str = "downloads";
 pub const PROJECTS_DIR: &str = "projects";
+pub const TEMP_DIR: &str = "temp";
 pub const ENVIRONMENTS_DIR: &str = "environments";
 
 #[handler]
@@ -86,7 +87,6 @@ pub async fn ws(
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(rec) = msg {
                     println!("WEBSOCKET: Received message: [{}], [{}]", rec, id_rx);
-                    //websocket broadcast
 
                 }
             }

@@ -1,4 +1,5 @@
 use crate::models;
+use crate::{ENVIRONMENTS_DIR, PROJECTS_DIR, TEMP_DIR};
 use parking_lot::RwLock;
 use poem::web::{Data, Multipart};
 use std::error::Error;
@@ -16,7 +17,6 @@ use std::{
 };
 use tokio::sync::watch::Sender;
 use tokio::{io::AsyncWriteExt, time::sleep};
-use crate::{PROJECTS_DIR, ENVIRONMENTS_DIR};
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
 where
@@ -45,6 +45,21 @@ where
     vec
 }
 
+fn move_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(&src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            move_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    std::fs::remove_dir_all(src)?;
+    Ok(())
+}
+
 pub async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
@@ -52,7 +67,7 @@ pub async fn upload(
     clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut message = String::from("Project uploaded successfully!");
-    let mut project_dir = PathBuf::new();
+    let mut project_temp_dir = PathBuf::new();
     let mut env_dir = PathBuf::new();
     let mut exists = false;
     let mut check = true;
@@ -69,15 +84,16 @@ pub async fn upload(
             .components()
             .next()
             .ok_or("Upload Error")?;
-        project_dir = Path::new(PROJECTS_DIR).join(&project_name);
+        project_temp_dir = Path::new(TEMP_DIR).join(&project_name);
+        let project_dir = Path::new(PROJECTS_DIR).join(&project_name);
         env_dir = Path::new(ENVIRONMENTS_DIR).join(&project_name);
-        if project_dir.exists() && check {
+        if (project_temp_dir.exists() && check) || project_dir.exists() && check {
             message = String::from("Project already exists");
             exists = true;
             check = false;
             continue;
         }
-        let full_file_name = Path::new(PROJECTS_DIR).join(file_name);
+        let full_file_name = Path::new(TEMP_DIR).join(file_name);
         let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
         std::fs::create_dir_all(full_file_name_prefix)?;
         let mut file = tokio::fs::File::create(full_file_name).await?;
@@ -90,19 +106,19 @@ pub async fn upload(
         return Ok(message);
     }
     // check if locust Folder exists and contains files
-    let locust_dir = project_dir.join("locust");
+    let locust_dir = project_temp_dir.join("locust");
     if !locust_dir.exists() {
         message = String::from("Locust folder empty or does not exist");
         //delete folder
-        std::fs::remove_dir_all(project_dir)?;
+        std::fs::remove_dir_all(project_temp_dir)?;
         return Ok(message);
     }
     // check if requirements.txt exists
-    let requirements_file = project_dir.join("requirements.txt");
+    let requirements_file = project_temp_dir.join("requirements.txt");
     if !requirements_file.exists() {
         message = String::from("No requirements.txt found");
         //delete folder
-        std::fs::remove_dir_all(project_dir)?;
+        std::fs::remove_dir_all(project_temp_dir)?;
         return Ok(message);
     }
     // check if requirements.txt contains locust
@@ -110,7 +126,7 @@ pub async fn upload(
     if !requirements_file_content.contains("locust") {
         message = String::from("requirements.txt does not contain locust");
         //delete folder
-        std::fs::remove_dir_all(project_dir)?;
+        std::fs::remove_dir_all(project_temp_dir)?;
         return Ok(message);
     }
 
@@ -147,7 +163,7 @@ pub async fn upload(
             .spawn()?
     };
     let mut installing_tasks_guard = installing_tasks.write();
-    let project_name = project_dir.file_name().ok_or("Upload Error")?;
+    let project_name = project_temp_dir.file_name().ok_or("Upload Error")?;
 
     installing_tasks_guard.insert(project_name.to_str().ok_or("Upload Error")?.to_owned(), cmd);
     println!("{:?}", installing_tasks_guard);
@@ -158,6 +174,7 @@ pub async fn upload(
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
             loop {
+                let mut to_be_deleted: Vec<String> = Vec::new();
                 let mut installing_projects: Vec<models::projects::Project> = Vec::new();
                 {
                     let mut tokio_tasks_guard = tokio_installing_tasks.write();
@@ -168,7 +185,6 @@ pub async fn upload(
                     }
                     println!("PROJECTS GARBAGE COLLECTOR: Running!");
                     let mut to_be_removed: Vec<String> = Vec::new();
-                    let mut to_be_deleted: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
                         let mut project = models::projects::Project {
@@ -180,19 +196,32 @@ pub async fn upload(
                             Ok(Some(exit_status)) => {
                                 // process finished
                                 to_be_removed.push(id.to_owned());
-                                project.status = 1;
+                                project.status = 2;
                                 // delete on fail
                                 match exit_status.code() {
                                     Some(code) => {
                                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", id, code);
                                         if code != 0 {
-                                            project.status = 2;
                                             if let Some(stderr) = cmd.stderr.take() {
                                                 let err = child_stream_to_vec(stderr);
                                                 if let Ok(error_string) = str::from_utf8(&err) {
                                                     to_be_deleted.push(id.to_owned());
                                                     project.error = Some(error_string.to_owned());
                                                     println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", id, error_string);
+                                                }
+                                            }
+                                        } else {
+                                            project.status = 1; // process finished
+                                                                // move to installed projects
+                                            match move_dir_all(
+                                                Path::new(TEMP_DIR).join(id),
+                                                Path::new(PROJECTS_DIR).join(id),
+                                            ) {
+                                                Ok(_) => {
+                                                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", id);
+                                                }
+                                                Err(e) => {
+                                                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", id, e);
                                                 }
                                             }
                                         }
@@ -202,7 +231,9 @@ pub async fn upload(
                                     }
                                 }
                             }
-                            Ok(None) => (), // process is running
+                            Ok(None) => {
+                                project.status = 0; // process is running
+                            }
                             Err(e) => {
                                 println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", id, e);
                             }
@@ -214,22 +245,22 @@ pub async fn upload(
                         tokio_tasks_guard.remove_entry(id);
                         println!("PROJECTS GARBAGE COLLECTOR: Project [{}] removed!", id);
                     }
-                    //delete not valid
-                    for id in to_be_deleted.iter() {
-                        match std::fs::remove_dir_all(Path::new(PROJECTS_DIR).join(id)) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
-                            }
-                        };
-                        match std::fs::remove_dir_all(Path::new(ENVIRONMENTS_DIR).join(id)) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
-                            }
-                        };
-                        println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);
-                    }
+                }
+                //delete not valid
+                for id in to_be_deleted.iter() {
+                    match std::fs::remove_dir_all(Path::new(TEMP_DIR).join(id)) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
+                        }
+                    };
+                    match std::fs::remove_dir_all(Path::new(ENVIRONMENTS_DIR).join(id)) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
+                        }
+                    };
+                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);
                 }
                 // send info
                 let websocket_message = models::WebSocketMessage {
