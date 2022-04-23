@@ -1,5 +1,5 @@
 use crate::models;
-use crate::{ENVIRONMENTS_DIR, PROJECTS_DIR, TEMP_DIR};
+use crate::{DATA_DIR, ENVIRONMENTS_DIR, PROJECTS_DIR, TEMP_DIR};
 use parking_lot::RwLock;
 use poem::web::{Data, Multipart};
 use std::error::Error;
@@ -84,16 +84,18 @@ pub async fn upload(
             .components()
             .next()
             .ok_or("Upload Error")?;
-        project_temp_dir = Path::new(TEMP_DIR).join(&project_name);
-        let project_dir = Path::new(PROJECTS_DIR).join(&project_name);
-        env_dir = Path::new(ENVIRONMENTS_DIR).join(&project_name);
+        project_temp_dir = Path::new(DATA_DIR).join(TEMP_DIR).join(&project_name);
+        let project_dir = Path::new(DATA_DIR).join(PROJECTS_DIR).join(&project_name);
+        env_dir = Path::new(DATA_DIR)
+            .join(ENVIRONMENTS_DIR)
+            .join(&project_name);
         if (project_temp_dir.exists() && check) || project_dir.exists() && check {
             message = String::from("Project already exists");
             exists = true;
             check = false;
             continue;
         }
-        let full_file_name = Path::new(TEMP_DIR).join(file_name);
+        let full_file_name = Path::new(DATA_DIR).join(TEMP_DIR).join(file_name);
         let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
         std::fs::create_dir_all(full_file_name_prefix)?;
         let mut file = tokio::fs::File::create(full_file_name).await?;
@@ -214,8 +216,8 @@ pub async fn upload(
                                             project.status = 1; // process finished
                                                                 // move to installed projects
                                             match move_dir_all(
-                                                Path::new(TEMP_DIR).join(id),
-                                                Path::new(PROJECTS_DIR).join(id),
+                                                Path::new(DATA_DIR).join(TEMP_DIR).join(id),
+                                                Path::new(DATA_DIR).join(PROJECTS_DIR).join(id),
                                             ) {
                                                 Ok(_) => {
                                                     println!("PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", id);
@@ -248,13 +250,15 @@ pub async fn upload(
                 }
                 //delete not valid
                 for id in to_be_deleted.iter() {
-                    match std::fs::remove_dir_all(Path::new(TEMP_DIR).join(id)) {
+                    match std::fs::remove_dir_all(Path::new(DATA_DIR).join(TEMP_DIR).join(id)) {
                         Ok(_) => (),
                         Err(e) => {
                             println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
                         }
                     };
-                    match std::fs::remove_dir_all(Path::new(ENVIRONMENTS_DIR).join(id)) {
+                    match std::fs::remove_dir_all(
+                        Path::new(DATA_DIR).join(ENVIRONMENTS_DIR).join(id),
+                    ) {
                         Ok(_) => (),
                         Err(e) => {
                             println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
