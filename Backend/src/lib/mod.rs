@@ -94,7 +94,12 @@ pub async fn upload(
     currently_installing_projects: Data<&Arc<AtomicBool>>,
     clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
 ) -> Result<String, Box<dyn Error>> {
-    let mut message = String::from("Project uploaded successfully!");
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Uploading project",
+        error: None,
+        content: None,
+    };
     let mut project_temp_dir = PathBuf::new();
     let mut env_dir = PathBuf::new();
     let mut exists = false;
@@ -116,7 +121,8 @@ pub async fn upload(
         let project_dir = get_projects_dir().join(&project_name);
         env_dir = get_environments_dir().join(&project_name);
         if (project_temp_dir.exists() && check) || project_dir.exists() && check {
-            message = String::from("Project already exists");
+            response.error = Some("Project already exists");
+            response.success = false;
             exists = true;
             check = false;
             continue;
@@ -131,31 +137,34 @@ pub async fn upload(
         check = false;
     }
     if exists {
-        return Ok(message);
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     // check if locust Folder exists and contains files
     let locust_dir = project_temp_dir.join("locust");
     if !locust_dir.exists() {
-        message = String::from("Locust folder empty or does not exist");
+        response.error = Some("Locust folder empty or does not exist");
+        response.success = false;
         //delete folder
         std::fs::remove_dir_all(project_temp_dir)?;
-        return Ok(message);
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     // check if requirements.txt exists
     let requirements_file = project_temp_dir.join("requirements.txt");
     if !requirements_file.exists() {
-        message = String::from("No requirements.txt found");
+        response.error = Some("No requirements.txt found");
+        response.success = false;
         //delete folder
         std::fs::remove_dir_all(project_temp_dir)?;
-        return Ok(message);
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     // check if requirements.txt contains locust
     let requirements_file_content = std::fs::read_to_string(&requirements_file)?;
     if !requirements_file_content.contains("locust") {
-        message = String::from("requirements.txt does not contain locust");
+        response.error = Some("requirements.txt does not contain locust");
+        response.success = false;
         //delete folder
         std::fs::remove_dir_all(project_temp_dir)?;
-        return Ok(message);
+        return Ok(serde_json::to_string(&response).unwrap());
     }
 
     //install
@@ -315,11 +324,13 @@ pub async fn upload(
     } else {
         println!("PROJECTS GARBAGE COLLECTOR: Already running!");
     }
-    Ok(message)
+    Ok(serde_json::to_string(&response).unwrap())
 }
 
 pub async fn projects() -> Result<String, Box<dyn Error>> {
-    let mut projects: HashMap<String, Vec<String>> = HashMap::new();
+    let mut content = models::http::projects::Content {
+        projects: Vec::new(),
+    };
     let projects_dir = std::fs::read_dir(get_projects_dir())?;
     for project_dir in projects_dir {
         let project_name = project_dir?
@@ -337,12 +348,16 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
                 .to_owned();
             scripts.push(script_name);
         }
-        projects.insert(project_name, scripts);
+        content.projects.push(models::http::projects::Project {
+            id: project_name,
+            scripts: scripts,
+        });
     }
     let response = models::http::Response {
         success: true,
-        message: None,
-        content: Some(projects),
+        message: "Installed Projects",
+        error: None,
+        content: Some(content),
     };
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)

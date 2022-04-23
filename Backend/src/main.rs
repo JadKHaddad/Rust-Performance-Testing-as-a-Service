@@ -48,16 +48,24 @@ async fn upload(
     )
     .await
     {
-        Ok(message) => message,
-        Err(err) => err.to_string(),
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
     }
 }
 
 #[handler]
 async fn projects() -> String {
     match lib::projects().await {
-        Ok(message) => message,
-        Err(err) => err.to_string(),
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
     }
 }
 

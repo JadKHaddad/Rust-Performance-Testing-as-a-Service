@@ -40,22 +40,40 @@ pub mod http {
     #[derive(Debug, Serialize)]
     pub struct Response<'a, T> {
         pub success: bool,
-        pub message: Option<&'a str>,
+        pub message: &'a str,
+        pub error: Option<&'a str>,
         pub content: Option<T>,
+    }
+
+    #[derive(Debug, Serialize)]
+    pub struct ErrorResponse<'a> {
+        pub success: bool,
+        pub message: &'a str,
+        pub error: &'a str,
+    }
+
+    impl<'a> ErrorResponse<'a> {
+        pub fn new(error: &'a str) -> Self {
+            Self {
+                success: false,
+                message: "Server Error",
+                error: error,
+            }
+        }
     }
 
     pub mod projects {
         use serde::Serialize;
 
         #[derive(Debug, Serialize)]
-        pub struct Event<'a> {
-            pub projects: Vec<Project<'a>>,
+        pub struct Content {
+            pub projects: Vec<Project>,
         }
 
         #[derive(Debug, Serialize)]
-        pub struct Project<'a> {
-            pub id: &'a str,
-            pub scripts: Vec<&'a str>,
+        pub struct Project {
+            pub id: String,
+            pub scripts: Vec<String>,
         }
     }
 }
