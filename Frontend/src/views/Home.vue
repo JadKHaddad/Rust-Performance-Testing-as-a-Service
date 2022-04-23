@@ -4,10 +4,26 @@
       <input type="file" webkitdirectory mozdirectory ref="files" />
       <div>Please make sure all names don't include blank spaces</div>
       <button type="button" @click="upload">Upload</button>
-      <div>percentCompleted: {{ percentCompleted }}</div>
-      <div>uploading: {{ uploading }}</div>
-      <div>response: {{ uploadResponse }}</div>
     </form>
+    <div>percentCompleted: {{ percentCompleted }}</div>
+    <div>uploading: {{ uploading }}</div>
+    <div>response: {{ uploadResponse }}</div>
+    <h1>Projects</h1>
+
+    <ul>
+      <li v-for="project in projects" :key="project.id">
+        {{ project.id }}
+        <ul>
+          <li v-for="script in project.scripts" :key="script">
+            <router-link
+              :to="{ name: 'Script', params: { pid: project.id, id: script } }"
+            >
+              {{ script }}
+            </router-link>
+          </li>
+        </ul>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -19,6 +35,7 @@ export default {
       uploading: false,
       percentCompleted: 0,
       uploadResponse: "",
+      projects: [],
     };
   },
   methods: {
@@ -60,6 +77,16 @@ export default {
         });
       return false;
     },
+  },
+  created() {
+    console.log("Hi");
+    fetch("/api/projects")
+      .then((data) => data.json())
+      .then((data) => {
+        this.projects = data.content.projects;
+        console.log(data);
+      })
+      .catch();
   },
 };
 </script>

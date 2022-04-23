@@ -9,14 +9,13 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Multipart,
+        Data, Json, Multipart,
     },
     EndpointExt, IntoResponse, Route, Server,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
-    path::Path,
     process::Child,
     sync::{atomic::AtomicBool, atomic::Ordering, Arc},
     time::Duration,
@@ -67,6 +66,12 @@ async fn projects() -> String {
                 .unwrap();
         }
     }
+}
+
+#[handler]
+async fn start_test(req: Json<models::http::TestParameter>) -> String {
+    println!("{:?}", req);
+    String::from("allright")
 }
 
 #[handler]
@@ -163,7 +168,7 @@ pub async fn ws(
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     //create downloads dir
-    std::fs::create_dir_all(Path::new(DATA_DIR).join(DOWNLOADS_DIR)).unwrap();
+    std::fs::create_dir_all(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR)).unwrap();
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -182,9 +187,11 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
+        .at("/start_test", post(start_test))
         .nest(
             "/download",
-            StaticFilesEndpoint::new(Path::new(DATA_DIR).join(DOWNLOADS_DIR)).show_files_listing(),
+            StaticFilesEndpoint::new(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR))
+                .show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));

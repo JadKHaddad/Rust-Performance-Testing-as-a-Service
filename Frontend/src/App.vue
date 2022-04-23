@@ -1,7 +1,8 @@
 <template>
   <div>
-    connected clients: {{ connected_clients_count }} | running_tests_count:
+    <h2>connected clients: {{ connected_clients_count }} | running_tests_count:
     {{ running_tests_count }}
+    </h2>
     <router-view />
   </div>
 </template>

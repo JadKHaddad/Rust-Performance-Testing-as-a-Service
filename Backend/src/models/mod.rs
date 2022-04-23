@@ -35,7 +35,19 @@ pub mod websocket {
 }
 
 pub mod http {
+    use serde::Deserialize;
     use serde::Serialize;
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct TestParameter {
+        pub project_id: String,
+        pub script_id: String,
+        pub users: Option<u32>,
+        pub spawn_rate: Option<u32>,
+        pub host: Option<String>,
+        pub time: Option<u32>,
+        pub description: Option<String>,
+    }
 
     #[derive(Debug, Serialize)]
     pub struct Response<'a, T> {
