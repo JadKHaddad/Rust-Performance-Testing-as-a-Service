@@ -25,7 +25,7 @@ use tokio::sync::watch::Sender;
 use tokio::time::sleep;
 mod lib;
 mod models;
-use models::WebSocketMessage;
+//use models::websocket::WebSocketMessage;
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -122,9 +122,9 @@ pub async fn ws(
                         println!("INFORMATION THREAD: Running!");
                         let connected_clients_count = guard.len() as u32;
                         let running_tests_count = 1;
-                        let websocket_message = WebSocketMessage{
+                        let websocket_message = models::websocket::WebSocketMessage{
                             event_type: "INFORMATION",
-                            event: models::information::Event{
+                            event: models::websocket::information::Event{
                                 connected_clients_count,
                                 running_tests_count,
                             },
