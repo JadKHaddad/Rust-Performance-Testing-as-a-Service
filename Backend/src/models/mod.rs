@@ -42,11 +42,12 @@ pub mod http {
     pub struct TestParameter {
         pub project_id: String,
         pub script_id: String,
-        pub users: Option<u32>,
-        pub spawn_rate: Option<u32>,
+        pub users: Option<String>,
+        pub spawn_rate: Option<String>,
         pub host: Option<String>,
-        pub time: Option<u32>,
+        pub time: Option<String>,
         pub description: Option<String>,
+        pub id: Option<String>,
     }
 
     #[derive(Debug, Serialize)]

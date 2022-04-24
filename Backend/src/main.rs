@@ -31,6 +31,7 @@ pub const DOWNLOADS_DIR: &str = "downloads";
 pub const PROJECTS_DIR: &str = "projects";
 pub const TEMP_DIR: &str = "temp";
 pub const ENVIRONMENTS_DIR: &str = "environments";
+pub const RESULTS_DIR: &str = "results";
 
 #[handler]
 async fn upload(
@@ -69,9 +70,15 @@ async fn projects() -> String {
 }
 
 #[handler]
-async fn start_test(req: Json<models::http::TestParameter>) -> String {
-    println!("{:?}", req);
-    String::from("allright")
+async fn start_test(mut req: Json<models::http::TestParameter>, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,) -> String {
+    match lib::start_test(req, running_tests).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
 }
 
 #[handler]
@@ -181,20 +188,27 @@ async fn main() -> Result<(), std::io::Error> {
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
+
+    //tests
+    let running_tests: Arc<RwLock<HashMap<String, Child>>> =
+        Arc::new(RwLock::new(HashMap::new()));
+    let currently_running_tests = Arc::new(AtomicBool::new(false));
+
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
-        .at("/start_test", post(start_test))
+        .at("/start_test", post(start_test.data(running_tests)))
         .nest(
             "/download",
             StaticFilesEndpoint::new(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR))
                 .show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
-        .with(AddData::new(clients));
+        .with(AddData::new(clients))
+        .with(AddData::new(currently_running_tests));
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await

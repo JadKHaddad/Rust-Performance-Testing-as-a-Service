@@ -1,8 +1,10 @@
 use crate::models;
-use crate::{DATA_DIR, ENVIRONMENTS_DIR, PROJECTS_DIR, TEMP_DIR};
+use crate::{DATA_DIR, ENVIRONMENTS_DIR, PROJECTS_DIR, RESULTS_DIR, TEMP_DIR};
 use parking_lot::RwLock;
-use poem::web::{Data, Multipart};
+use poem::web::{Data, Json, Multipart};
 use std::error::Error;
+use std::io::Write;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
     io::Read,
@@ -72,6 +74,10 @@ fn get_environments_dir() -> PathBuf {
     Path::new(DATA_DIR).join(ENVIRONMENTS_DIR)
 }
 
+fn get_results_dir() -> PathBuf {
+    Path::new(DATA_DIR).join(RESULTS_DIR)
+}
+
 fn get_a_project_dir(id: &str) -> PathBuf {
     get_projects_dir().join(id)
 }
@@ -86,6 +92,18 @@ fn get_an_environment_dir(id: &str) -> PathBuf {
 
 fn get_a_locust_dir(id: &str) -> PathBuf {
     get_a_project_dir(id).join("locust")
+}
+
+fn get_a_project_results_dir(id: &str) -> PathBuf {
+    get_results_dir().join(id)
+}
+
+fn get_a_script_results_dir(project_id: &str, script_id: &str) -> PathBuf {
+    get_a_project_results_dir(project_id).join(script_id)
+}
+
+fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_script_results_dir(project_id, script_id).join(test_id)
 }
 
 pub async fn upload(
@@ -361,4 +379,59 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     };
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
+}
+
+pub async fn start_test(
+    mut req: Json<models::http::TestParameter>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+) -> Result<String, Box<dyn Error>> {
+    println!("{:?}", req);
+    let project_id = &req.project_id;
+    let script_id = &req.script_id;
+    let users = req.users.as_ref().unwrap_or(&"1".to_owned());
+    let spawn_rate = req.spawn_rate.as_ref().unwrap_or(&"1".to_owned());
+    let host = req.host.as_ref().unwrap_or(&"".to_owned());
+    let time = req.time.as_ref().unwrap_or(&"".to_owned());
+    let description = req.description.as_ref().unwrap_or(&"".to_owned());
+
+    let id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_micros()
+        .to_string();
+    
+    //lock the thread
+    let mut r = running_tests.write();
+
+    if !get_a_locust_dir(project_id).join(script_id).exists() {
+        return Ok(String::from("Script not found!"));
+    }
+
+
+
+    //create test dir
+    let test_dir = get_a_test_results_dir(project_id, script_id, &id);
+    std::fs::create_dir_all(&test_dir)?;
+    //save test info as json
+    req.id = Some(id.clone());
+    let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
+    file.write(serde_json::to_string(&*req).unwrap().as_bytes())?;
+
+    //////////////////////////////////
+    /// 
+    let cmd = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(&["/c"])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?
+    } else {
+        Command::new("/usr/bin/sh")
+            .args(&["-c"])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?
+    };
+    r.insert(id, cmd);
+    Ok(String::from("allright"))
 }

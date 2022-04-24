@@ -80,8 +80,8 @@ export default {
   props: ["pid", "id"],
   data() {
     return {
-      users: 1,
-      spawnRate: 1,
+      users: "1",
+      spawnRate: "1",
       workers: "",
       host: "",
       time: "",
@@ -106,11 +106,11 @@ export default {
         body: JSON.stringify({
           project_id: this.pid,
           script_id: this.id,
-          users: parseInt(this.users),
-          spawn_rate: parseInt(this.spawnRate),
-          workers: parseInt(this.workers),
+          users: this.users,
+          spawn_rate: this.spawnRate,
+          workers: this.workers,
           host: this.host,
-          time: parseInt(this.time),
+          time: this.time,
           description: this.description,
         }),
       })
