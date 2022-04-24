@@ -18,7 +18,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::watch::Sender;
-use tokio::{io::AsyncWriteExt, time::sleep};
+use tokio::{time::sleep};
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
 where
@@ -148,9 +148,9 @@ pub async fn upload(
         let full_file_name = get_temp_dir().join(file_name);
         let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
         std::fs::create_dir_all(full_file_name_prefix)?;
-        let mut file = tokio::fs::File::create(full_file_name).await?;
+        let mut file = std::fs::File::create(full_file_name)?;
         if let Ok(bytes) = field.bytes().await {
-            file.write_all(&bytes).await?;
+            file.write(&bytes)?;
         }
         check = false;
     }
@@ -407,8 +407,6 @@ pub async fn start_test(
         return Ok(String::from("Script not found!"));
     }
 
-
-
     //create test dir
     let test_dir = get_a_test_results_dir(project_id, script_id, &id);
     std::fs::create_dir_all(&test_dir)?;
@@ -418,7 +416,6 @@ pub async fn start_test(
     file.write(serde_json::to_string(&*req).unwrap().as_bytes())?;
 
     //////////////////////////////////
-    /// 
     let cmd = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args(&["/c"])
