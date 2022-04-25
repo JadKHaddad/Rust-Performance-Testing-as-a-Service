@@ -455,12 +455,12 @@ pub async fn start_test(
     let users_command = if let Some(req_users) = &req.users {
         format!("--users {}", req_users)
     } else {
-        String::new()
+        String::from("--users 1")
     };
     let spawn_rate_command = if let Some(req_spawn_rate) = &req.spawn_rate {
         format!("--spawn-rate {}", req_spawn_rate)
     } else {
-        String::new()
+        String::from("--spawn-rate 1")
     };
     let time_command = if let Some(req_time) = &req.time {
         format!("--run-time {}s", req_time)
