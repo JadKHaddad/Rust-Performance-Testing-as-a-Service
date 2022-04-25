@@ -2,7 +2,10 @@ pub mod websocket {
     use serde::Serialize;
 
     #[derive(Debug, Serialize)]
-    pub struct WebSocketMessage<'a, T> {
+    pub struct WebSocketMessage<'a, T>
+    where
+        T: Serialize,
+    {
         pub event_type: &'a str,
         pub event: T,
     }
@@ -42,16 +45,20 @@ pub mod http {
     pub struct TestParameter {
         pub project_id: String,
         pub script_id: String,
-        pub users: Option<String>,
-        pub spawn_rate: Option<String>,
+        pub users: Option<u32>,
+        pub spawn_rate: Option<u32>,
+        pub workers: Option<u32>,
         pub host: Option<String>,
-        pub time: Option<String>,
+        pub time: Option<u32>,
         pub description: Option<String>,
         pub id: Option<String>,
     }
 
     #[derive(Debug, Serialize)]
-    pub struct Response<'a, T> {
+    pub struct Response<'a, T>
+    where
+        T: Serialize,
+    {
         pub success: bool,
         pub message: &'a str,
         pub error: Option<&'a str>,

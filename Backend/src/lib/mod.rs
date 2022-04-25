@@ -3,6 +3,7 @@ use crate::{DATA_DIR, ENVIRONMENTS_DIR, PROJECTS_DIR, RESULTS_DIR, TEMP_DIR};
 use parking_lot::RwLock;
 use poem::web::{Data, Json, Multipart};
 use std::error::Error;
+use std::fs::canonicalize;
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
@@ -18,7 +19,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::watch::Sender;
-use tokio::{time::sleep};
+use tokio::time::sleep;
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
 where
@@ -106,7 +107,12 @@ fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) -> P
     get_a_script_results_dir(project_id, script_id).join(test_id)
 }
 
+fn get_test_id(project_id: &str, script_id: &str, test_id: &str) -> String {
+    format!("$[{}]$[{}]$[{}]$", project_id, script_id, test_id)
+}
+
 pub async fn upload(
+    // must lock
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
@@ -346,17 +352,35 @@ pub async fn upload(
 }
 
 pub async fn projects() -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response {
+        success: true,
+        message: "Installed Projects",
+        error: None,
+        content: None,
+    };
     let mut content = models::http::projects::Content {
         projects: Vec::new(),
     };
-    let projects_dir = std::fs::read_dir(get_projects_dir())?;
+    let projects_dir = match std::fs::read_dir(get_projects_dir()) {
+        Ok(dir) => dir,
+        Err(_) => {
+            response.content = Some(content);
+            let response = serde_json::to_string(&response).unwrap();
+            return Ok(response);
+        }
+    };
     for project_dir in projects_dir {
         let project_name = project_dir?
             .file_name()
             .to_str()
             .ok_or("Parse Error")?
             .to_owned();
-        let locust_dir = std::fs::read_dir(get_a_locust_dir(&project_name))?;
+        let locust_dir = match std::fs::read_dir(get_a_locust_dir(&project_name)) {
+            Ok(dir) => dir,
+            Err(_) => {
+                continue;
+            }
+        };
         let mut scripts = Vec::new();
         for script_file in locust_dir {
             let script_name = script_file?
@@ -371,12 +395,7 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
             scripts: scripts,
         });
     }
-    let response = models::http::Response {
-        success: true,
-        message: "Installed Projects",
-        error: None,
-        content: Some(content),
-    };
+    response.content = Some(content);
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
 }
@@ -388,10 +407,11 @@ pub async fn start_test(
     println!("{:?}", req);
     let project_id = &req.project_id;
     let script_id = &req.script_id;
-    let users = req.users.as_ref().unwrap_or(&"1".to_owned());
-    let spawn_rate = req.spawn_rate.as_ref().unwrap_or(&"1".to_owned());
+    let users = req.users.unwrap_or(1);
+    let spawn_rate = req.spawn_rate.unwrap_or(1);
+    let workers = req.workers.unwrap_or(1);
     let host = req.host.as_ref().unwrap_or(&"".to_owned());
-    let time = req.time.as_ref().unwrap_or(&"".to_owned());
+    let time = req.time.unwrap_or(1);
     let description = req.description.as_ref().unwrap_or(&"".to_owned());
 
     let id = SystemTime::now()
@@ -399,36 +419,60 @@ pub async fn start_test(
         .unwrap()
         .as_micros()
         .to_string();
-    
-    //lock the thread
-    let mut r = running_tests.write();
 
-    if !get_a_locust_dir(project_id).join(script_id).exists() {
+    //lock the thread
+    let mut running_tests_guard = running_tests.write();
+
+    let locust_file = get_a_locust_dir(project_id).join(script_id);
+    if !locust_file.exists() {
         return Ok(String::from("Script not found!"));
     }
 
     //create test dir
     let test_dir = get_a_test_results_dir(project_id, script_id, &id);
     std::fs::create_dir_all(&test_dir)?;
+
+    //install
+    let env_dir = get_an_environment_dir(&project_id);
+
+    let can_project_dir = canonicalize(get_a_project_dir(&project_id)).unwrap();
+    let can_locust_file = canonicalize(locust_file).unwrap();
+
+    let cmd = if cfg!(target_os = "windows") {
+        let can_locust_location_windows =
+            canonicalize(Path::new(&env_dir).join("Scripts").join("locust.exe")).unwrap();
+
+        Command::new("powershell")
+            .current_dir(can_project_dir)
+            .args(&[
+                "/c",
+                &format!(
+                    "{} -f {}",
+                    can_locust_location_windows.to_str().ok_or("Run Error")?,
+                    can_locust_file.to_str().ok_or("Run Error")?
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?
+    } else {
+        let can_locust_location_linux =
+            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
+        Command::new("/usr/bin/sh")
+            .current_dir(get_a_project_dir(&project_id))
+            .args(&["-c"])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?
+    };
+
+    let test_id = get_test_id(&project_id, &script_id, &id);
     //save test info as json
     req.id = Some(id.clone());
     let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
     file.write(serde_json::to_string(&*req).unwrap().as_bytes())?;
 
-    //////////////////////////////////
-    let cmd = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-            .args(&["/c"])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::piped())
-            .spawn()?
-    } else {
-        Command::new("/usr/bin/sh")
-            .args(&["-c"])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::piped())
-            .spawn()?
-    };
-    r.insert(id, cmd);
+    running_tests_guard.insert(test_id, cmd);
+
     Ok(String::from("allright"))
 }

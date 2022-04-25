@@ -174,7 +174,7 @@ pub async fn ws(
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    //create downloads dir
+    //create download directory
     std::fs::create_dir_all(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR)).unwrap();
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =

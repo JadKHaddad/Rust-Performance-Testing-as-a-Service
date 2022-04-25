@@ -106,11 +106,11 @@ export default {
         body: JSON.stringify({
           project_id: this.pid,
           script_id: this.id,
-          users: this.users,
-          spawn_rate: this.spawnRate,
-          workers: this.workers,
+          users: parseInt(this.users),
+          spawn_rate:  parseInt(this.spawnRate),
+          workers:  parseInt(this.workers),
           host: this.host,
-          time: this.time,
+          time:  parseInt(this.time),
           description: this.description,
         }),
       })
