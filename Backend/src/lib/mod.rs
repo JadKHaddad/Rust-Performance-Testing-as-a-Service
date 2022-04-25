@@ -446,8 +446,8 @@ pub async fn start_test(
 
     //define paths
     let env_dir = get_an_environment_dir(&project_id);
-    let can_project_dir = canonicalize(get_a_project_dir(&project_id)).unwrap();
-    let can_locust_file = canonicalize(&locust_file).unwrap();
+    let can_project_dir = canonicalize(get_a_project_dir(&project_id)).unwrap(); //absolute path for commands current dir
+    let can_locust_file = canonicalize(&locust_file).unwrap(); //absolute path for commands current dir
     let log_file_relative_path = get_log_file_relative_path(project_id, script_id, &id);
     let csv_file_relative_path = get_csv_file_relative_path(project_id, script_id, &id);
 
