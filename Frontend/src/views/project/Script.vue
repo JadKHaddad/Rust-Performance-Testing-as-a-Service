@@ -80,12 +80,12 @@ export default {
   props: ["pid", "id"],
   data() {
     return {
-      users: "1",
-      spawnRate: "1",
-      workers: "",
-      host: "",
-      time: "",
-      description: "",
+      users: null,
+      spawnRate: null,
+      workers: null,
+      host: null,
+      time: null,
+      description: null,
     };
   },
   methods: {
