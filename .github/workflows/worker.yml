@@ -11,10 +11,8 @@ env:
 
 defaults:
   run:
-    working-directory: Backend/master
-  run:
     working-directory: Backend/worker
-
+    
 jobs:
   build:
 
