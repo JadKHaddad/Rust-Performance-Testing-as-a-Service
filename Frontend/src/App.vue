@@ -19,7 +19,7 @@ export default {
   },
   methods: {
     connenctWebsocket() {
-      this.ws = new WebSocket(`ws://${location.host}/api/ws`);
+      this.ws = new WebSocket(`ws://${location.host}/api/master/ws`);
       this.ws.onopen = () => {
       };
       this.ws.onclose = () => {

@@ -596,19 +596,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ptas"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "parking_lot",
- "poem",
- "serde",
- "serde_json",
- "tokio",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -756,6 +743,10 @@ checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
 
 [[package]]
 name = "slab"
@@ -1159,3 +1150,17 @@ name = "windows_x86_64_msvc"
 version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d19538ccc21819d01deaf88d6a17eae6596a12e9aafdbb97916fb49896d89de9"
+
+[[package]]
+name = "worker"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "parking_lot",
+ "poem",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing-subscriber",
+]

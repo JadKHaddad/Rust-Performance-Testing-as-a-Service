@@ -98,7 +98,7 @@ export default {
         this.time,
         this.description
       );
-      fetch("/api/start_test", {
+      fetch("/api/worker/start_test", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

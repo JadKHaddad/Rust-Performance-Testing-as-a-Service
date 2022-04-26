@@ -26,12 +26,6 @@ mod lib;
 mod models;
 //use models::websocket::WebSocketMessage;
 
-pub const DATA_DIR: &str = "data";
-pub const DOWNLOADS_DIR: &str = "downloads";
-pub const PROJECTS_DIR: &str = "projects";
-pub const TEMP_DIR: &str = "temp";
-pub const ENVIRONMENTS_DIR: &str = "environments";
-pub const RESULTS_DIR: &str = "results";
 
 #[handler]
 async fn upload(
@@ -60,18 +54,6 @@ async fn upload(
 #[handler]
 async fn projects() -> String {
     match lib::projects().await {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
-                .unwrap();
-        }
-    }
-}
-
-#[handler]
-async fn start_test(mut req: Json<models::http::TestParameter>, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,) -> String {
-    match lib::start_test(req, running_tests).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -175,7 +157,7 @@ pub async fn ws(
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     //create download directory
-    std::fs::create_dir_all(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR)).unwrap();
+    std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -200,10 +182,9 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
-        .at("/start_test", post(start_test.data(running_tests)))
         .nest(
             "/download",
-            StaticFilesEndpoint::new(std::path::Path::new(DATA_DIR).join(DOWNLOADS_DIR))
+            StaticFilesEndpoint::new(shared::get_downloads_dir())
                 .show_files_listing(),
         )
         .with(AddData::new(installing_tasks))

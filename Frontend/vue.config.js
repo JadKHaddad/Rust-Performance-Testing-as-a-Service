@@ -3,12 +3,20 @@ module.exports = {
   devServer: {
     clientLogLevel: 'info',
     proxy: {
-      '/api': {
+      '/api/master': {
         target: 'http://localhost:3000/',
         changeOrigin: true,
         ws: true,
         pathRewrite: {
-          '^/api': ''
+          '^/api/master': ''
+        }
+      },
+      '/api/worker': {
+        target: 'http://localhost:5000/',
+        changeOrigin: true,
+        ws: true,
+        pathRewrite: {
+          '^/api/worker': ''
         }
       }
     }

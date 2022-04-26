@@ -5,7 +5,6 @@
       <div>Please make sure all names don't include blank spaces</div>
       <button type="button" @click="upload">Upload</button>
     </form>
-    <div>percentCompleted: {{ percentCompleted }}</div>
     <div>uploading: {{ uploading }}</div>
     <div>response: {{ uploadResponse }}</div>
     <h1>Projects</h1>
@@ -33,7 +32,6 @@ export default {
   data() {
     return {
       uploading: false,
-      percentCompleted: 0,
       uploadResponse: "",
       projects: [],
     };
@@ -51,36 +49,50 @@ export default {
       }
       this.uploading = true;
 
-      axios
-        .request({
-          method: "post",
-          url: "/api/upload",
-          data: data,
-          onUploadProgress: (progressEvent) => {
-            this.percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-          },
-        })
-        .then((response) => {
-          this.uploading = false;
-          const data = response.data;
+      // axios
+      //   .request({
+      //     method: "post",
+      //     url: "/api/upload",
+      //     data: data,
+      //     onUploadProgress: (progressEvent) => {
+      //       this.percentCompleted = Math.round(
+      //         (progressEvent.loaded * 100) / progressEvent.total
+      //       );
+      //     },
+      //   })
+      //   .then((response) => {
+      //     this.uploading = false;
+      //     const data = response.data;
+      //     this.uploadResponse = data;
+      //     console.log(data);
+      //     if (data.success) {
+      //     } else {
+      //     }
+      //   })
+      //   .catch(() => {
+      //     this.uploading = false;
+      //     console.log("Connection error");
+      //   });
+
+      fetch("/api/master/upload", {
+        method: "POST",
+        body: data,
+      })
+        .then((data) => data.json())
+        .then((data) => {
           this.uploadResponse = data;
+          this.uploading = false;
           console.log(data);
-          if (data.success) {
-          } else {
-          }
         })
         .catch(() => {
           this.uploading = false;
-          console.log("Connection error");
         });
       return false;
     },
   },
   created() {
     console.log("Hi");
-    fetch("/api/projects")
+    fetch("/api/master/projects")
       .then((data) => data.json())
       .then((data) => {
         this.projects = data.content.projects;
