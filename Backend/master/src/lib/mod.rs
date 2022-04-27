@@ -1,10 +1,8 @@
-use crate::models;
 use parking_lot::RwLock;
 use poem::web::{Data, Json, Multipart};
+use shared::models;
 use std::error::Error;
-use std::fs::canonicalize;
 use std::io::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
     io::Read,
@@ -303,7 +301,7 @@ pub async fn upload(
 }
 
 pub async fn projects() -> Result<String, Box<dyn Error>> {
-    let mut response = models::http::Response {
+    let mut response = shared::models::http::Response {
         success: true,
         message: "Installed Projects",
         error: None,
@@ -351,3 +349,50 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
+pub async fn tests(req: Json<shared::models::http::Script>) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Tests",
+        error: None,
+        content: None,
+    };
+    let mut content = shared::models::http::tests::Content { tests: Vec::new() };
+    let script_dir = match std::fs::read_dir(shared::get_a_script_results_dir(
+        &req.project_id,
+        &req.script_id,
+    )) {
+        Ok(dir) => dir,
+        Err(_) => {
+            response.content = Some(content);
+            let response = serde_json::to_string(&response).unwrap();
+            return Ok(response);
+        }
+    };
+    for test_dir in script_dir {
+        let test_id = test_dir?
+            .file_name()
+            .to_str()
+            .ok_or("Parse Error")?
+            .to_owned();
+        //get results
+        let csv_file = shared::get_csv_file_path(&req.project_id, &req.script_id, &test_id);
+        let results = match std::fs::read_to_string(csv_file) {
+            Ok(res) => Some(res),
+            Err(_) => None,
+        };
+        content.tests.push(shared::models::Test {
+            id: test_id,
+            project_id: req.project_id.to_owned(),
+            script_id: req.script_id.to_owned(),
+            status: None,
+            results: results,
+        });
+    }
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
+pub async fn stop_test() -> Result<String, Box<dyn Error>> {
+    Ok("stopping Tests".to_owned())
+}

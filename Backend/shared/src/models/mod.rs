@@ -1,3 +1,13 @@
+use serde::Serialize;
+#[derive(Debug, Serialize)]
+pub struct Test {
+    pub id: String,
+    pub script_id: String,
+    pub project_id: String,
+    pub status: Option<u8>, // 0 running, 1 finished
+    pub results: Option<String>,
+}
+
 pub mod websocket {
     use serde::Serialize;
 
@@ -54,6 +64,19 @@ pub mod http {
         pub id: Option<String>,
     }
 
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct Script {
+        pub project_id: String,
+        pub script_id: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct Test {
+        pub test_id:String,
+        pub project_id: String,
+        pub script_id: String,
+    }
+
     #[derive(Debug, Serialize)]
     pub struct Response<'a, T>
     where
@@ -94,6 +117,15 @@ pub mod http {
         pub struct Project {
             pub id: String,
             pub scripts: Vec<String>,
+        }
+    }
+
+    pub mod tests {
+        use serde::Serialize;
+
+        #[derive(Debug, Serialize)]
+        pub struct Content {
+            pub tests: Vec<super::super::Test>,
         }
     }
 }

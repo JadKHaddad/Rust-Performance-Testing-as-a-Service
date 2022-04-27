@@ -71,6 +71,12 @@
       <!-- Submit button -->
       <button type="button" id="start-btn" @click="start">Start</button>
     </form>
+    <ul>
+      <li v-for="test in tests" :key="test.id"> 
+        {{test}}
+              <button type="button" @click="stop(test.id)">Stop</button>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -86,6 +92,7 @@ export default {
       host: null,
       time: null,
       description: null,
+      tests: [],
     };
   },
   methods: {
@@ -107,10 +114,10 @@ export default {
           project_id: this.pid,
           script_id: this.id,
           users: parseInt(this.users),
-          spawn_rate:  parseInt(this.spawnRate),
-          workers:  parseInt(this.workers),
+          spawn_rate: parseInt(this.spawnRate),
+          workers: parseInt(this.workers),
           host: this.host,
-          time:  parseInt(this.time),
+          time: parseInt(this.time),
           description: this.description,
         }),
       })
@@ -118,6 +125,41 @@ export default {
         .then((data) => {})
         .catch(() => {});
     },
+    stop(test_id) {
+      fetch("/api/worker/stop_test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          project_id: this.pid,
+          script_id: this.id,
+          test_id: test_id,
+        }),
+      })
+        .then((data) => data.json())
+        .then((data) => {})
+        .catch(() => {});
+    },
+
+  },
+  created() {
+    fetch("/api/master/tests", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        project_id: this.pid,
+        script_id: this.id,
+      }),
+    })
+      .then((data) => data.json())
+      .then((data) => {
+        this.tests = data.content.tests;
+        console.log(data.content.tests);
+      })
+      .catch();
   },
 };
 </script>

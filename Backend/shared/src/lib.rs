@@ -7,6 +7,8 @@ pub const TEMP_DIR: &str = "temp";
 pub const ENVIRONMENTS_DIR: &str = "environments";
 pub const RESULTS_DIR: &str = "results";
 
+pub mod models;
+
 pub fn get_data_dir() -> PathBuf {
     Path::new("..").join(DATA_DIR)
 }
@@ -59,8 +61,20 @@ pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) 
     get_a_script_results_dir(project_id, script_id).join(test_id)
 }
 
-pub fn get_test_id(project_id: &str, script_id: &str, test_id: &str) -> String {
-    format!("$[{}]$[{}]$[{}]$", project_id, script_id, test_id)
+pub fn encode_test_id(project_id: &str, script_id: &str, test_id: &str) -> String {
+    format!("{}]$[{}]$[{}", project_id, script_id, test_id)
+}
+
+pub fn decode_test_id(test_id: &str) -> (&str, &str, &str) {
+    let mut parts = test_id.split("]$[");
+    let project_id = parts.next().unwrap();
+    let script_id = parts.next().unwrap();
+    let test_id = parts.next().unwrap();
+    (
+        project_id,
+        script_id,
+        test_id,
+    )
 }
 
 pub fn get_log_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
@@ -72,11 +86,21 @@ pub fn get_log_file_relative_path(project_id: &str, script_id: &str, test_id: &s
         .join("log.log")
 }
 
+pub fn get_csv_file_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_test_results_dir(project_id, script_id, test_id).join("results_stats.csv")
+}
+
 pub fn get_csv_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     Path::new("../..")
         .join(RESULTS_DIR)
         .join(project_id)
         .join(script_id)
         .join(test_id)
-        .join("results.csv")
+        .join("results")
+}
+
+pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> String {
+    let ip_path = get_a_test_results_dir(project_id, script_id, test_id).join("ip");
+    //open file and read to string and return
+    String::from("ip")
 }

@@ -9,7 +9,7 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Json, Multipart,
+        Data, Multipart, Json
     },
     EndpointExt, IntoResponse, Route, Server,
 };
@@ -23,7 +23,7 @@ use std::{
 use tokio::sync::watch::Sender;
 use tokio::time::sleep;
 mod lib;
-mod models;
+use shared::models;
 //use models::websocket::WebSocketMessage;
 
 
@@ -54,6 +54,30 @@ async fn upload(
 #[handler]
 async fn projects() -> String {
     match lib::projects().await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn tests(req: Json<models::http::Script>,) -> String {
+    match lib::tests(req).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn stop_test() -> String {
+    match lib::stop_test().await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -171,25 +195,20 @@ async fn main() -> Result<(), std::io::Error> {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
 
-    //tests
-    let running_tests: Arc<RwLock<HashMap<String, Child>>> =
-        Arc::new(RwLock::new(HashMap::new()));
-    let currently_running_tests = Arc::new(AtomicBool::new(false));
-
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
+        .at("/tests", post(tests))
         .nest(
             "/download",
             StaticFilesEndpoint::new(shared::get_downloads_dir())
                 .show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
-        .with(AddData::new(clients))
-        .with(AddData::new(currently_running_tests));
+        .with(AddData::new(clients));
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await

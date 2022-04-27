@@ -91,7 +91,6 @@ export default {
     },
   },
   created() {
-    console.log("Hi");
     fetch("/api/master/projects")
       .then((data) => data.json())
       .then((data) => {
