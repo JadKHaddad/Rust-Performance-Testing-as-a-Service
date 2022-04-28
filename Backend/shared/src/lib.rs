@@ -125,8 +125,10 @@ pub fn get_info(project_id: &str, script_id: &str, test_id: &str) -> Option<mode
     };
 }
 
-pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> String {
-    let ip_path = get_a_test_results_dir(project_id, script_id, test_id).join("ip");
-    //open file and read to string and return
-    String::from("ip")
+pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> Option<String> {
+    if let Some(info) = get_info(project_id, script_id, test_id) {
+        return info.worker_ip;
+    } else {
+        return None;
+    }
 }

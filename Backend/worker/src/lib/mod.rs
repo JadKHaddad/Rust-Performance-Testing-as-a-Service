@@ -203,10 +203,21 @@ pub async fn start_test(
 }
 
 pub async fn stop_test(
-    mut req: Json<models::http::Test>,
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> Result<String, Box<dyn Error>> { 
-    Ok(String::from("yes"))
+    let task_id = shared::encode_test_id(project_id, script_id, test_id);
+    let mut running_tests_guard = running_tests.write();
+    if let Some(cmd) = running_tests_guard.get_mut(&task_id) {
+        cmd.kill()?;
+        println!("KILLED: {}", task_id);
+        running_tests_guard.remove_entry(&task_id);
+        return Ok(String::from("allright"));
+    } else {
+        return Ok(String::from("not running"));
+    }
 }
 
 

@@ -124,16 +124,8 @@ export default {
         .catch(() => {});
     },
     stop(test_id) {
-      fetch("/api/worker/stop_test", {
+      fetch(`/api/master/stop_test/${this.pid}/${this.id}/${test_id}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          project_id: this.pid,
-          script_id: this.id,
-          test_id: test_id,
-        }),
       })
         .then((data) => data.json())
         .then((data) => {})

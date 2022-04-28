@@ -76,15 +76,25 @@ async fn tests(Path((project_id, script_id)): Path<(String, String)>) -> String 
 }
 
 #[handler]
-async fn stop_test() -> String {
-    match lib::stop_test().await {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+async fn stop_test(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+
+) -> String {
+    match shared::get_worker_ip(&project_id, &script_id, &test_id) {
+        Some(ip) => {
+            let mut client = reqwest::Client::new();
+            let mut response = client
+                .post(&format!("http://{}/stop_test/{}/{}/{}", ip, project_id, script_id, test_id))
+                .send()
+                .await
                 .unwrap();
+            return response.text().await.unwrap();
+        }
+        None => {
+            return String::from("No worker ip found");
         }
     }
+    
 }
 
 #[handler]
@@ -203,6 +213,7 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
         .at("/tests/:project_id/:script_id", get(tests))
+        .at("/stop_test/:project_id/:script_id/:test_id", post(stop_test))
         .nest(
             "/download",
             StaticFilesEndpoint::new(shared::get_downloads_dir())

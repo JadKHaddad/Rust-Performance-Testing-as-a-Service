@@ -36,10 +36,10 @@ async fn start_test(
 
 #[handler]
 async fn stop_test(
-    mut req: Json<models::http::Test>,
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> String {
-    match lib::stop_test(req, running_tests).await {
+    match lib::stop_test(&project_id, &script_id, &test_id, running_tests).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -66,7 +66,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     let app = Route::new()
         .at("/start_test/:project_id/:script_id", post(start_test))
-        .at("/stop_test/:project_id/:script_id", post(stop_test))
+        .at("/stop_test/:project_id/:script_id/:test_id", post(stop_test))
         .with(AddData::new(ip))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests));

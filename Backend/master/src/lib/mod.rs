@@ -393,6 +393,3 @@ pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn 
     Ok(response)
 }
 
-pub async fn stop_test() -> Result<String, Box<dyn Error>> {
-    Ok("stopping Tests".to_owned())
-}
