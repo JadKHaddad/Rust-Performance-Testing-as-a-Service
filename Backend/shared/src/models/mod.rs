@@ -6,6 +6,7 @@ pub struct Test {
     pub project_id: String,
     pub status: Option<u8>, // 0 running, 1 finished
     pub results: Option<String>,
+    pub info: Option<http::TestInfo>,
 }
 
 pub mod websocket {
@@ -52,9 +53,9 @@ pub mod http {
     use serde::Serialize;
 
     #[derive(Debug, Serialize, Deserialize)]
-    pub struct TestParameter {
-        pub project_id: String,
-        pub script_id: String,
+    pub struct TestInfo {
+        pub project_id: Option<String>,
+        pub script_id: Option<String>,
         pub users: Option<u32>,
         pub spawn_rate: Option<u32>,
         pub workers: Option<u32>,
@@ -62,6 +63,7 @@ pub mod http {
         pub time: Option<u32>,
         pub description: Option<String>,
         pub id: Option<String>,
+        pub worker_ip: Option<String>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]

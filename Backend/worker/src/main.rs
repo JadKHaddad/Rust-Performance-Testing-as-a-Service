@@ -4,7 +4,7 @@ use poem::{
     listener::TcpListener,
     middleware::AddData,
     post,
-    web::{Data, Json},
+    web::{Data, Json, Path},
     EndpointExt, Route, Server,
 };
 use std::{
@@ -18,12 +18,13 @@ use shared::models;
 
 #[handler]
 async fn start_test(
-    mut req: Json<models::http::TestParameter>,
+    Path((project_id, script_id)): Path<(String, String)>,
+    mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
     ip: Data<&String>,
 ) -> String {
-    match lib::start_test(req, running_tests, currently_running_tests, ip).await {
+    match lib::start_test(&project_id, &script_id,req, running_tests, currently_running_tests, ip).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -64,8 +65,8 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        .at("/start_test", post(start_test))
-        .at("/stop_test", post(stop_test))
+        .at("/start_test/:project_id/:script_id", post(start_test))
+        .at("/stop_test/:project_id/:script_id", post(stop_test))
         .with(AddData::new(ip))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests));

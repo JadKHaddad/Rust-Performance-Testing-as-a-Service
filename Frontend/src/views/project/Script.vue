@@ -72,9 +72,9 @@
       <button type="button" id="start-btn" @click="start">Start</button>
     </form>
     <ul>
-      <li v-for="test in tests" :key="test.id"> 
-        {{test}}
-              <button type="button" @click="stop(test.id)">Stop</button>
+      <li v-for="test in tests" :key="test.id">
+        {{ test }}
+        <button type="button" @click="stop(test.id)">Stop</button>
       </li>
     </ul>
   </div>
@@ -105,14 +105,12 @@ export default {
         this.time,
         this.description
       );
-      fetch("/api/worker/start_test", {
+      fetch(`/api/worker/start_test/${this.pid}/${this.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          project_id: this.pid,
-          script_id: this.id,
           users: parseInt(this.users),
           spawn_rate: parseInt(this.spawnRate),
           workers: parseInt(this.workers),
@@ -141,19 +139,9 @@ export default {
         .then((data) => {})
         .catch(() => {});
     },
-
   },
   created() {
-    fetch("/api/master/tests", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        project_id: this.pid,
-        script_id: this.id,
-      }),
-    })
+    fetch(`/api/master/tests/${this.pid}/${this.id}`)
       .then((data) => data.json())
       .then((data) => {
         this.tests = data.content.tests;

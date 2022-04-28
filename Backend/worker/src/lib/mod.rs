@@ -18,14 +18,16 @@ use std::{
 use tokio::time::sleep;
 
 pub async fn start_test(
-    mut req: Json<models::http::TestParameter>,
+    project_id: &str,
+    script_id: &str,
+    mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
     println!("{:?}", req);
-    let project_id = &req.project_id;
-    let script_id = &req.script_id;
+    //let project_id = &req.project_id;
+    //let script_id = &req.script_id;
     //let workers = req.workers.unwrap_or(1);
 
     let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
@@ -126,11 +128,12 @@ pub async fn start_test(
 
     let test_id = shared::encode_test_id(&project_id, &script_id, &id);
     //save test info
+    req.project_id = Some(project_id.to_string());
+    req.script_id = Some(script_id.to_string());
     req.id = Some(id.clone());
+    req.worker_ip = Some(ip.clone());
     let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
     file.write(serde_json::to_string(&*req).unwrap().as_bytes())?;
-    let mut file = std::fs::File::create(&test_dir.join("ip"))?;
-    file.write(ip.as_bytes())?;
     running_tests_guard.insert(test_id, cmd);
 
     //run the garbage collector
@@ -157,6 +160,7 @@ pub async fn start_test(
                             project_id: project_id.to_owned(),
                             status: Some(0),
                             results: None,
+                            info: None
                         };
                         //check if the script is wanted and save results in redis
                         match cmd.try_wait() {

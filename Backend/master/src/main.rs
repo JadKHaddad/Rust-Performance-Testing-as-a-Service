@@ -9,7 +9,7 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Multipart, Json
+        Data, Multipart, Json, Path
     },
     EndpointExt, IntoResponse, Route, Server,
 };
@@ -64,8 +64,8 @@ async fn projects() -> String {
 }
 
 #[handler]
-async fn tests(req: Json<models::http::Script>,) -> String {
-    match lib::tests(req).await {
+async fn tests(Path((project_id, script_id)): Path<(String, String)>) -> String {
+    match lib::tests(&project_id, &script_id).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -198,10 +198,11 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
+        //.at("/path/:name/:id", get(path))
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
-        .at("/tests", post(tests))
+        .at("/tests/:project_id/:script_id", get(tests))
         .nest(
             "/download",
             StaticFilesEndpoint::new(shared::get_downloads_dir())

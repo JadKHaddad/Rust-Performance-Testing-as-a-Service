@@ -99,6 +99,32 @@ pub fn get_csv_file_relative_path(project_id: &str, script_id: &str, test_id: &s
         .join("results")
 }
 
+pub fn get_info_file_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_test_results_dir(project_id, script_id, test_id).join("info.json")
+}
+
+pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<String> {
+    let csv_file = get_csv_file_path(project_id, script_id, &test_id);
+    let results = match std::fs::read_to_string(csv_file) {
+        Ok(res) => Some(res),
+        Err(_) => None,
+    };
+    return results;
+}
+
+pub fn get_info(project_id: &str, script_id: &str, test_id: &str) -> Option<models::http::TestInfo> {
+    let info_file = get_info_file_path(project_id, script_id, &test_id);
+    let json_string = match std::fs::read_to_string(info_file) {
+        Ok(res) => res,
+        Err(_) => return None,
+    };
+    if let Ok(info) = serde_json::from_str(&json_string) {
+        return Some(info);
+    } else {
+        return None;
+    };
+}
+
 pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> String {
     let ip_path = get_a_test_results_dir(project_id, script_id, test_id).join("ip");
     //open file and read to string and return

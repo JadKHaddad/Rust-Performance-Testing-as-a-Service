@@ -349,7 +349,7 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
-pub async fn tests(req: Json<shared::models::http::Script>) -> Result<String, Box<dyn Error>> {
+pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,
         message: "Tests",
@@ -358,8 +358,8 @@ pub async fn tests(req: Json<shared::models::http::Script>) -> Result<String, Bo
     };
     let mut content = shared::models::http::tests::Content { tests: Vec::new() };
     let script_dir = match std::fs::read_dir(shared::get_a_script_results_dir(
-        &req.project_id,
-        &req.script_id,
+        project_id,
+        script_id,
     )) {
         Ok(dir) => dir,
         Err(_) => {
@@ -375,17 +375,17 @@ pub async fn tests(req: Json<shared::models::http::Script>) -> Result<String, Bo
             .ok_or("Parse Error")?
             .to_owned();
         //get results
-        let csv_file = shared::get_csv_file_path(&req.project_id, &req.script_id, &test_id);
-        let results = match std::fs::read_to_string(csv_file) {
-            Ok(res) => Some(res),
-            Err(_) => None,
-        };
+        let results = shared::get_results(project_id, script_id, &test_id);
+
+        //get info
+        let info = shared::get_info(project_id, script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id,
-            project_id: req.project_id.to_owned(),
-            script_id: req.script_id.to_owned(),
+            project_id: project_id.to_owned(),
+            script_id: script_id.to_owned(),
             status: None,
             results: results,
+            info: info,
         });
     }
     response.content = Some(content);
