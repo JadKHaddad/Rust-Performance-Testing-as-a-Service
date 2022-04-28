@@ -7,7 +7,7 @@ use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
-    path::{Path,},
+    path::Path,
     process::{Child, Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -116,11 +116,24 @@ pub async fn start_test(
             .stderr(Stdio::inherit())
             .spawn()?
     } else {
-        // let can_locust_location_linux =
-        //     canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
-        Command::new("/usr/bin/sh")
+        let can_locust_location_linux =
+            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
+        Command::new("/usr/bin/bash")
             .current_dir(shared::get_a_project_dir(&project_id))
-            .args(&["-c"])
+            .args(&[
+                "-c",
+                &format!(
+                    "{} -f {} --headless {} {} {} {} {} {}",
+                    can_locust_location_linux.to_str().ok_or("Run Error")?,
+                    can_locust_file.to_str().ok_or("Run Error")?,
+                    users_command,
+                    spawn_rate_command,
+                    time_command,
+                    host_command,
+                    log_command,
+                    csv_command,
+                ),
+            ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .spawn()?
@@ -160,7 +173,7 @@ pub async fn start_test(
                             project_id: project_id.to_owned(),
                             status: Some(0),
                             results: None,
-                            info: None
+                            info: None,
                         };
                         //check if the script is wanted and save results in redis
                         match cmd.try_wait() {
@@ -207,17 +220,30 @@ pub async fn stop_test(
     script_id: &str,
     test_id: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-) -> Result<String, Box<dyn Error>> { 
+) -> Result<String, Box<dyn Error>> {
+    let message: String;
     let task_id = shared::encode_test_id(project_id, script_id, test_id);
     let mut running_tests_guard = running_tests.write();
-    if let Some(cmd) = running_tests_guard.get_mut(&task_id) {
-        cmd.kill()?;
-        println!("KILLED: {}", task_id);
-        running_tests_guard.remove_entry(&task_id);
-        return Ok(String::from("allright"));
-    } else {
-        return Ok(String::from("not running"));
+    match running_tests_guard.get_mut(&task_id) {
+        Some(cmd) => {
+            match cmd.kill(){
+                Ok(_) => {
+                    println!("TEST KILLED: [{}]!", task_id);
+                    running_tests_guard.remove_entry(&task_id);
+                    message = String::from("allright");
+                },
+                Err(_) => {
+                    println!("ERROR: test: [{}] could not be killed!", task_id);
+                    message = String::from("fail");
+                }
+            }
+
+        }
+        None => {
+            message = String::from("Task does not exist");
+        }
     }
+
+    
+    return Ok(message);
 }
-
-
