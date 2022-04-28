@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use poem::web::{Data, Json, Multipart};
+use poem::web::{Data, Multipart};
 use shared::models;
 use std::error::Error;
 use std::io::Write;
@@ -357,17 +357,15 @@ pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn 
         content: None,
     };
     let mut content = shared::models::http::tests::Content { tests: Vec::new() };
-    let script_dir = match std::fs::read_dir(shared::get_a_script_results_dir(
-        project_id,
-        script_id,
-    )) {
-        Ok(dir) => dir,
-        Err(_) => {
-            response.content = Some(content);
-            let response = serde_json::to_string(&response).unwrap();
-            return Ok(response);
-        }
-    };
+    let script_dir =
+        match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
+            Ok(dir) => dir,
+            Err(_) => {
+                response.content = Some(content);
+                let response = serde_json::to_string(&response).unwrap();
+                return Ok(response);
+            }
+        };
     for test_dir in script_dir {
         let test_id = test_dir?
             .file_name()
@@ -392,4 +390,3 @@ pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn 
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
 }
-

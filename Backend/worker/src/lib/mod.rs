@@ -25,16 +25,20 @@ pub async fn start_test(
     currently_running_tests: Data<&Arc<AtomicBool>>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
-    println!("{:?}", req);
-    //let project_id = &req.project_id;
-    //let script_id = &req.script_id;
     //let workers = req.workers.unwrap_or(1);
-
+    let mut response = models::http::Response {
+        success: true,
+        message: "Test start",
+        error: None,
+        content: None,
+    };
     let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
 
     //checking here if the locust file exists and then we will check again before running if the script was in the meantime deleted
     if !locust_file.exists() {
-        return Ok(String::from("Script not found!"));
+        response.error = Some("Script not found");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
     }
 
     let id = SystemTime::now()
@@ -139,15 +143,24 @@ pub async fn start_test(
             .spawn()?
     };
 
-    let test_id = shared::encode_test_id(&project_id, &script_id, &id);
+    let task_id = shared::encode_test_id(&project_id, &script_id, &id);
     //save test info
-    req.project_id = Some(project_id.to_string());
-    req.script_id = Some(script_id.to_string());
-    req.id = Some(id.clone());
-    req.worker_ip = Some(ip.clone());
+
+    let test_info = shared::models::http::TestInfo {
+        project_id: Some(project_id.to_string()),
+        script_id: Some(script_id.to_string()),
+        users: std::mem::take(&mut req.users),
+        spawn_rate: std::mem::take(&mut req.spawn_rate),
+        workers: std::mem::take(&mut req.workers),
+        host: std::mem::take(&mut req.host),
+        time: std::mem::take(&mut req.time),
+        description: std::mem::take(&mut req.description),
+        id: Some(id.clone()),
+        worker_ip: Some(ip.to_string()),
+    };
     let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
-    file.write(serde_json::to_string(&*req).unwrap().as_bytes())?;
-    running_tests_guard.insert(test_id, cmd);
+    file.write(serde_json::to_string(&test_info).unwrap().as_bytes())?;
+    running_tests_guard.insert(task_id, cmd);
 
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
@@ -212,7 +225,16 @@ pub async fn start_test(
         println!("SCRIPTS GARBAGE COLLECTOR: Already running!");
     }
     // save id in redis
-    Ok(String::from("allright"))
+    let started_test = shared::models::Test {
+        id: id,
+        project_id: project_id.to_string(),
+        script_id: script_id.to_string(),
+        status: Some(0),
+        results: None,
+        info: Some(test_info),
+    };
+    response.content = Some(started_test);
+    return Ok(serde_json::to_string(&response).unwrap());
 }
 
 pub async fn stop_test(
@@ -221,29 +243,30 @@ pub async fn stop_test(
     test_id: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> Result<String, Box<dyn Error>> {
-    let message: String;
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Test stop",
+        error: None,
+        content: None,
+    };
     let task_id = shared::encode_test_id(project_id, script_id, test_id);
     let mut running_tests_guard = running_tests.write();
     match running_tests_guard.get_mut(&task_id) {
-        Some(cmd) => {
-            match cmd.kill(){
-                Ok(_) => {
-                    println!("TEST KILLED: [{}]!", task_id);
-                    running_tests_guard.remove_entry(&task_id);
-                    message = String::from("allright");
-                },
-                Err(_) => {
-                    println!("ERROR: test: [{}] could not be killed!", task_id);
-                    message = String::from("fail");
-                }
+        Some(cmd) => match cmd.kill() {
+            Ok(_) => {
+                println!("TEST KILLED: [{}]!", task_id);
+                response.message = "Task stopped";
+                running_tests_guard.remove_entry(&task_id);
             }
-
-        }
+            Err(_) => {
+                println!("ERROR: test: [{}] could not be killed!", task_id);
+                response.success = false;
+                response.error = Some("Could not stop test");
+            }
+        },
         None => {
-            message = String::from("Task does not exist");
+            response.message = "Task does not exist. Nothing to stop";
         }
     }
-
-    
-    return Ok(message);
+    return Ok(serde_json::to_string(&response).unwrap());
 }

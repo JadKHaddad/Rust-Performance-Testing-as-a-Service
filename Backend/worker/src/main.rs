@@ -24,7 +24,16 @@ async fn start_test(
     currently_running_tests: Data<&Arc<AtomicBool>>,
     ip: Data<&String>,
 ) -> String {
-    match lib::start_test(&project_id, &script_id,req, running_tests, currently_running_tests, ip).await {
+    match lib::start_test(
+        &project_id,
+        &script_id,
+        req,
+        running_tests,
+        currently_running_tests,
+        ip,
+    )
+    .await
+    {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -66,7 +75,10 @@ async fn main() -> Result<(), std::io::Error> {
 
     let app = Route::new()
         .at("/start_test/:project_id/:script_id", post(start_test))
-        .at("/stop_test/:project_id/:script_id/:test_id", post(stop_test))
+        .at(
+            "/stop_test/:project_id/:script_id/:test_id",
+            post(stop_test),
+        )
         .with(AddData::new(ip))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests));

@@ -120,7 +120,14 @@ export default {
         }),
       })
         .then((data) => data.json())
-        .then((data) => {})
+        .then((data) => {
+          if (data.success) {
+            let test = data.content;
+            this.tests.push(test);
+          } else {
+            console.log(data.error);
+          }
+        })
         .catch(() => {});
     },
     stop(test_id) {
@@ -128,7 +135,12 @@ export default {
         method: "POST",
       })
         .then((data) => data.json())
-        .then((data) => {})
+        .then((data) => {
+          if (data.sucess) {
+          } else {
+            console.log(data.error);
+          }
+        })
         .catch(() => {});
     },
   },

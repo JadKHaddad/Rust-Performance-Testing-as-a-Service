@@ -74,7 +74,7 @@ pub mod http {
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Test {
-        pub test_id:String,
+        pub test_id: String,
         pub project_id: String,
         pub script_id: String,
     }

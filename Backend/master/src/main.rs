@@ -9,7 +9,7 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Multipart, Json, Path
+        Data, Multipart, Path,
     },
     EndpointExt, IntoResponse, Route, Server,
 };
@@ -25,7 +25,6 @@ use tokio::time::sleep;
 mod lib;
 use shared::models;
 //use models::websocket::WebSocketMessage;
-
 
 #[handler]
 async fn upload(
@@ -78,13 +77,15 @@ async fn tests(Path((project_id, script_id)): Path<(String, String)>) -> String 
 #[handler]
 async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
-
 ) -> String {
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
         Some(ip) => {
             let mut client = reqwest::Client::new();
             let mut response = client
-                .post(&format!("http://{}/stop_test/{}/{}/{}", ip, project_id, script_id, test_id))
+                .post(&format!(
+                    "http://{}/stop_test/{}/{}/{}",
+                    ip, project_id, script_id, test_id
+                ))
                 .send()
                 .await
                 .unwrap();
@@ -94,7 +95,6 @@ async fn stop_test(
             return String::from("No worker ip found");
         }
     }
-    
 }
 
 #[handler]
@@ -213,11 +213,13 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/ws", get(ws.data(information_thread_running)))
         .at("/projects", get(projects))
         .at("/tests/:project_id/:script_id", get(tests))
-        .at("/stop_test/:project_id/:script_id/:test_id", post(stop_test))
+        .at(
+            "/stop_test/:project_id/:script_id/:test_id",
+            post(stop_test),
+        )
         .nest(
             "/download",
-            StaticFilesEndpoint::new(shared::get_downloads_dir())
-                .show_files_listing(),
+            StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(clients));

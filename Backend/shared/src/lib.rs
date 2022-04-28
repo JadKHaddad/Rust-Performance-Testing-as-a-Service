@@ -70,11 +70,7 @@ pub fn decode_test_id(test_id: &str) -> (&str, &str, &str) {
     let project_id = parts.next().unwrap();
     let script_id = parts.next().unwrap();
     let test_id = parts.next().unwrap();
-    (
-        project_id,
-        script_id,
-        test_id,
-    )
+    (project_id, script_id, test_id)
 }
 
 pub fn get_log_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
@@ -112,7 +108,11 @@ pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<S
     return results;
 }
 
-pub fn get_info(project_id: &str, script_id: &str, test_id: &str) -> Option<models::http::TestInfo> {
+pub fn get_info(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Option<models::http::TestInfo> {
     let info_file = get_info_file_path(project_id, script_id, &test_id);
     let json_string = match std::fs::read_to_string(info_file) {
         Ok(res) => res,
