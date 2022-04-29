@@ -53,7 +53,6 @@ pub async fn start_test(
 
     //define paths
     let env_dir = shared::get_an_environment_dir(&project_id);
-    let can_project_dir = canonicalize(shared::get_a_project_dir(&project_id)).unwrap(); //absolute path for commands current dir
     let can_locust_file = canonicalize(&locust_file).unwrap(); //absolute path for commands current dir
     let log_file_relative_path = shared::get_log_file_relative_path(project_id, script_id, &id);
     let csv_file_relative_path = shared::get_csv_file_relative_path(project_id, script_id, &id);
@@ -97,25 +96,40 @@ pub async fn start_test(
     }
     //run
     let cmd = if cfg!(target_os = "windows") {
-        let can_locust_location_windows =
-            canonicalize(Path::new(&env_dir).join("Scripts").join("locust.exe")).unwrap();
+        let mut args = Vec::new();
+        args.push("-f");
+        args.push(can_locust_file.to_str().ok_or("Run Error")?);
+        args.push("--headless");
 
-        Command::new("powershell")
-            .current_dir(can_project_dir)
-            .args(&[
-                "/c",
-                &format!(
-                    "{} -f {} --headless {} {} {} {} {} {}",
-                    can_locust_location_windows.to_str().ok_or("Run Error")?,
-                    can_locust_file.to_str().ok_or("Run Error")?,
-                    users_command,
-                    spawn_rate_command,
-                    time_command,
-                    host_command,
-                    log_command,
-                    csv_command,
-                ),
-            ])
+        let mut users_command_splitted = users_command.split(" ");
+        let mut spawn_rate_command_splitted = spawn_rate_command.split(" ");
+        let mut log_command_splitted = log_command.split(" ");
+        let mut csv_command_splitted = csv_command.split(" ");
+
+        args.push(users_command_splitted.next().unwrap());
+        args.push(users_command_splitted.next().unwrap());
+        args.push(spawn_rate_command_splitted.next().unwrap());
+        args.push(spawn_rate_command_splitted.next().unwrap());
+        args.push(log_command_splitted.next().unwrap());
+        args.push(log_command_splitted.next().unwrap());
+        args.push(csv_command_splitted.next().unwrap());
+        args.push(csv_command_splitted.next().unwrap());
+
+        if !time_command.is_empty() {
+            let mut time_command_splitted = time_command.split(" ");
+            args.push(time_command_splitted.next().unwrap());
+            args.push(time_command_splitted.next().unwrap());
+        }
+
+        if !host_command.is_empty() {
+            let mut host_command_splitted = host_command.split(" ");
+            args.push(host_command_splitted.next().unwrap());
+            args.push(host_command_splitted.next().unwrap());
+        }
+
+        Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&args)
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .spawn()?
