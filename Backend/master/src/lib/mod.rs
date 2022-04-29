@@ -15,7 +15,6 @@ use std::{
     },
     time::Duration,
 };
-use tokio::sync::watch::Sender;
 use tokio::time::sleep;
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
@@ -65,7 +64,7 @@ pub async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_installing_projects: Data<&Arc<AtomicBool>>,
-    clients: Data<&Arc<RwLock<HashMap<String, Sender<String>>>>>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
         success: true,
@@ -176,10 +175,9 @@ pub async fn upload(
     let project_name = project_temp_dir.file_name().ok_or("Upload Error")?;
 
     installing_tasks_guard.insert(project_name.to_str().ok_or("Upload Error")?.to_owned(), cmd);
-    println!("{:?}", installing_tasks_guard);
     // run the thread
+    let main_sender = main_sender.clone();
     if !currently_installing_projects.load(Ordering::SeqCst) {
-        let clients = Arc::clone(&clients);
         let tokio_currently_installing_projects = currently_installing_projects.clone();
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
@@ -279,16 +277,12 @@ pub async fn upload(
                         istalling_projects: installing_projects,
                     },
                 };
-                for (id, tx) in clients.read().iter() {
-                    match tx.send(serde_json::to_string(&websocket_message).unwrap()) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            println!(
-                                "PROJECTS GARBAGE COLLECTOR: failed to send message [{}]:\n{:?}",
-                                id, e
-                            );
-                        }
-                    }
+
+                if main_sender
+                    .send(serde_json::to_string(&websocket_message).unwrap())
+                    .is_err()
+                {
+                    println!("PROJECTS GARBAGE COLLECTOR: No clients are connected!",);
                 }
                 sleep(Duration::from_secs(3)).await;
             }
