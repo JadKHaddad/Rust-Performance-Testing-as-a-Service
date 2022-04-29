@@ -282,7 +282,7 @@ pub async fn upload(
                     .send(serde_json::to_string(&websocket_message).unwrap())
                     .is_err()
                 {
-                    println!("PROJECTS GARBAGE COLLECTOR: No clients are connected!",);
+                    println!("PROJECTS GARBAGE COLLECTOR: No clients are connected!");
                 }
                 sleep(Duration::from_secs(3)).await;
             }

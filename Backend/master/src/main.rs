@@ -116,7 +116,6 @@ pub async fn ws(
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         ws_upgrade_connected_clients.fetch_add(1, Ordering::SeqCst);
-
         let id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -173,16 +172,11 @@ pub async fn ws(
                             running_tests_count,
                         },
                     };
-
-                    match tokio_main_sender.send(serde_json::to_string(&websocket_message).unwrap())
+                    if tokio_main_sender
+                        .send(serde_json::to_string(&websocket_message).unwrap())
+                        .is_err()
                     {
-                        Ok(_) => {}
-                        Err(e) => {
-                            println!(
-                                "ERROR: INFORMATION THREAD: failed to send message:\n{:?}",
-                                e
-                            );
-                        }
+                        println!("INFORMATION THREAD: No clients are connected!");
                     }
                     sleep(Duration::from_secs(3)).await;
                 }
