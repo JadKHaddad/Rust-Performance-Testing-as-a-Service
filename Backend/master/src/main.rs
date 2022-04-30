@@ -23,9 +23,11 @@ use std::{
     },
     time::Duration,
 };
+use tokio::sync::broadcast::Sender;
 use tokio::time::sleep;
 mod lib;
 use shared::models;
+
 //use models::websocket::WebSocketMessage;
 
 #[handler]
@@ -188,6 +190,87 @@ pub async fn ws(
     })
 }
 
+#[handler]
+pub async fn subscribe(
+    other_ws: WebSocket,
+    Path((project_id, script_id)): Path<(String, String)>,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+) -> impl IntoResponse {
+    let tokio_subscriptions = subscriptions.clone();
+    let subscriptions = subscriptions.clone();
+
+    other_ws.on_upgrade(move |socket| async move {
+        let (mut sink, mut stream) = socket.split();
+        let script_id = shared::encode_script_id(&project_id, &script_id);
+        let tokio_script_id = script_id.clone();
+        let tokio_listener_script_id = script_id.clone();
+        let script_id_debug = script_id.clone();
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_micros()
+            .to_string();
+        let id_tx = id.clone();
+
+        let mut subscriptions_guard = subscriptions.write();
+        if subscriptions_guard.contains_key(&script_id) {
+            //update count
+            let new_count = subscriptions_guard[&script_id].0 + 1;
+            subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
+        } else {
+            //create sender
+            let sender = tokio::sync::broadcast::channel::<String>(32).0;
+            subscriptions_guard.insert(script_id.clone(), (1, sender));
+        }
+        println!(
+            "SUBSCRIBER: Script [{}]: COUNT: [{}]",
+            tokio_script_id, subscriptions_guard[&script_id_debug].0
+        );
+
+        let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
+
+        //websocket sender
+        tokio::spawn(async move {
+            while let Some(Ok(msg)) = stream.next().await {
+                if let Message::Text(rec_msg) = msg {
+                    println!(
+                        "SUBSCRIBER: Script [{}]: Received message: [{}], [{}]",
+                        tokio_script_id, rec_msg, id
+                    );
+                }
+            }
+            println!(
+                "SUBSCRIBER: Script [{}]: STREAM DISCONNECTED: [{}]",
+                tokio_script_id, id
+            );
+
+            let mut subscriptions_guard = tokio_subscriptions.write();
+            let new_count = subscriptions_guard[&tokio_script_id].0 - 1;
+            println!(
+                "SUBSCRIBER: Script [{}]: COUNT: [{}]",
+                tokio_script_id, new_count
+            );
+            if new_count < 1 {
+                subscriptions_guard.remove(&tokio_script_id);
+            } else {
+                subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
+            }
+        });
+        //websocket listener
+        tokio::spawn(async move {
+            while let Ok(msg) = receiver.recv().await {
+                if sink.send(Message::Text(msg)).await.is_err() {
+                    break;
+                }
+            }
+            println!(
+                "WEBSOCKET: Script [{}]: LISTENER DROPPED: [{}]",
+                tokio_listener_script_id, id_tx
+            );
+        });
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     //create download directory
@@ -204,6 +287,9 @@ async fn main() -> Result<(), std::io::Error> {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
 
+    //subscriptions
+    let subscriptions: Arc<RwLock<HashMap<String, (u32, Sender<String>)>>> =
+        Arc::new(RwLock::new(HashMap::new()));
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
@@ -212,6 +298,10 @@ async fn main() -> Result<(), std::io::Error> {
         .at(
             "/ws",
             get(ws.data(information_thread_running).data(connected_clients)),
+        )
+        .at(
+            "/subscribe/:project_id/:script_id",
+            get(subscribe.data(subscriptions)),
         )
         .at("/projects", get(projects))
         .at("/tests/:project_id/:script_id", get(tests))

@@ -86,6 +86,7 @@ export default {
   props: ["pid", "id"],
   data() {
     return {
+      ws: null,
       users: null,
       spawnRate: null,
       workers: null,
@@ -96,6 +97,17 @@ export default {
     };
   },
   methods: {
+    connenctWebsocket() {
+      this.ws = new WebSocket(
+        `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
+      );
+      this.ws.onopen = () => {};
+      this.ws.onclose = () => {};
+      this.ws.onmessage = (event) => {
+        console.log(event.data);
+        const data = JSON.parse(event.data);
+      };
+    },
     start() {
       console.log(
         this.users,
@@ -145,6 +157,7 @@ export default {
     },
   },
   created() {
+    this.connenctWebsocket();
     fetch(`/api/master/tests/${this.pid}/${this.id}`)
       .then((data) => data.json())
       .then((data) => {
@@ -152,6 +165,9 @@ export default {
         console.log(data.content.tests);
       })
       .catch();
+  },
+  unmounted() {
+    this.ws.close();
   },
 };
 </script>

@@ -61,6 +61,10 @@ pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) 
     get_a_script_results_dir(project_id, script_id).join(test_id)
 }
 
+pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
+    format!("{}]$[{}", project_id, script_id)
+}
+
 pub fn encode_test_id(project_id: &str, script_id: &str, test_id: &str) -> String {
     format!("{}]$[{}]$[{}", project_id, script_id, test_id)
 }
