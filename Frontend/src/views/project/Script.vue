@@ -104,9 +104,15 @@ export default {
       this.ws.onopen = () => {};
       this.ws.onclose = () => {};
       this.ws.onmessage = (event) => {
-        console.log(event.data);
         const data = JSON.parse(event.data);
-        
+        for (var i = 0; i < data.length ; i++){
+          let incomingTest = data[i]
+          let test = this.tests.find(
+              (test) => test.id === incomingTest.id
+          );
+          test.results = incomingTest.results;
+          test.status = incomingTest.status;
+        }
       };
     },
     start() {

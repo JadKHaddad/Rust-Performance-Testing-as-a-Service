@@ -4,7 +4,7 @@ use shared::models;
 use std::error::Error;
 use std::io::Write;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::Read,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -15,6 +15,7 @@ use std::{
     },
     time::Duration,
 };
+use redis::Commands;
 use tokio::time::sleep;
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
@@ -343,12 +344,19 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
-pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn Error>> {
+pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::Client>,) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,
         message: "Tests",
         error: None,
         content: None,
+    };
+    let mut red_connection = red_client.get_connection().unwrap();
+    let running_tests: HashSet<String> =
+    if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
+        set
+    } else {
+        HashSet::new()
     };
     let mut content = shared::models::http::tests::Content { tests: Vec::new() };
     let script_dir =
@@ -360,6 +368,7 @@ pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn 
                 return Ok(response);
             }
         };
+    
     for test_dir in script_dir {
         let test_id = test_dir?
             .file_name()
@@ -368,14 +377,18 @@ pub async fn tests(project_id: &str, script_id: &str) -> Result<String, Box<dyn 
             .to_owned();
         //get results
         let results = shared::get_results(project_id, script_id, &test_id);
-
+        let task_id = shared::encode_test_id(project_id, script_id, &test_id);
+        let mut status = 1;
+        if running_tests.contains(&task_id){
+            status = 0;
+        }
         //get info
         let info = shared::get_info(project_id, script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id,
             project_id: project_id.to_owned(),
             script_id: script_id.to_owned(),
-            status: None,
+            status: status,
             results: results,
             info: info,
         });

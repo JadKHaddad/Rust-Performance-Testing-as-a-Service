@@ -4,7 +4,7 @@ pub struct Test {
     pub id: String,
     pub script_id: String,
     pub project_id: String,
-    pub status: Option<u8>, // 0 running, 1 finished
+    pub status: u8, // 0 running, 1 finished
     pub results: Option<String>,
     pub info: Option<http::TestInfo>,
 }

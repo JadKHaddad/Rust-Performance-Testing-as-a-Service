@@ -69,8 +69,8 @@ async fn projects() -> String {
 }
 
 #[handler]
-async fn tests(Path((project_id, script_id)): Path<(String, String)>) -> String {
-    match lib::tests(&project_id, &script_id).await {
+async fn tests(Path((project_id, script_id)): Path<(String, String)>, red_client: Data<&redis::Client>,) -> String {
+    match lib::tests(&project_id, &script_id, red_client).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -235,36 +235,12 @@ pub async fn subscribe(
             subscriptions_guard.insert(script_id.clone(), (1, sender));
             //save in redis
             let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
-            //create pubsub
-            let script_id_pubsub = script_id.clone();
-            let sender_pubsub = subscriptions_guard[&script_id_debug].1.clone();
-
-
-            tokio::spawn(async move {
-                let mut red_connection = red_client.get_connection().unwrap();
-                let mut pubsub = red_connection.as_pubsub();
-                pubsub.subscribe(&script_id_pubsub).unwrap();
-                println!("PUBSUB: [{}]: CREATED", script_id_pubsub);
-                
-                loop {
-                    let msg = pubsub.get_message().unwrap();
-                    let channel = msg.get_channel_name();
-                    let payload: String = msg.get_payload().unwrap();
-                    println!("channel [{}]: [{}]", channel, payload);
-                    if payload == "STOP" {
-                        break;
-                    }
-                    sender_pubsub.send(payload).unwrap(); 
-                }
-                println!("PUBSUB: [{}]: DROPPED", script_id_pubsub);
-            });
         }
         println!(
             "SUBSCRIBER: Script [{}]: COUNT: [{}]",
             script_id, subscriptions_guard[&script_id_debug].0
         );
         let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
-        
         //websocket sender
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
@@ -287,7 +263,6 @@ pub async fn subscribe(
                 subscriptions_guard.remove(&script_id);
                 //update
                 let _: () = red_connection.srem(shared::SUBS, &script_id).unwrap();
-                let _: () = red_connection.publish(&script_id, "STOP").unwrap();
             } else {
                 subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
             }
@@ -295,7 +270,6 @@ pub async fn subscribe(
         //websocket listener
         tokio::spawn(async move {
             while let Ok(msg) = receiver.recv().await {
-                println!("SUBSCRIBER: Script [{}]: Sending message: [{}], [{}]", tokio_listener_script_id, msg, id_tx);
                 if sink.send(Message::Text(msg)).await.is_err() {
                     break;
                 }
@@ -335,6 +309,21 @@ async fn main() -> Result<(), std::io::Error> {
 
     tracing_subscriber::fmt::init();
 
+    let main_subscriptions = subscriptions.clone();
+    tokio::spawn(async move {
+        loop {
+            {
+                let g = main_subscriptions.read();
+                for (script_id, (_, sender)) in g.iter() {
+                    if let Ok(results) = red_connection.get(script_id){
+                        sender.send(results).unwrap();
+                    }
+
+                }
+            }
+            sleep(Duration::from_secs(3)).await;
+        }
+    });
     let app = Route::new()
         //.at("/path/:name/:id", get(path))
         .at("/upload", post(upload.data(currently_installing_projects)))
@@ -358,7 +347,7 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(
-            tokio::sync::broadcast::channel::<String>(32).0,
+            tokio::sync::broadcast::channel::<String>(512).0,
         ))
         .with(AddData::new(red_client));
     Server::new(TcpListener::bind("127.0.0.1:3000"))

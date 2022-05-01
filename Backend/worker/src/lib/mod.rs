@@ -264,7 +264,9 @@ pub async fn start_test(
                 //send through redis channel
                 for (script_id, tests) in tests_info.iter() {
                     let _: () = red_connection
-                        .publish(script_id, serde_json::to_string(&tests).unwrap()).unwrap();
+                        .set(script_id, serde_json::to_string(&tests).unwrap()).unwrap();
+                    let _: () = red_connection
+                        .expire(script_id, 5).unwrap();
                 }
                 sleep(Duration::from_secs(3)).await;
             }
@@ -279,7 +281,7 @@ pub async fn start_test(
         id: id,
         project_id: project_id.to_string(),
         script_id: script_id.to_string(),
-        status: Some(0),
+        status: 0,
         results: None,
         info: Some(test_info),
     };
