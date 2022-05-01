@@ -69,7 +69,10 @@ async fn projects() -> String {
 }
 
 #[handler]
-async fn tests(Path((project_id, script_id)): Path<(String, String)>, red_client: Data<&redis::Client>,) -> String {
+async fn tests(
+    Path((project_id, script_id)): Path<(String, String)>,
+    red_client: Data<&redis::Client>,
+) -> String {
     match lib::tests(&project_id, &script_id, red_client).await {
         Ok(response) => response,
         Err(err) => {
@@ -111,6 +114,7 @@ pub async fn ws(
     connected_clients: Data<&Arc<AtomicU32>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
     red_client: Data<&redis::Client>,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
     let tokio_main_sender = main_sender.clone();
@@ -120,6 +124,7 @@ pub async fn ws(
     let tokio_information_thread_running = information_thread_running.clone();
     let information_thread_running = Arc::clone(&information_thread_running);
     let red_client = red_client.clone();
+    let subscriptions = subscriptions.clone();
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         ws_upgrade_connected_clients.fetch_add(1, Ordering::SeqCst);
@@ -189,6 +194,14 @@ pub async fn ws(
                         .is_err()
                     {
                         println!("INFORMATION THREAD: No clients are connected!");
+                    }
+                    {
+                        let subscriptions_guard = subscriptions.read();
+                        for (script_id, (_, sender)) in subscriptions_guard.iter() {
+                            if let Ok(results) = red_connection.get(script_id) {
+                                sender.send(results).unwrap();
+                            }
+                        }
                     }
                     sleep(Duration::from_secs(3)).await;
                 }
@@ -309,21 +322,6 @@ async fn main() -> Result<(), std::io::Error> {
 
     tracing_subscriber::fmt::init();
 
-    let main_subscriptions = subscriptions.clone();
-    tokio::spawn(async move {
-        loop {
-            {
-                let g = main_subscriptions.read();
-                for (script_id, (_, sender)) in g.iter() {
-                    if let Ok(results) = red_connection.get(script_id){
-                        sender.send(results).unwrap();
-                    }
-
-                }
-            }
-            sleep(Duration::from_secs(3)).await;
-        }
-    });
     let app = Route::new()
         //.at("/path/:name/:id", get(path))
         .at("/upload", post(upload.data(currently_installing_projects)))
@@ -331,10 +329,7 @@ async fn main() -> Result<(), std::io::Error> {
             "/ws",
             get(ws.data(information_thread_running).data(connected_clients)),
         )
-        .at(
-            "/subscribe/:project_id/:script_id",
-            get(subscribe.data(subscriptions)),
-        )
+        .at("/subscribe/:project_id/:script_id", get(subscribe))
         .at("/projects", get(projects))
         .at("/tests/:project_id/:script_id", get(tests))
         .at(
@@ -346,6 +341,7 @@ async fn main() -> Result<(), std::io::Error> {
             StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
+        .with(AddData::new(subscriptions))
         .with(AddData::new(
             tokio::sync::broadcast::channel::<String>(512).0,
         ))

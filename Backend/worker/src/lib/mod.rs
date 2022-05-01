@@ -309,7 +309,7 @@ pub async fn stop_test(
             Ok(_) => {
                 println!("TEST KILLED: [{}]!", task_id);
                 response.message = "Task stopped";
-                running_tests_guard.remove_entry(&task_id);
+                //running_tests_guard.remove_entry(&task_id);
                 //remove from redis
                 let mut red_connection = red_client.get_connection().unwrap();
                 let _: () = red_connection
