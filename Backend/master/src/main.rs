@@ -168,7 +168,6 @@ pub async fn ws(
                     if connected_clients_count < 1 {
                         tokio_information_thread_running.store(false, Ordering::SeqCst);
                         println!("INFORMATION THREAD: Terminating!");
-
                         break;
                     }
                     println!("INFORMATION THREAD: Running!");
@@ -232,16 +231,21 @@ pub async fn subscribe(
         } else {
             //create sender
             let sender = tokio::sync::broadcast::channel::<String>(32).0;
+
             subscriptions_guard.insert(script_id.clone(), (1, sender));
             //save in redis
             let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
             //create pubsub
             let script_id_pubsub = script_id.clone();
+            let sender_pubsub = subscriptions_guard[&script_id_debug].1.clone();
+
+
             tokio::spawn(async move {
                 let mut red_connection = red_client.get_connection().unwrap();
                 let mut pubsub = red_connection.as_pubsub();
                 pubsub.subscribe(&script_id_pubsub).unwrap();
                 println!("PUBSUB: [{}]: CREATED", script_id_pubsub);
+                
                 loop {
                     let msg = pubsub.get_message().unwrap();
                     let channel = msg.get_channel_name();
@@ -250,6 +254,7 @@ pub async fn subscribe(
                     if payload == "STOP" {
                         break;
                     }
+                    sender_pubsub.send(payload).unwrap(); 
                 }
                 println!("PUBSUB: [{}]: DROPPED", script_id_pubsub);
             });
@@ -258,9 +263,8 @@ pub async fn subscribe(
             "SUBSCRIBER: Script [{}]: COUNT: [{}]",
             script_id, subscriptions_guard[&script_id_debug].0
         );
-
         let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
-
+        
         //websocket sender
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
@@ -291,6 +295,7 @@ pub async fn subscribe(
         //websocket listener
         tokio::spawn(async move {
             while let Ok(msg) = receiver.recv().await {
+                println!("SUBSCRIBER: Script [{}]: Sending message: [{}], [{}]", tokio_listener_script_id, msg, id_tx);
                 if sink.send(Message::Text(msg)).await.is_err() {
                     break;
                 }

@@ -58,7 +58,7 @@ pub mod websocket {
         #[derive(Debug, Serialize)]
         pub struct TestInfo {
             pub id: String,
-            pub status: Option<u8>, // 0 running, 1 finished
+            pub status: u8, // 0 running, 1 finished
             pub results: Option<String>,
         }
     }

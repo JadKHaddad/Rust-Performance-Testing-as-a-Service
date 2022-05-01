@@ -106,6 +106,7 @@ export default {
       this.ws.onmessage = (event) => {
         console.log(event.data);
         const data = JSON.parse(event.data);
+        
       };
     },
     start() {

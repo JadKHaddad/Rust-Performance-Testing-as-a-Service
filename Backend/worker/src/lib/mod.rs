@@ -191,6 +191,7 @@ pub async fn start_test(
         let tokio_running_tests = Arc::clone(&running_tests);
         tokio::spawn(async move {
             loop {
+                let mut tests_info: HashMap<String, Vec<models::websocket::tests::TestInfo>> = HashMap::new(); 
                 {
                     let mut tokio_tests_guard = tokio_running_tests.write();
                     if tokio_tests_guard.len() < 1 {
@@ -201,32 +202,22 @@ pub async fn start_test(
                     println!("SCRIPTS GARBAGE COLLECTOR: Running!");
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
-                    let wanted_scripts: HashSet<String> = if let Ok(set) = red_connection.smembers(shared::SUBS){
-                        set
-                    } else {
-                        HashSet::new()
-                    };
+                    let wanted_scripts: HashSet<String> =
+                        if let Ok(set) = red_connection.smembers(shared::SUBS) {
+                            set
+                        } else {
+                            HashSet::new()
+                        };
+                    
                     for (id, cmd) in tokio_tests_guard.iter_mut() {
                         let (project_id, script_id, test_id) = shared::decode_test_id(id);
                         let global_script_id = shared::get_global_script_id(id);
-                        let mut test = models::Test {
-                            id: id.to_owned(),
-                            script_id: script_id.to_owned(),
-                            project_id: project_id.to_owned(),
-                            status: Some(0),
-                            results: None,
-                            info: None,
-                        };
-                        //check if the script is wanted and save results in redis
-                        if wanted_scripts.contains(global_script_id){
-                            println!("SCRIPT WANTED: {}", global_script_id);
-                            // get info and send through redis channel
-                        }
-                        
+                        let mut status = 0;
+
                         match cmd.try_wait() {
                             Ok(Some(exit_status)) => {
                                 // process finished
-                                test.status = Some(1); // process finished
+                                status = 1; // process finished
                                 to_be_removed.push(id.to_owned());
                                 match exit_status.code() {
                                     Some(code) => {
@@ -241,11 +232,27 @@ pub async fn start_test(
                                     red_connection.srem(shared::RUNNING_TESTS, &id).unwrap();
                             }
                             Ok(None) => {
-                                test.status = Some(0); // process is running
+                                status = 0; // process is running
                             }
                             Err(e) => {
                                 println!("ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}", id, e);
                             }
+                        }
+                        //check if the script is wanted and save results in redis
+                        if wanted_scripts.contains(global_script_id) {
+                            println!("SCRIPT WANTED: {}", global_script_id);
+                            let results = shared::get_results(project_id, script_id, test_id);
+                            let test_info = models::websocket::tests::TestInfo {
+                                id: test_id.to_owned(),
+                                results: results,
+                                status: status,
+                            };
+                            if tests_info.contains_key(global_script_id) {
+                                tests_info.get_mut(global_script_id).unwrap().push(test_info);
+                            }else {
+                                tests_info.insert(global_script_id.to_owned(), vec![test_info]);
+                            }
+
                         }
                     }
                     //remove finished
@@ -254,7 +261,11 @@ pub async fn start_test(
                         println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] removed!", id);
                     }
                 }
-
+                //send through redis channel
+                for (script_id, tests) in tests_info.iter() {
+                    let _: () = red_connection
+                        .publish(script_id, serde_json::to_string(&tests).unwrap()).unwrap();
+                }
                 sleep(Duration::from_secs(3)).await;
             }
         });
@@ -299,8 +310,9 @@ pub async fn stop_test(
                 running_tests_guard.remove_entry(&task_id);
                 //remove from redis
                 let mut red_connection = red_client.get_connection().unwrap();
-                let _: () =
-                red_connection.srem(shared::RUNNING_TESTS, &task_id).unwrap();
+                let _: () = red_connection
+                    .srem(shared::RUNNING_TESTS, &task_id)
+                    .unwrap();
             }
             Err(_) => {
                 println!("ERROR: test: [{}] could not be killed!", task_id);
