@@ -1,3 +1,5 @@
+extern crate redis;
+
 use parking_lot::RwLock;
 use poem::{
     handler,
@@ -22,6 +24,7 @@ async fn start_test(
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
+    red_client: Data<&redis::Client>,
     ip: Data<&String>,
 ) -> String {
     match lib::start_test(
@@ -30,6 +33,7 @@ async fn start_test(
         req,
         running_tests,
         currently_running_tests,
+        red_client,
         ip,
     )
     .await
@@ -71,6 +75,9 @@ async fn main() -> Result<(), std::io::Error> {
     let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
     let currently_running_tests = Arc::new(AtomicBool::new(false));
 
+    //redis client
+    let red_client = redis::Client::open(format!("redis://{}:{}/", "localhost", "6379")).unwrap();
+
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
@@ -81,7 +88,8 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .with(AddData::new(ip))
         .with(AddData::new(running_tests))
-        .with(AddData::new(currently_running_tests));
+        .with(AddData::new(currently_running_tests))
+        .with(AddData::new(red_client));
 
     Server::new(TcpListener::bind("127.0.0.1:5000"))
         .run(app)

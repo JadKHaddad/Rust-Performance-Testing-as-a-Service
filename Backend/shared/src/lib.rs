@@ -6,6 +6,10 @@ pub const PROJECTS_DIR: &str = "projects";
 pub const TEMP_DIR: &str = "temp";
 pub const ENVIRONMENTS_DIR: &str = "environments";
 pub const RESULTS_DIR: &str = "results";
+//redis subscriptions
+pub const SUBS: &str = "SUBS";
+//redis running tests
+pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 
 pub mod models;
 
@@ -63,6 +67,11 @@ pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) 
 
 pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
     format!("{}]$[{}", project_id, script_id)
+}
+
+pub fn get_global_script_id(test_id: &str) -> &str{
+    let index = test_id.rfind("]$[").unwrap();
+    &test_id[0..index]
 }
 
 pub fn encode_test_id(project_id: &str, script_id: &str, test_id: &str) -> String {

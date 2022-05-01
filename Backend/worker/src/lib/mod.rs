@@ -1,12 +1,13 @@
 use crate::models;
 use parking_lot::RwLock;
 use poem::web::{Data, Json};
+use redis::Commands;
 use std::error::Error;
 use std::fs::canonicalize;
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::Path,
     process::{Child, Command, Stdio},
     sync::{
@@ -23,6 +24,7 @@ pub async fn start_test(
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
+    red_client: Data<&redis::Client>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
     //let workers = req.workers.unwrap_or(1);
@@ -174,6 +176,13 @@ pub async fn start_test(
     };
     let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
     file.write(serde_json::to_string(&test_info).unwrap().as_bytes())?;
+
+    // save id in redis
+    let mut red_connection = red_client.get_connection().unwrap();
+    let _: () = red_connection
+        .sadd(shared::RUNNING_TESTS, &task_id)
+        .unwrap();
+
     running_tests_guard.insert(task_id, cmd);
 
     //run the garbage collector
@@ -192,8 +201,14 @@ pub async fn start_test(
                     println!("SCRIPTS GARBAGE COLLECTOR: Running!");
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
+                    let wanted_scripts: HashSet<String> = if let Ok(set) = red_connection.smembers(shared::SUBS){
+                        set
+                    } else {
+                        HashSet::new()
+                    };
                     for (id, cmd) in tokio_tests_guard.iter_mut() {
                         let (project_id, script_id, test_id) = shared::decode_test_id(id);
+                        let global_script_id = shared::get_global_script_id(id);
                         let mut test = models::Test {
                             id: id.to_owned(),
                             script_id: script_id.to_owned(),
@@ -203,8 +218,13 @@ pub async fn start_test(
                             info: None,
                         };
                         //check if the script is wanted and save results in redis
+                        if wanted_scripts.contains(global_script_id){
+                            println!("SCRIPT WANTED: {}", global_script_id);
+                        }
+                        
                         match cmd.try_wait() {
                             Ok(Some(exit_status)) => {
+                                // process finished
                                 test.status = Some(1); // process finished
                                 to_be_removed.push(id.to_owned());
                                 match exit_status.code() {
@@ -215,6 +235,9 @@ pub async fn start_test(
                                         println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!", id);
                                     }
                                 }
+                                //remove from redis
+                                let _: () =
+                                    red_connection.srem(shared::RUNNING_TESTS, &id).unwrap();
                             }
                             Ok(None) => {
                                 test.status = Some(0); // process is running
@@ -238,7 +261,8 @@ pub async fn start_test(
     } else {
         println!("SCRIPTS GARBAGE COLLECTOR: Already running!");
     }
-    // save id in redis
+    // Notify channel
+
     let started_test = shared::models::Test {
         id: id,
         project_id: project_id.to_string(),

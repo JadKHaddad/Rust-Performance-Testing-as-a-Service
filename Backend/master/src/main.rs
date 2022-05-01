@@ -1,3 +1,4 @@
+extern crate redis;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
@@ -13,6 +14,7 @@ use poem::{
     },
     EndpointExt, IntoResponse, Route, Server,
 };
+use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
@@ -93,6 +95,7 @@ async fn stop_test(
                 .send()
                 .await
                 .unwrap();
+            // Notify subs
             return response.text().await.unwrap();
         }
         None => {
@@ -107,6 +110,7 @@ pub async fn ws(
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
     connected_clients: Data<&Arc<AtomicU32>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
+    red_client: Data<&redis::Client>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
     let tokio_main_sender = main_sender.clone();
@@ -115,6 +119,7 @@ pub async fn ws(
     let ws_upgrade_connected_clients = connected_clients.clone();
     let tokio_information_thread_running = information_thread_running.clone();
     let information_thread_running = Arc::clone(&information_thread_running);
+    let red_client = red_client.clone();
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         ws_upgrade_connected_clients.fetch_add(1, Ordering::SeqCst);
@@ -156,6 +161,7 @@ pub async fn ws(
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
+            let mut red_connection = red_client.get_connection().unwrap();
             tokio::spawn(async move {
                 loop {
                     let connected_clients_count = tokio_connected_clients.load(Ordering::SeqCst);
@@ -166,7 +172,12 @@ pub async fn ws(
                         break;
                     }
                     println!("INFORMATION THREAD: Running!");
-                    let running_tests_count = 1;
+                    let running_tests_count: u32 =
+                        if let Ok(count) = red_connection.scard(shared::RUNNING_TESTS) {
+                            count
+                        } else {
+                            0
+                        };
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: "INFORMATION",
                         event: models::websocket::information::Event {
@@ -195,14 +206,15 @@ pub async fn subscribe(
     other_ws: WebSocket,
     Path((project_id, script_id)): Path<(String, String)>,
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+    red_client: Data<&redis::Client>,
 ) -> impl IntoResponse {
     let tokio_subscriptions = subscriptions.clone();
     let subscriptions = subscriptions.clone();
-
+    let red_client = red_client.clone();
     other_ws.on_upgrade(move |socket| async move {
+        let mut red_connection = red_client.get_connection().unwrap();
         let (mut sink, mut stream) = socket.split();
         let script_id = shared::encode_script_id(&project_id, &script_id);
-        let tokio_script_id = script_id.clone();
         let tokio_listener_script_id = script_id.clone();
         let script_id_debug = script_id.clone();
         let id = SystemTime::now()
@@ -221,10 +233,12 @@ pub async fn subscribe(
             //create sender
             let sender = tokio::sync::broadcast::channel::<String>(32).0;
             subscriptions_guard.insert(script_id.clone(), (1, sender));
+            //save in redis
+            let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
         }
         println!(
             "SUBSCRIBER: Script [{}]: COUNT: [{}]",
-            tokio_script_id, subscriptions_guard[&script_id_debug].0
+            script_id, subscriptions_guard[&script_id_debug].0
         );
 
         let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
@@ -235,23 +249,22 @@ pub async fn subscribe(
                 if let Message::Text(rec_msg) = msg {
                     println!(
                         "SUBSCRIBER: Script [{}]: Received message: [{}], [{}]",
-                        tokio_script_id, rec_msg, id
+                        script_id, rec_msg, id
                     );
                 }
             }
             println!(
                 "SUBSCRIBER: Script [{}]: STREAM DISCONNECTED: [{}]",
-                tokio_script_id, id
+                script_id, id
             );
 
             let mut subscriptions_guard = tokio_subscriptions.write();
-            let new_count = subscriptions_guard[&tokio_script_id].0 - 1;
-            println!(
-                "SUBSCRIBER: Script [{}]: COUNT: [{}]",
-                tokio_script_id, new_count
-            );
+            let new_count = subscriptions_guard[&script_id].0 - 1;
+            println!("SUBSCRIBER: Script [{}]: COUNT: [{}]", script_id, new_count);
             if new_count < 1 {
-                subscriptions_guard.remove(&tokio_script_id);
+                subscriptions_guard.remove(&script_id);
+                //update
+                let _: () = red_connection.srem(shared::SUBS, &script_id).unwrap();
             } else {
                 subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
             }
@@ -290,6 +303,11 @@ async fn main() -> Result<(), std::io::Error> {
     //subscriptions
     let subscriptions: Arc<RwLock<HashMap<String, (u32, Sender<String>)>>> =
         Arc::new(RwLock::new(HashMap::new()));
+    //redis client
+    let red_client = redis::Client::open(format!("redis://{}:{}/", "localhost", "6379")).unwrap();
+    let mut red_connection = red_client.get_connection().unwrap();
+    //flushdb on start
+    let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
@@ -316,7 +334,8 @@ async fn main() -> Result<(), std::io::Error> {
         .with(AddData::new(installing_tasks))
         .with(AddData::new(
             tokio::sync::broadcast::channel::<String>(32).0,
-        ));
+        ))
+        .with(AddData::new(red_client));
     Server::new(TcpListener::bind("127.0.0.1:3000"))
         .run(app)
         .await
