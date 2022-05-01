@@ -46,6 +46,22 @@ pub mod websocket {
             pub error: Option<String>,
         }
     }
+
+    pub mod tests {
+        use serde::Serialize;
+
+        #[derive(Debug, Serialize)]
+        pub struct Event {
+            pub tests_info: Vec<TestInfo>,
+        }
+
+        #[derive(Debug, Serialize)]
+        pub struct TestInfo {
+            pub id: String,
+            pub status: Option<u8>, // 0 running, 1 finished
+            pub results: Option<String>,
+        }
+    }
 }
 
 pub mod http {

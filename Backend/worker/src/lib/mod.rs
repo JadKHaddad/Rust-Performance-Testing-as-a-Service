@@ -220,6 +220,7 @@ pub async fn start_test(
                         //check if the script is wanted and save results in redis
                         if wanted_scripts.contains(global_script_id){
                             println!("SCRIPT WANTED: {}", global_script_id);
+                            // get info and send through redis channel
                         }
                         
                         match cmd.try_wait() {
