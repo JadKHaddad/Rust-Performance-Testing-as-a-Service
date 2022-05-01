@@ -235,7 +235,24 @@ pub async fn subscribe(
             subscriptions_guard.insert(script_id.clone(), (1, sender));
             //save in redis
             let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
-            let _: () = red_connection.publish("SUB", &script_id).unwrap();
+            //create pubsub
+            let script_id_pubsub = script_id.clone();
+            tokio::spawn(async move {
+                let mut red_connection = red_client.get_connection().unwrap();
+                let mut pubsub = red_connection.as_pubsub();
+                pubsub.subscribe(&script_id_pubsub).unwrap();
+                println!("PUBSUB: [{}]: CREATED", script_id_pubsub);
+                loop {
+                    let msg = pubsub.get_message().unwrap();
+                    let channel = msg.get_channel_name();
+                    let payload: String = msg.get_payload().unwrap();
+                    println!("channel [{}]: [{}]", channel, payload);
+                    if payload == "STOP" {
+                        break;
+                    }
+                }
+                println!("PUBSUB: [{}]: DROPPED", script_id_pubsub);
+            });
         }
         println!(
             "SUBSCRIBER: Script [{}]: COUNT: [{}]",
@@ -266,7 +283,7 @@ pub async fn subscribe(
                 subscriptions_guard.remove(&script_id);
                 //update
                 let _: () = red_connection.srem(shared::SUBS, &script_id).unwrap();
-                let _: () = red_connection.publish("UNSUB", &script_id).unwrap();
+                let _: () = red_connection.publish(&script_id, "STOP").unwrap();
             } else {
                 subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
             }
@@ -310,40 +327,6 @@ async fn main() -> Result<(), std::io::Error> {
     let mut red_connection = red_client.get_connection().unwrap();
     //flushdb on start
     let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
-
-    //create pubsub
-    tokio::spawn(async move {
-        let mut pubsub = red_connection.as_pubsub();
-        pubsub.subscribe("SUB").unwrap();
-        pubsub.subscribe("UNSUB").unwrap();
-        loop {
-            let msg = pubsub.get_message().unwrap();
-            let channel = msg.get_channel_name();
-            let payload : String = msg.get_payload().unwrap();
-            println!("channel [{}]: [{}]", channel, payload);
-            match channel {
-                "SUB" => {
-                    pubsub.subscribe(&payload).unwrap();
-                },
-                "UNSUB" => {
-                    pubsub.unsubscribe(&payload).unwrap();
-                },
-                _ => {
-                    println!("PUBSUB: Unknown channel: [{}]", channel);
-                }
-            };
-        }
-        println!("PUBSUB: DISCONNECTED");
-        // let _: () = red_connection.subscribe(&["channel"], |msg|{
-        //     let payload: String = msg.get_payload().unwrap();
-        //     println!("channel [{}]: [{}]", msg.get_channel_name(), payload);
-        //     if payload == "quit" {
-        //         return ControlFlow::Break(());
-        //     }
-        //     return ControlFlow::Continue;
-        // }).unwrap();
-
-    });
 
     tracing_subscriber::fmt::init();
 
