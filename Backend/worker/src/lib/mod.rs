@@ -280,6 +280,7 @@ pub async fn stop_test(
     script_id: &str,
     test_id: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    red_client: Data<&redis::Client>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
         success: true,
@@ -295,6 +296,10 @@ pub async fn stop_test(
                 println!("TEST KILLED: [{}]!", task_id);
                 response.message = "Task stopped";
                 running_tests_guard.remove_entry(&task_id);
+                //remove from redis
+                let mut red_connection = red_client.get_connection().unwrap();
+                let _: () =
+                red_connection.srem(shared::RUNNING_TESTS, &task_id).unwrap();
             }
             Err(_) => {
                 println!("ERROR: test: [{}] could not be killed!", task_id);

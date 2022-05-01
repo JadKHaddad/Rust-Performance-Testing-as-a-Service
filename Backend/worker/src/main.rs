@@ -51,8 +51,9 @@ async fn start_test(
 async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    red_client: Data<&redis::Client>,
 ) -> String {
-    match lib::stop_test(&project_id, &script_id, &test_id, running_tests).await {
+    match lib::stop_test(&project_id, &script_id, &test_id, running_tests, red_client).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
