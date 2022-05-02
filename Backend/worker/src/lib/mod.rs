@@ -261,7 +261,7 @@ pub async fn start_test(
                         println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] removed!", id);
                     }
                 }
-                //send through redis channel
+                //save in redis
                 for (script_id, tests) in tests_info.iter() {
                     let _: () = red_connection
                         .set(script_id, serde_json::to_string(&tests).unwrap()).unwrap();
@@ -275,7 +275,7 @@ pub async fn start_test(
     } else {
         println!("SCRIPTS GARBAGE COLLECTOR: Already running!");
     }
-    // Notify channel
+    //Notify
 
     let started_test = shared::models::Test {
         id: id,
