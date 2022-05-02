@@ -72,9 +72,10 @@
       <button type="button" id="start-btn" @click="start">Start</button>
     </form>
     <ul>
-      <li v-for="test in tests" :key="test.id">
+      <li v-for="test in reversedTests" :key="test.id">
         {{ test }}
         <button type="button" @click="stop(test.id)">Stop</button>
+        <button type="button" @click="del(test.id)">Delete</button>
       </li>
     </ul>
   </div>
@@ -96,6 +97,11 @@ export default {
       tests: [],
     };
   },
+  computed: {
+      reversedTests() {
+        return this.tests.reverse();
+      }
+    },
   methods: {
     connenctWebsocket() {
       this.ws = new WebSocket(
@@ -105,13 +111,15 @@ export default {
       this.ws.onclose = () => {};
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        for (var i = 0; i < data.length ; i++){
-          let incomingTest = data[i]
-          let test = this.tests.find(
-              (test) => test.id === incomingTest.id
-          );
-          test.results = incomingTest.results;
-          test.status = incomingTest.status;
+        const event_type = data.event_type;
+        if (event_type === "UPDATE") {
+          const testsResults = data.event.tests_info;
+          for (var i = 0; i < testsResults.length; i++) {
+            let incomingTest = testsResults[i];
+            let test = this.tests.find((test) => test.id === incomingTest.id);
+            test.results = incomingTest.results;
+            test.status = incomingTest.status;
+          }
         }
       };
     },
@@ -155,7 +163,21 @@ export default {
       })
         .then((data) => data.json())
         .then((data) => {
-          if (data.sucess) {
+          if (data.success) {
+          } else {
+            console.log(data.error);
+          }
+        })
+        .catch(() => {});
+    },
+    del(test_id) {
+      fetch(`/api/master/delete_test/${this.pid}/${this.id}/${test_id}`, {
+        method: "POST",
+      })
+        .then((data) => data.json())
+        .then((data) => {
+          if (data.success) {
+            this.tests = this.tests.filter((test) => test.id !== test_id);
           } else {
             console.log(data.error);
           }

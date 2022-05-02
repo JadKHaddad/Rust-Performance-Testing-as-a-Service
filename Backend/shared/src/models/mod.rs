@@ -51,8 +51,8 @@ pub mod websocket {
         use serde::Serialize;
 
         #[derive(Debug, Serialize)]
-        pub struct Event {
-            pub tests_info: Vec<TestInfo>,
+        pub struct Event <'a>{
+            pub tests_info: &'a Vec<TestInfo>,
         }
 
         #[derive(Debug, Serialize)]

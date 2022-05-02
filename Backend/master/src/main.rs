@@ -90,19 +90,59 @@ async fn stop_test(
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
         Some(ip) => {
             let mut client = reqwest::Client::new();
-            let mut response = client
+            match client
                 .post(&format!(
                     "http://{}/stop_test/{}/{}/{}",
                     ip, project_id, script_id, test_id
                 ))
                 .send()
                 .await
-                .unwrap();
-            // Notify subs
-            return response.text().await.unwrap();
+            {
+                // Notify subs
+                Ok(response) => return response.text().await.unwrap(),
+                Err(err) => {
+                    return serde_json::to_string(&models::http::ErrorResponse::new(
+                        &err.to_string(),
+                    ))
+                    .unwrap();
+                }
+            }
         }
         None => {
-            return String::from("No worker ip found");
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new("No worker ip found"))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn delete_test(Path((project_id, script_id, test_id)): Path<(String, String, String)>) -> String {
+    match shared::get_worker_ip(&project_id, &script_id, &test_id) {
+        Some(ip) => {
+            let mut client = reqwest::Client::new();
+            match client
+                .post(&format!(
+                    "http://{}/delete_test/{}/{}/{}",
+                    ip, project_id, script_id, test_id
+                ))
+                .send()
+                .await
+            {
+                // Notify subs
+                Ok(response) => return response.text().await.unwrap(),
+                Err(err) => {
+                    return serde_json::to_string(&models::http::ErrorResponse::new(
+                        &err.to_string(),
+                    ))
+                    .unwrap();
+                }
+            }
+        }
+        None => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new("No worker ip found"))
+            .unwrap();
         }
     }
 }
@@ -198,8 +238,10 @@ pub async fn ws(
                     {
                         let subscriptions_guard = subscriptions.read();
                         for (script_id, (_, sender)) in subscriptions_guard.iter() {
-                            if let Ok(results) = red_connection.get(script_id) {
-                                sender.send(results).unwrap();
+                            if let Ok(event) = red_connection.get(script_id) {
+                                if sender.send(event).is_err() {
+                                    println!("INFORMATION THREAD: No clients are connected!");
+                                }
                             }
                         }
                     }
@@ -335,6 +377,10 @@ async fn main() -> Result<(), std::io::Error> {
         .at(
             "/stop_test/:project_id/:script_id/:test_id",
             post(stop_test),
+        )
+        .at(
+            "/delete_test/:project_id/:script_id/:test_id",
+            post(delete_test),
         )
         .nest(
             "/download",

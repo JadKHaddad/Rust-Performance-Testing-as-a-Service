@@ -51,9 +51,39 @@ async fn start_test(
 async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    red_client: Data<&redis::Client>,
+    /*red_client: Data<&redis::Client>,*/
 ) -> String {
-    match lib::stop_test(&project_id, &script_id, &test_id, running_tests, red_client).await {
+    match lib::stop_test(
+        &project_id,
+        &script_id,
+        &test_id,
+        running_tests, /*red_client*/
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn delete_test(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    /*red_client: Data<&redis::Client>,*/
+) -> String {
+    match lib::delete_test(
+        &project_id,
+        &script_id,
+        &test_id,
+        running_tests, /*red_client*/
+    )
+    .await
+    {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -86,6 +116,10 @@ async fn main() -> Result<(), std::io::Error> {
         .at(
             "/stop_test/:project_id/:script_id/:test_id",
             post(stop_test),
+        )
+        .at(
+            "/delete_test/:project_id/:script_id/:test_id",
+            post(delete_test),
         )
         .with(AddData::new(ip))
         .with(AddData::new(running_tests))

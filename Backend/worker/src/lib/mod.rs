@@ -191,7 +191,8 @@ pub async fn start_test(
         let tokio_running_tests = Arc::clone(&running_tests);
         tokio::spawn(async move {
             loop {
-                let mut tests_info: HashMap<String, Vec<models::websocket::tests::TestInfo>> = HashMap::new(); 
+                let mut tests_info_map: HashMap<String, Vec<models::websocket::tests::TestInfo>> =
+                    HashMap::new();
                 {
                     let mut tokio_tests_guard = tokio_running_tests.write();
                     if tokio_tests_guard.len() < 1 {
@@ -208,7 +209,6 @@ pub async fn start_test(
                         } else {
                             HashSet::new()
                         };
-                    
                     for (id, cmd) in tokio_tests_guard.iter_mut() {
                         let (project_id, script_id, test_id) = shared::decode_test_id(id);
                         let global_script_id = shared::get_global_script_id(id);
@@ -247,12 +247,14 @@ pub async fn start_test(
                                 results: results,
                                 status: status,
                             };
-                            if tests_info.contains_key(global_script_id) {
-                                tests_info.get_mut(global_script_id).unwrap().push(test_info);
-                            }else {
-                                tests_info.insert(global_script_id.to_owned(), vec![test_info]);
+                            if tests_info_map.contains_key(global_script_id) {
+                                tests_info_map
+                                    .get_mut(global_script_id)
+                                    .unwrap()
+                                    .push(test_info);
+                            } else {
+                                tests_info_map.insert(global_script_id.to_owned(), vec![test_info]);
                             }
-
                         }
                     }
                     //remove finished
@@ -262,11 +264,20 @@ pub async fn start_test(
                     }
                 }
                 //save in redis
-                for (script_id, tests) in tests_info.iter() {
+                for (script_id, tests_info) in tests_info_map.iter() {
+                    let websocket_message = models::websocket::WebSocketMessage {
+                        event_type: "UPDATE",
+                        event: models::websocket::tests::Event {
+                            tests_info: tests_info,
+                        },
+                    };
                     let _: () = red_connection
-                        .set(script_id, serde_json::to_string(&tests).unwrap()).unwrap();
-                    let _: () = red_connection
-                        .expire(script_id, 5).unwrap();
+                        .set(
+                            script_id,
+                            serde_json::to_string(&websocket_message).unwrap(),
+                        )
+                        .unwrap();
+                    let _: () = red_connection.expire(script_id, 5).unwrap();
                 }
                 sleep(Duration::from_secs(3)).await;
             }
@@ -294,7 +305,7 @@ pub async fn stop_test(
     script_id: &str,
     test_id: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    red_client: Data<&redis::Client>,
+    /*red_client: Data<&redis::Client>,*/
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
         success: true,
@@ -311,10 +322,10 @@ pub async fn stop_test(
                 response.message = "Task stopped";
                 //running_tests_guard.remove_entry(&task_id);
                 //remove from redis
-                let mut red_connection = red_client.get_connection().unwrap();
-                let _: () = red_connection
-                    .srem(shared::RUNNING_TESTS, &task_id)
-                    .unwrap();
+                // let mut red_connection = red_client.get_connection().unwrap();
+                // let _: () = red_connection
+                //     .srem(shared::RUNNING_TESTS, &task_id)
+                //     .unwrap();
             }
             Err(_) => {
                 println!("ERROR: test: [{}] could not be killed!", task_id);
@@ -326,5 +337,37 @@ pub async fn stop_test(
             response.message = "Task does not exist. Nothing to stop";
         }
     }
+    return Ok(serde_json::to_string(&response).unwrap());
+}
+
+pub async fn delete_test(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    /*red_client: Data<&redis::Client>,*/
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Test delete",
+        error: None,
+        content: None,
+    };
+    if stop_test(
+        project_id,
+        script_id,
+        test_id,
+        running_tests, /*red_client*/
+    )
+    .await
+    .is_err()
+    {
+        response.success = false;
+        response.error = Some("Could not stop test");
+    }
+    //get test folder and delete it
+    let test_dir = shared::get_a_test_results_dir(project_id, script_id, test_id);
+    std::fs::remove_dir_all(test_dir)?;
+
     return Ok(serde_json::to_string(&response).unwrap());
 }
