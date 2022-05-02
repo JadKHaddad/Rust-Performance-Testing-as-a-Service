@@ -73,7 +73,13 @@
     </form>
     <ul>
       <li v-for="test in reversedTests" :key="test.id">
-        {{ test }}
+        <div>{{ test.id }}</div>
+        <div>{{ test.status }}</div>
+        <div>{{ test.info }}</div>
+        <div>{{ jsonParse(test.results) }}</div>
+        <br>
+        <div># # # # # # # # # # # # # # # # # # # # # # # # # # # # #</div>
+        <br>
         <button type="button" @click="stop(test.id)">Stop</button>
         <button type="button" @click="del(test.id)">Delete</button>
       </li>
@@ -103,6 +109,9 @@ export default {
       }
     },
   methods: {
+    jsonParse(json) {
+      return JSON.parse(json);
+    },
     connenctWebsocket() {
       this.ws = new WebSocket(
         `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`

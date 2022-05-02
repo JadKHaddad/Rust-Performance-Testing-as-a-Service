@@ -1,3 +1,4 @@
+use csv::Reader;
 use std::path::{Path, PathBuf};
 
 pub const DATA_DIR: &str = "data";
@@ -69,7 +70,7 @@ pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
     format!("{}]$[{}", project_id, script_id)
 }
 
-pub fn get_global_script_id(test_id: &str) -> &str{
+pub fn get_global_script_id(test_id: &str) -> &str {
     let index = test_id.rfind("]$[").unwrap();
     &test_id[0..index]
 }
@@ -114,11 +115,19 @@ pub fn get_info_file_path(project_id: &str, script_id: &str, test_id: &str) -> P
 
 pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<String> {
     let csv_file = get_csv_file_path(project_id, script_id, &test_id);
-    let results = match std::fs::read_to_string(csv_file) {
-        Ok(res) => Some(res),
-        Err(_) => None,
+    let mut rdr = match Reader::from_path(csv_file) {
+        Ok(rdr) => rdr,
+        Err(_) => return None,
     };
-    return results;
+    let mut results = Vec::new();
+    for result in rdr.deserialize() {
+        let row: models::ResultRow = match result {
+            Ok(record) => record,
+            Err(_) => return None,
+        };
+        results.push(row);
+    }
+    return Some(serde_json::to_string(&results).unwrap());
 }
 
 pub fn get_info(

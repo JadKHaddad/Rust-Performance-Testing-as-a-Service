@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 #[derive(Debug, Serialize)]
 pub struct Test {
     pub id: String,
@@ -7,6 +7,43 @@ pub struct Test {
     pub status: u8, // 0 running, 1 finished
     pub results: Option<String>,
     pub info: Option<http::TestInfo>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ResultRow {
+    #[serde(rename(serialize = "type"))]
+    #[serde(rename(deserialize = "Type"))]
+    r#type: String,
+    #[serde(rename(serialize = "name"))]
+    #[serde(rename(deserialize = "Name"))]
+    name: String,
+    #[serde(rename(serialize = "request_count"))]
+    #[serde(rename(deserialize = "Request Count"))]
+    request_count: String,
+    #[serde(rename(serialize = "failure_count"))]
+    #[serde(rename(deserialize = "Failure Count"))]
+    failure_count: String,
+    #[serde(rename(serialize = "median_response_time"))]
+    #[serde(rename(deserialize = "Median Response Time"))]
+    median_response_time: String,
+    #[serde(rename(serialize = "avarage_response_time"))]
+    #[serde(rename(deserialize = "Average Response Time"))]
+    avarage_response_time: String,
+    #[serde(rename(serialize = "min_response_time"))]
+    #[serde(rename(deserialize = "Min Response Time"))]
+    min_response_time: String,
+    #[serde(rename(serialize = "max_response_time"))]
+    #[serde(rename(deserialize = "Max Response Time"))]
+    max_response_time: String,
+    #[serde(rename(serialize = "avarage_content_size"))]
+    #[serde(rename(deserialize = "Average Content Size"))]
+    avarage_content_size: String,
+    #[serde(rename(serialize = "requests_per_second"))]
+    #[serde(rename(deserialize = "Requests/s"))]
+    requests_per_second: String,
+    #[serde(rename(serialize = "failures_per_seconde"))]
+    #[serde(rename(deserialize = "Failures/s"))]
+    failures_per_second: String,
 }
 
 pub mod websocket {
