@@ -1,5 +1,4 @@
 extern crate redis;
-
 use parking_lot::RwLock;
 use poem::{
     handler,
@@ -95,8 +94,29 @@ async fn delete_test(
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
+    let args: Vec<String> = std::env::args().collect();
     //IP
-    let ip = String::from("127.0.0.1:5000");
+    let ip = if let Some(ip) = args.get(1) {
+        ip.to_owned()
+    } else {
+        "127.0.0.1:5000".to_owned()
+    };
+    let master_ip = if let Some(ip) = args.get(2) {
+        ip.to_owned()
+    } else {
+        "127.0.0.1:3000".to_owned()
+    };
+    let redis_host = if let Some(r_host) = args.get(3) {
+        r_host.to_owned()
+    } else {
+        "localhost".to_owned()
+    };
+
+    println!(
+        "WORKER: Starting with IP: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}]\n",
+        ip, master_ip, redis_host
+    );
+    //TODO! register with master
 
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
@@ -107,7 +127,7 @@ async fn main() -> Result<(), std::io::Error> {
     let currently_running_tests = Arc::new(AtomicBool::new(false));
 
     //redis client
-    let red_client = redis::Client::open(format!("redis://{}:{}/", "localhost", "6379")).unwrap();
+    let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
 
     tracing_subscriber::fmt::init();
 

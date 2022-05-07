@@ -98,7 +98,7 @@ async fn stop_test(
                 .send()
                 .await
             {
-                // Notify subs
+                // TODO! Notify subs
                 Ok(response) => return response.text().await.unwrap(),
                 Err(err) => {
                     return serde_json::to_string(&models::http::ErrorResponse::new(
@@ -117,7 +117,10 @@ async fn stop_test(
 }
 
 #[handler]
-async fn delete_test(Path((project_id, script_id, test_id)): Path<(String, String, String)>) -> String {
+async fn delete_test(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+) -> String {
+    //if not running delete it. if running let worker delete it
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
         Some(ip) => {
             let mut client = reqwest::Client::new();
@@ -129,7 +132,7 @@ async fn delete_test(Path((project_id, script_id, test_id)): Path<(String, Strin
                 .send()
                 .await
             {
-                // Notify subs
+                // TODO! Notify subs
                 Ok(response) => return response.text().await.unwrap(),
                 Err(err) => {
                     return serde_json::to_string(&models::http::ErrorResponse::new(
@@ -142,7 +145,7 @@ async fn delete_test(Path((project_id, script_id, test_id)): Path<(String, Strin
         None => {
             // Server error
             return serde_json::to_string(&models::http::ErrorResponse::new("No worker ip found"))
-            .unwrap();
+                .unwrap();
         }
     }
 }
@@ -337,8 +340,27 @@ pub async fn subscribe(
     })
 }
 
+#[handler]
+pub async fn register_worker() -> impl IntoResponse {
+    todo!()
+}
+
+#[handler]
+pub async fn delelte_worker() -> impl IntoResponse {
+    todo!()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
+    let args: Vec<String> = std::env::args().collect();
+    let redis_host = if let Some(r_host) = args.get(1) {
+        r_host.to_owned()
+    } else {
+        "localhost".to_owned()
+    };
+
+    println!("MASTER: Starting with REDIS_HOST: [{}]\n", redis_host);
+
     //create download directory
     std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
     //installing tasks
@@ -357,8 +379,9 @@ async fn main() -> Result<(), std::io::Error> {
     let subscriptions: Arc<RwLock<HashMap<String, (u32, Sender<String>)>>> =
         Arc::new(RwLock::new(HashMap::new()));
     //redis client
-    let red_client = redis::Client::open(format!("redis://{}:{}/", "localhost", "6379")).unwrap();
+    let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
     let mut red_connection = red_client.get_connection().unwrap();
+    //FIXME! no flush on start
     //flushdb on start
     let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
 
@@ -396,6 +419,8 @@ async fn main() -> Result<(), std::io::Error> {
         .run(app)
         .await
 }
+
+//FIXME! running tests count could be lost if worker died. fix this by getting the count from the results hashmap that gets deleted if if worker did not update it
 
 // #[handler]
 // async fn single_download(req: poem::web::StaticFileRequest) -> poem::error::Result<impl IntoResponse> {
