@@ -4,7 +4,7 @@ use poem::{
     handler,
     listener::TcpListener,
     middleware::AddData,
-    post,
+    post, get, 
     web::{Data, Json, Path},
     EndpointExt, Route, Server,
 };
@@ -16,6 +16,11 @@ use std::{
 mod lib;
 use shared::models;
 //use models::websocket::WebSocketMessage;
+
+#[handler]
+async fn health() -> String {
+    "OK".to_string()
+}
 
 #[handler]
 async fn start_test(
@@ -132,6 +137,7 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
+        .at("health", get(health))
         .at("/start_test/:project_id/:script_id", post(start_test))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",

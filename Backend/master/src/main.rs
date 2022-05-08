@@ -33,6 +33,11 @@ use shared::models;
 //use models::websocket::WebSocketMessage;
 
 #[handler]
+async fn health() -> String {
+    "OK".to_string()
+}
+
+#[handler]
 async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
@@ -388,7 +393,7 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        //.at("/path/:name/:id", get(path))
+        .at("health", get(health))
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at(
             "/ws",
