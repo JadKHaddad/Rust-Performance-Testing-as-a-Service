@@ -393,7 +393,7 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        .at("health", get(health))
+        .at("/health", get(health))
         .at("/upload", post(upload.data(currently_installing_projects)))
         .at(
             "/ws",
@@ -420,7 +420,7 @@ async fn main() -> Result<(), std::io::Error> {
             tokio::sync::broadcast::channel::<String>(512).0,
         ))
         .with(AddData::new(red_client));
-    Server::new(TcpListener::bind("127.0.0.1:3000"))
+    Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run(app)
         .await
 }

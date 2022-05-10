@@ -137,7 +137,7 @@ async fn main() -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
-        .at("health", get(health))
+        .at("/health", get(health))
         .at("/start_test/:project_id/:script_id", post(start_test))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",
@@ -152,7 +152,7 @@ async fn main() -> Result<(), std::io::Error> {
         .with(AddData::new(currently_running_tests))
         .with(AddData::new(red_client));
 
-    Server::new(TcpListener::bind("127.0.0.1:5000"))
+    Server::new(TcpListener::bind("0.0.0.0:5000"))
         .run(app)
         .await
 }

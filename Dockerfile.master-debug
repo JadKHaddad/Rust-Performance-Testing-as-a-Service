@@ -1,22 +1,26 @@
 # docker build -t master-debug:latest -f Dockerfile.master-debug .
 # docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway master-debug:latest host.docker.internal
 
-FROM rust:1.60.0 AS builder
+FROM debian:10-slim AS builder
 
-USER root
-
-RUN apt-get update
-RUN apt-get install pkg-config libssl-dev
-
-RUN rustup target add x86_64-unknown-linux-musl
+RUN apt update
+RUN apt install -y build-essential
+RUN apt install -y curl
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN apt install -y pkg-config
+RUN apt install -y libssl-dev
 
 COPY Backend home/Backend/
 
 WORKDIR /home/Backend/master/
 
-RUN cargo build --target x86_64-unknown-linux-musl
+RUN /root/.cargo/bin/cargo build 
 
-FROM python:3.8-slim-buster AS runner
+
+FROM debian:10-slim AS runner
+
+RUN apt update
+RUN apt install -y libssl-dev
 
 COPY --from=builder /home/Backend/master/target/debug/master /home/Backend/master/target/debug/master
 
@@ -25,5 +29,3 @@ WORKDIR /home/Backend/master/
 EXPOSE 3000
 
 ENTRYPOINT [ "/home/Backend/master/target/debug/master" ]
-
-#https://agryaznov.com/guides/2019/05/20/substrate-install.html#openssl
