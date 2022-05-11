@@ -1,0 +1,21 @@
+# docker build -t master-release:latest -f Dockerfile.master-release .
+# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data master-release:latest host.docker.internal
+
+FROM builder:latest AS builder
+
+COPY Backend home/Backend/
+
+WORKDIR /home/Backend/master/
+
+RUN /root/.cargo/bin/cargo build 
+
+
+FROM runner:latest AS runner
+
+COPY --from=builder /home/Backend/master/target/release/master /home/Backend/master/target/release/master
+
+WORKDIR /home/Backend/master/
+
+EXPOSE 3000
+
+ENTRYPOINT [ "/home/Backend/master/target/release/master" ]

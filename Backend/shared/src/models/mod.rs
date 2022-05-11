@@ -5,7 +5,7 @@ pub struct Test {
     pub script_id: String,
     pub project_id: String,
     pub status: u8, // 0 running, 1 finished
-    pub results: Option<String>,
+    pub results: Option<Vec<ResultRow>>,
     pub info: Option<http::TestInfo>,
 }
 
@@ -96,7 +96,7 @@ pub mod websocket {
         pub struct TestInfo {
             pub id: String,
             pub status: u8, // 0 running, 1 finished
-            pub results: Option<String>,
+            pub results: Option<Vec<super::super::ResultRow>>,
         }
     }
 }

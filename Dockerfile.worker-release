@@ -1,0 +1,21 @@
+# docker build -t worker-release:latest -f Dockerfile.worker-release .
+# docker run --name worker --rm -it -p 5000:5000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data worker-release:latest host.docker.internal
+
+FROM builder:latest AS builder
+
+COPY Backend home/Backend/
+
+WORKDIR /home/Backend/worker/
+
+RUN /root/.cargo/bin/cargo build --release
+
+
+FROM runner:latest AS runner
+
+COPY --from=builder /home/Backend/worker/target/release/worker /home/Backend/worker/target/release/worker
+
+WORKDIR /home/Backend/worker/
+
+EXPOSE 5000
+
+ENTRYPOINT [ "/home/Backend/worker/target/release/worker" ]

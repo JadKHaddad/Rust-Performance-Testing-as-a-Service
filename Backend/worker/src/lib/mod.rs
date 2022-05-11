@@ -138,7 +138,7 @@ pub async fn start_test(
     } else {
         let can_locust_location_linux =
             canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
-        Command::new("/usr/bin/bash")
+        Command::new("bash")
             .current_dir(shared::get_a_project_dir(&project_id))
             .args(&[
                 "-c",

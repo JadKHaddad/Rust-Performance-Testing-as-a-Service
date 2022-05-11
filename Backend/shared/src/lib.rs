@@ -113,7 +113,7 @@ pub fn get_info_file_path(project_id: &str, script_id: &str, test_id: &str) -> P
     get_a_test_results_dir(project_id, script_id, test_id).join("info.json")
 }
 
-pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<String> {
+pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<Vec<models::ResultRow>> {
     let csv_file = get_csv_file_path(project_id, script_id, &test_id);
     let mut rdr = match Reader::from_path(csv_file) {
         Ok(rdr) => rdr,
@@ -127,7 +127,7 @@ pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<S
         };
         results.push(row);
     }
-    return Some(serde_json::to_string(&results).unwrap());
+    return Some(results);
 }
 
 pub fn get_info(

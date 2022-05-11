@@ -1,31 +1,14 @@
 # docker build -t master-debug:latest -f Dockerfile.master-debug .
-# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway master-debug:latest host.docker.internal
+# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data -v ${PWD}/debug-builds/master:/home/Backend/master/target master-debug:latest run -- host.docker.internal
 
-FROM debian:10-slim AS builder
-
-RUN apt update
-RUN apt install -y build-essential
-RUN apt install -y curl
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-RUN apt install -y pkg-config
-RUN apt install -y libssl-dev
+FROM debugger:latest
 
 COPY Backend home/Backend/
 
 WORKDIR /home/Backend/master/
 
-RUN /root/.cargo/bin/cargo build 
-
-
-FROM debian:10-slim AS runner
-
-RUN apt update
-RUN apt install -y libssl-dev
-
-COPY --from=builder /home/Backend/master/target/debug/master /home/Backend/master/target/debug/master
-
-WORKDIR /home/Backend/master/
+RUN mkdir -p /home/Backend/master/target
 
 EXPOSE 3000
 
-ENTRYPOINT [ "/home/Backend/master/target/debug/master" ]
+ENTRYPOINT [ "/root/.cargo/bin/cargo" ]

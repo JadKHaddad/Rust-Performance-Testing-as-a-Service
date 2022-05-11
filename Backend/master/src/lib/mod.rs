@@ -158,7 +158,7 @@ pub async fn upload(
             .spawn()?
     } else {
         let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
-        Command::new("/usr/bin/bash")
+        Command::new("bash")
             .args(&[
                 "-c",
                 &format!(

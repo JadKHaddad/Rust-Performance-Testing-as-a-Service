@@ -76,7 +76,7 @@
         <div>{{ test.id }}</div>
         <div>{{ test.status }}</div>
         <div>{{ test.info }}</div>
-        <div>{{ jsonParse(test.results) }}</div>
+        <div>{{ test.results }}</div>
         <br>
         <div># # # # # # # # # # # # # # # # # # # # # # # # # # # # #</div>
         <br>
@@ -109,9 +109,6 @@ export default {
       }
     },
   methods: {
-    jsonParse(json) {
-      return JSON.parse(json);
-    },
     connenctWebsocket() {
       this.ws = new WebSocket(
         `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`

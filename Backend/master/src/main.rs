@@ -125,7 +125,7 @@ async fn stop_test(
 async fn delete_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
 ) -> String {
-    //if not running delete it. if running let worker delete it
+    // TODO! if not running delete it. if running let worker delete it
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
         Some(ip) => {
             let mut client = reqwest::Client::new();
