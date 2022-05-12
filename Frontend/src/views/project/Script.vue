@@ -77,9 +77,9 @@
         <div>{{ test.status }}</div>
         <div>{{ test.info }}</div>
         <div>{{ test.results }}</div>
-        <br>
+        <br />
         <div># # # # # # # # # # # # # # # # # # # # # # # # # # # # #</div>
-        <br>
+        <br />
         <button type="button" @click="stop(test.id)">Stop</button>
         <button type="button" @click="del(test.id)">Delete</button>
       </li>
@@ -104,10 +104,10 @@ export default {
     };
   },
   computed: {
-      reversedTests() {
-        return this.tests.reverse();
-      }
+    reversedTests() {
+      return this.tests.reverse();
     },
+  },
   methods: {
     connenctWebsocket() {
       this.ws = new WebSocket(
@@ -123,9 +123,25 @@ export default {
           for (var i = 0; i < testsResults.length; i++) {
             let incomingTest = testsResults[i];
             let test = this.tests.find((test) => test.id === incomingTest.id);
-            test.results = incomingTest.results;
-            test.status = incomingTest.status;
+            if (test) {
+              test.results = incomingTest.results;
+              test.status = incomingTest.status;
+            }
           }
+          return;
+        }
+        if (event_type === "TEST_STARTED") {
+          const new_test = data.event.test;
+          let test = this.tests.find((test) => test.id === new_test.id);
+          if (!test) {
+            this.tests.push(new_test);
+          }
+          return;
+        }
+        if (event_type === "TEST_DELETED") {
+          const id = data.event.id;
+          this.tests = this.tests.filter((test) => test.id !== id);
+          return;
         }
       };
     },
@@ -157,6 +173,14 @@ export default {
           if (data.success) {
             let test = data.content;
             this.tests.push(test);
+            this.ws.send(
+              JSON.stringify({
+                event_type: "TEST_STARTED",
+                event: {
+                  test: test,
+                },
+              })
+            );
           } else {
             console.log(data.error);
           }

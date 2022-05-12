@@ -124,6 +124,7 @@ async fn stop_test(
 #[handler]
 async fn delete_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
 ) -> String {
     // TODO! if not running delete it. if running let worker delete it
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
@@ -137,8 +138,26 @@ async fn delete_test(
                 .send()
                 .await
             {
-                // TODO! Notify subs
-                Ok(response) => return response.text().await.unwrap(),
+                Ok(response) => {
+                    {
+                        let script_id = shared::encode_script_id(&project_id, &script_id);
+                        let subscriptions_guard = subscriptions.read();
+                        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+                            //create event
+                            let websocket_message = models::websocket::WebSocketMessage {
+                                event_type: "TEST_DELETED",
+                                event: models::websocket::tests::TestDeletedEvent { id: test_id },
+                            };
+                            if sender
+                                .send(serde_json::to_string(&websocket_message).unwrap())
+                                .is_err()
+                            {
+                                println!("DELETE TEST: No clients are connected!");
+                            }
+                        }
+                    }
+                    return response.text().await.unwrap();
+                }
                 Err(err) => {
                     return serde_json::to_string(&models::http::ErrorResponse::new(
                         &err.to_string(),
@@ -303,15 +322,21 @@ pub async fn subscribe(
             "SUBSCRIBER: Script [{}]: COUNT: [{}]",
             script_id, subscriptions_guard[&script_id_debug].0
         );
+        let sender = subscriptions_guard[&script_id_debug].1.clone();
         let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
         //websocket sender
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(rec_msg) = msg {
+                    /*
                     println!(
                         "SUBSCRIBER: Script [{}]: Received message: [{}], [{}]",
                         script_id, rec_msg, id
                     );
+                    */
+                    if sender.send(rec_msg).is_err() {
+                        break;
+                    }
                 }
             }
             println!(

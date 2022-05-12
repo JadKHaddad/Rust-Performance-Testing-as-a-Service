@@ -267,7 +267,7 @@ pub async fn start_test(
                 for (script_id, tests_info) in tests_info_map.iter() {
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: "UPDATE",
-                        event: models::websocket::tests::Event {
+                        event: models::websocket::tests::TestInfoEvent {
                             tests_info: tests_info,
                         },
                     };
@@ -367,7 +367,29 @@ pub async fn delete_test(
     }
     //get test folder and delete it
     let test_dir = shared::get_a_test_results_dir(project_id, script_id, test_id);
-    std::fs::remove_dir_all(test_dir)?;
+    //sometimes on windows the folder is not deleted but info is deleted so lets back it up
+    let info_file = shared::get_info_file_path(project_id, script_id, &test_id);
+    let test_info = std::fs::read_to_string(&info_file)?;
+
+    match std::fs::remove_dir_all(&test_dir) {
+        Ok(_) => {
+            println!(
+                "TEST DELETED: [{}]!",
+                test_dir.to_str().ok_or("System Error")?
+            );
+        }
+        Err(e) => {
+            println!(
+                "ERROR: test: [{}] could not be deleted! Error: {:?}",
+                test_dir.to_str().ok_or("System Error")?,
+                e
+            );
+            let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
+            file.write(test_info.as_bytes())?;
+            response.success = false;
+            response.error = Some("Could not delete test");
+        }
+    }
 
     return Ok(serde_json::to_string(&response).unwrap());
 }

@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize)]
 pub struct Test {
     pub id: String,
@@ -88,7 +88,7 @@ pub mod websocket {
         use serde::Serialize;
 
         #[derive(Debug, Serialize)]
-        pub struct Event <'a>{
+        pub struct TestInfoEvent<'a> {
             pub tests_info: &'a Vec<TestInfo>,
         }
 
@@ -97,6 +97,11 @@ pub mod websocket {
             pub id: String,
             pub status: u8, // 0 running, 1 finished
             pub results: Option<Vec<super::super::ResultRow>>,
+        }
+
+        #[derive(Debug, Serialize)]
+        pub struct TestDeletedEvent {
+            pub id: String,
         }
     }
 }
