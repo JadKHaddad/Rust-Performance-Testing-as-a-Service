@@ -8,7 +8,6 @@
       Upload
     </button>
 
-
     <div id="modal-upload" uk-modal>
       <div class="uk-modal-dialog uk-modal-body">
         <form>
@@ -24,10 +23,13 @@
                 disabled
               />
             </div>
-            <button type="button" class="uk-button uk-button-default" @click="upload">
+            <button
+              type="button"
+              class="uk-button uk-button-default"
+              @click="upload"
+            >
               Upload
             </button>
-            
           </div>
         </form>
       </div>
@@ -38,18 +40,24 @@
 
     <h1>Projects</h1>
 
-    <ul>
+    <ul class="uk-list">
       <li v-for="project in projects" :key="project.id">
-        {{ project.id }}
-        <ul>
-          <li v-for="script in project.scripts" :key="script">
-            <router-link
-              :to="{ name: 'Script', params: { pid: project.id, id: script } }"
-            >
-              {{ script }}
-            </router-link>
-          </li>
-        </ul>
+        <div class="uk-card uk-card-default uk-card-body">
+          <h3 class="uk-card-title">{{ project.id }}</h3>
+          <ul class="uk-list uk-list-divider script-list">
+            
+            <li v-for="script in project.scripts" :key="script">
+              <router-link
+                :to="{
+                  name: 'Script',
+                  params: { pid: project.id, id: script },
+                }"
+              >
+                {{ script }}
+              </router-link>
+            </li>
+          </ul>
+        </div>
       </li>
     </ul>
   </div>

@@ -1,10 +1,12 @@
 /*main*/
 html,body {
     height: 100%;
+    width: 100%;
 }
 
 #app{
     height: 100%;
+    width: 100%;
 }
 /*end of main*/
 
@@ -50,5 +52,14 @@ html,body {
 
 .content {
     display: flex;
-    padding: 20px;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+}
+
+.script-list>li>a {
+    color: #999;
+    text-transform: uppercase;
+    transition: .1s ease-in-out;
+    transition-property: color,background-color;
 }
