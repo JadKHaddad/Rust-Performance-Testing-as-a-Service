@@ -1,12 +1,41 @@
 <template>
   <div>
-    <form>
-      <input type="file" webkitdirectory mozdirectory ref="files" />
-      <div>Please make sure all names don't include blank spaces</div>
-      <button type="button" @click="upload">Upload</button>
-    </form>
+    <button
+      class="uk-button uk-button-default uk-margin-small-right"
+      type="button"
+      uk-toggle="target: #modal-upload"
+    >
+      Upload
+    </button>
+
+
+    <div id="modal-upload" uk-modal>
+      <div class="uk-modal-dialog uk-modal-body">
+        <form>
+          <div class="uk-margin" uk-margin>
+            <h2>Upload a new project</h2>
+            <h5>Please make sure all names don't include blank spaces</h5>
+            <div uk-form-custom="target: true">
+              <input type="file" webkitdirectory mozdirectory ref="files" />
+              <input
+                class="uk-input uk-form-width-medium"
+                type="text"
+                placeholder="Select file"
+                disabled
+              />
+            </div>
+            <button type="button" class="uk-button uk-button-default" @click="upload">
+              Upload
+            </button>
+            
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div>uploading: {{ uploading }}</div>
     <div>response: {{ uploadResponse }}</div>
+
     <h1>Projects</h1>
 
     <ul>
@@ -39,6 +68,7 @@ export default {
   methods: {
     upload() {
       const files = this.$refs.files.files;
+      console.log(files);
       if (files.length < 1) {
         console.log("Please select a directory to upload");
         return false;

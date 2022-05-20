@@ -327,7 +327,11 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
         };
         let mut scripts = Vec::new();
         for script_file in locust_dir {
-            let script_name = script_file?
+            let script_file = script_file?;
+            if script_file.metadata()?.is_dir() {
+                continue;
+            }
+            let script_name = script_file
                 .file_name()
                 .to_str()
                 .ok_or("Parse Error")?
