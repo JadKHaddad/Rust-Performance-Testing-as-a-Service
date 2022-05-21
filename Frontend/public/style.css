@@ -63,3 +63,13 @@ html,body {
     transition: .1s ease-in-out;
     transition-property: color,background-color;
 }
+
+.upload-spinner{
+    margin-left: 1rem;
+}
+
+.upload-container{
+    display: flex;
+    align-items: center;
+    margin-top: 1rem;
+}

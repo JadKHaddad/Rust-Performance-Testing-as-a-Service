@@ -13,13 +13,26 @@
           <li>
             <div class="uk-navbar-item">
               <span uk-icon="users"></span>
-              <label>{{ connected_clients_count }}</label>
+              <label>{{ connectedClientsCount }}</label>
             </div>
           </li>
           <li>
             <div class="uk-navbar-item">
               <span uk-icon="play"></span>
-              <label>{{ running_tests_count }}</label>
+              <label>{{ runningTestsCount }}</label>
+            </div>
+          </li>
+          <li>
+            <div class="uk-navbar-item">
+              <span uk-icon="download"></span>
+              <div v-if="showInstallingProjects" class="uk-navbar-dropdown">
+                    <ul class="uk-nav uk-navbar-dropdown-nav uk-list-divider">
+                      <li v-for="project in installingProjects" :key="project">
+                        {{ project}}
+                      </li>
+                    </ul>
+                </div>
+              <label>{{ installingProjects.length }}</label>
             </div>
           </li>
         </ul>
@@ -37,8 +50,10 @@ export default {
   data() {
     return {
       ws: null,
-      connected_clients_count: 0,
-      running_tests_count: 0,
+      connectedClientsCount: 0,
+      runningTestsCount: 0,
+      installingProjects: [],
+      showInstallingProjects: false,
     };
   },
   methods: {
@@ -51,8 +66,20 @@ export default {
         const data = JSON.parse(event.data);
         const event_type = data.event_type;
         if (event_type === "INFORMATION") {
-          this.connected_clients_count = data.event.connected_clients_count;
-          this.running_tests_count = data.event.running_tests_count;
+          this.connectedClientsCount = data.event.connected_clients_count;
+          this.runningTestsCount = data.event.running_tests_count;
+          this.installingProjects = data.event.istalling_projects;
+          if (this.installingProjects.length > 0) {
+            this.showInstallingProjects = true;
+            return;
+          }
+          this.showInstallingProjects = false;
+          return;
+        }
+        if (event_type === "PROJECTS") {
+          
+          //{"event_type":"PROJECTS","event":{"istalling_projects":[{"id":"Neuer_Ordner","status":0,"error":null}]}}
+          return;
         }
       };
     },

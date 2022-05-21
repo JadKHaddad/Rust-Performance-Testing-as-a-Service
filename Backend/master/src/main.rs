@@ -182,6 +182,7 @@ pub async fn ws(
     information_thread_running: Data<&Arc<AtomicBool>>,
     red_client: Data<&redis::Client>,
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+    installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
     let tokio_main_sender = main_sender.clone();
@@ -192,6 +193,7 @@ pub async fn ws(
     let information_thread_running = Arc::clone(&information_thread_running);
     let red_client = red_client.clone();
     let subscriptions = subscriptions.clone();
+    let installing_tasks = installing_tasks.clone();
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
         ws_upgrade_connected_clients.fetch_add(1, Ordering::SeqCst);
@@ -243,6 +245,12 @@ pub async fn ws(
                         break;
                     }
                     println!("INFORMATION THREAD: Running!");
+                    let istalling_projects;
+                    {
+                        let installing_tasks_guard = installing_tasks.read();
+                        istalling_projects = installing_tasks_guard.iter().map(|(k, _)| k.to_owned()).collect::<Vec<_>>();
+                    }
+
                     let running_tests_count: u32 =
                         if let Ok(count) = red_connection.scard(shared::RUNNING_TESTS) {
                             count
@@ -254,6 +262,7 @@ pub async fn ws(
                         event: models::websocket::information::Event {
                             connected_clients_count,
                             running_tests_count,
+                            istalling_projects
                         },
                     };
                     if tokio_main_sender

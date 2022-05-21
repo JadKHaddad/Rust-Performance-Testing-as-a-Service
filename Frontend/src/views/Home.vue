@@ -3,49 +3,48 @@
     <button
       class="uk-button uk-button-default uk-margin-small-right"
       type="button"
-      uk-toggle="target: #modal-upload"
+      uk-toggle="target: #upload-modal"
+      @click="uploadMessage = ''"
     >
       Upload
     </button>
 
-    <div id="modal-upload" uk-modal>
+    <div id="upload-modal" uk-modal ref="upload-modal">
       <div class="uk-modal-dialog uk-modal-body">
         <form>
           <div class="uk-margin" uk-margin>
             <h2>Upload a new project</h2>
             <h5>Please make sure all names don't include blank spaces</h5>
-            <div uk-form-custom="target: true">
-              <input type="file" webkitdirectory mozdirectory ref="files" />
-              <input
-                class="uk-input uk-form-width-medium"
-                type="text"
-                placeholder="Select file"
-                disabled
-              />
+            <div class="upload-container">
+              <div uk-form-custom="target: true">
+                <input type="file" webkitdirectory mozdirectory ref="files" />
+                <input
+                  class="uk-input uk-form-width-medium"
+                  type="text"
+                  placeholder="Select project"
+                  disabled
+                />
+              </div>
+              <button
+                type="button"
+                class="uk-button uk-button-default"
+                @click="upload"
+              >
+                Upload
+              </button>
+              <div v-if="uploading" uk-spinner class="upload-spinner"></div>
             </div>
-            <button
-              type="button"
-              class="uk-button uk-button-default"
-              @click="upload"
-            >
-              Upload
-            </button>
+            <h5>{{ uploadMessage }}</h5>
           </div>
         </form>
       </div>
     </div>
-
-    <div>uploading: {{ uploading }}</div>
-    <div>response: {{ uploadResponse }}</div>
-
     <h1>Projects</h1>
-
     <ul class="uk-list">
       <li v-for="project in projects" :key="project.id">
         <div class="uk-card uk-card-default uk-card-body">
           <h3 class="uk-card-title">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
-            
             <li v-for="script in project.scripts" :key="script">
               <router-link
                 :to="{
@@ -69,16 +68,19 @@ export default {
   data() {
     return {
       uploading: false,
-      uploadResponse: "",
       projects: [],
+      uploadMessage: "",
     };
   },
   methods: {
+    hideUploadModal() {
+      UIkit.modal(this.$refs["upload-modal"]).hide();
+    },
     upload() {
       const files = this.$refs.files.files;
       console.log(files);
       if (files.length < 1) {
-        console.log("Please select a directory to upload");
+        this.uploadMessage = "Please select a directory to upload";
         return false;
       }
       var data = new FormData();
@@ -118,12 +120,17 @@ export default {
       })
         .then((data) => data.json())
         .then((data) => {
-          this.uploadResponse = data;
-          this.uploading = false;
           console.log(data);
+          this.uploading = false;
+          if (data.success) {
+            this.hideUploadModal();
+          } else {
+            this.uploadMessage = data.error;
+          }
         })
         .catch(() => {
           this.uploading = false;
+          this.hideUploadModal();
         });
       return false;
     },

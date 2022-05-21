@@ -62,9 +62,10 @@ pub mod websocket {
         use serde::Serialize;
 
         #[derive(Debug, Serialize)]
-        pub struct Event {
+        pub struct Event{
             pub connected_clients_count: u32,
             pub running_tests_count: u32,
+            pub istalling_projects: Vec<String>,
         }
     }
 
