@@ -348,6 +348,37 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
+pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>{
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Project",
+        error: None,
+        content: None,
+    };
+    let mut content = models::http::scripts::Content {
+        scripts: Vec::new(),
+    };
+
+    let locust_dir = std::fs::read_dir(shared::get_a_locust_dir(project_id))?;
+
+    for script_file in locust_dir {
+        let script_file = script_file?;
+        if script_file.metadata()?.is_dir() {
+            continue;
+        }
+        let script_name = script_file
+            .file_name()
+            .to_str()
+            .ok_or("Parse Error")?
+            .to_owned();
+        content.scripts.push(script_name);
+    }
+
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
 pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::Client>,) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,

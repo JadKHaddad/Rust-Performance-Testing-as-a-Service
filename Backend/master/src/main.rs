@@ -74,6 +74,20 @@ async fn projects() -> String {
 }
 
 #[handler]
+async fn project_scripts(
+    Path(project_id): Path<String>,
+) -> String {
+    match lib::project_scripts(&project_id).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
 async fn tests(
     Path((project_id, script_id)): Path<(String, String)>,
     red_client: Data<&redis::Client>,
@@ -435,6 +449,7 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .at("/subscribe/:project_id/:script_id", get(subscribe))
         .at("/projects", get(projects))
+        .at("/project/:project_id", get(project_scripts))
         .at("/tests/:project_id/:script_id", get(tests))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",

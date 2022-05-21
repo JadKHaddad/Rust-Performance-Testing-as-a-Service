@@ -39,7 +39,7 @@
       </div>
     </nav>
     <div class="content">
-    <router-view />
+    <router-view :newProject="newProject"/>
     </div>
   </div>
 </template>
@@ -54,6 +54,7 @@ export default {
       runningTestsCount: 0,
       installingProjects: [],
       showInstallingProjects: false,
+      newProject: null,
     };
   },
   methods: {
@@ -78,7 +79,29 @@ export default {
         }
         if (event_type === "PROJECTS") {
           
-          //{"event_type":"PROJECTS","event":{"istalling_projects":[{"id":"Neuer_Ordner","status":0,"error":null}]}}
+          const istalling_projects = data.event.istalling_projects;
+          for (var i = 0; i < istalling_projects.length; i++) {
+            let project = istalling_projects[i];
+            if (project.status === 1){
+              //get scripts
+              fetch(`/api/master/project/${project.id}`)
+              .then((data) => data.json())
+              .then((data) => {
+                if (data.success) {
+                  const scripts = data.content.scripts;
+                  this.newProject = {id: project.id, scripts: scripts};
+                }
+              })
+              .catch();
+              return;
+            }if (project.status === 2){
+              const error = project.error;
+              //notify
+              return;
+            }
+
+          }
+          //{"event_type":"PROJECTS","event":{"istalling_projects":[{"id":"Neuer_Ordner-Kopie","status":0,"error":null}]}}
           return;
         }
       };

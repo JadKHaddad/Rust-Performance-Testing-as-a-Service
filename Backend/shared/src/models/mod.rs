@@ -181,6 +181,15 @@ pub mod http {
         }
     }
 
+    pub mod scripts {
+        use serde::Serialize;
+
+        #[derive(Debug, Serialize)]
+        pub struct Content {
+            pub scripts: Vec<String>,
+        }
+    }
+    
     pub mod tests {
         use serde::Serialize;
 

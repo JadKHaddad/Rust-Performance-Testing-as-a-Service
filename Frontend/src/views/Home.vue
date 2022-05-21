@@ -65,6 +65,12 @@
 <script>
 export default {
   name: "Home",
+  props: ["newProject"],
+  watch: {
+    'newProject': function () {
+      this.projects.push(this.newProject);
+    },
+  },
   data() {
     return {
       uploading: false,
@@ -73,6 +79,15 @@ export default {
     };
   },
   methods: {
+    getProjects() {
+      fetch("/api/master/projects")
+        .then((data) => data.json())
+        .then((data) => {
+          this.projects = data.content.projects;
+          console.log(data);
+        })
+        .catch();
+    },
     hideUploadModal() {
       UIkit.modal(this.$refs["upload-modal"]).hide();
     },
@@ -136,13 +151,7 @@ export default {
     },
   },
   created() {
-    fetch("/api/master/projects")
-      .then((data) => data.json())
-      .then((data) => {
-        this.projects = data.content.projects;
-        console.log(data);
-      })
-      .catch();
+    this.getProjects();
   },
 };
 </script>
