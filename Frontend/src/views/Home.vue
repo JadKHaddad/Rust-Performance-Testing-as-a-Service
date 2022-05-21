@@ -39,9 +39,22 @@
         </form>
       </div>
     </div>
+
     <h1>Projects</h1>
     <ul class="uk-list">
-      <li v-for="project in projects" :key="project.id">
+      <li
+        v-for="project in projects"
+        :key="project.id"
+        v-motion
+        :initial="{
+          opacity: 0,
+          x: 50,
+        }"
+        :enter="{
+          opacity: 1,
+          x: 0,
+        }"
+      >
         <div class="uk-card uk-card-default uk-card-body">
           <h3 class="uk-card-title">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
@@ -67,7 +80,7 @@ export default {
   name: "Home",
   props: ["newProject"],
   watch: {
-    'newProject': function () {
+    newProject: function () {
       this.projects.push(this.newProject);
     },
   },
