@@ -1,9 +1,87 @@
 <template>
   <div>
-    <h3>Project: {{ pid }} | Script: {{ id }}</h3>
+    <button
+      class="uk-button uk-button-default uk-margin-small-right"
+      type="button"
+      uk-toggle="target: #start-modal"
+    >
+      Start
+    </button>
 
+    <div id="start-modal" uk-modal ref="start-modal">
+      <div class="uk-modal-dialog uk-modal-body">
+        <form>
+          <div class="uk-margin">
+            <input
+              class="uk-input"
+              type="text"
+              placeholder="Users"
+              v-model="users"
+            />
+          </div>
+          <div class="uk-margin">
+            <input
+              class="uk-input"
+              type="text"
+              placeholder="Spawn rate"
+              v-model="spawnRate"
+            />
+          </div>
+          <div class="uk-margin">
+            <input
+              class="uk-input"
+              type="text"
+              placeholder="Workers"
+              v-model="workers"
+            />
+          </div>
+          <div class="uk-margin">
+            <label class="uk-form-label" for="host"
+              >This will overwrite all hosts in your file</label
+            >
+            <input
+              id="host"
+              class="uk-input"
+              type="text"
+              placeholder="Host"
+              v-model="host"
+            />
+          </div>
+          <div class="uk-margin">
+            <label class="uk-form-label" for="time"
+              >If time is not set, the test will not stop automatically</label
+            >
+            <input
+              id="time"
+              class="uk-input"
+              type="text"
+              placeholder="Time is seconds"
+              v-model="time"
+            />
+          </div>
+          <div class="uk-margin">
+            <input
+              class="uk-input"
+              type="text"
+              placeholder="Description"
+              v-model="description"
+            />
+          </div>
+          <button
+            class="uk-button uk-button-default uk-margin-small-right"
+            type="button"
+            @click="start"
+          >
+            Start
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <h3>Project: {{ pid }} | Script: {{ id }}</h3>
+    <!--
     <form>
-      <!-- Users input -->
+
       <div>
         <input
           type="text"
@@ -13,7 +91,7 @@
         />
         <label for="users-input">Users</label>
       </div>
-      <!-- Spawn rate input -->
+
       <div>
         <input
           type="text"
@@ -23,7 +101,7 @@
         />
         <label for="spawn-rate-input">Spawn rate</label>
       </div>
-      <!-- Workers input -->
+
       <div>
         <input
           type="text"
@@ -34,7 +112,7 @@
         <label for="workers-input">Workers</label>
       </div>
       <div class="form-text">This will overwrite all hosts in your file</div>
-      <!-- Host input -->
+
       <div>
         <input
           type="text"
@@ -47,7 +125,6 @@
       <div class="form-text">
         If time is not set, the test will not stop automatically
       </div>
-      <!-- Time input -->
       <div>
         <input
           type="text"
@@ -58,7 +135,6 @@
         <label class="form-label" for="time-input">Time in seconds</label>
       </div>
       <div class="form-text">Descripe your test</div>
-      <!-- Label input -->
       <div>
         <input
           type="text"
@@ -68,22 +144,65 @@
         />
         <label for="description-input">Description</label>
       </div>
-      <!-- Submit button -->
       <button type="button" id="start-btn" @click="start">Start</button>
     </form>
-    <ul>
-      <li v-for="test in reversedTests" :key="test.id">
-        <div>{{ test.id }}</div>
-        <div>{{ test.status }}</div>
-        <div>{{ test.info }}</div>
-        <div>{{ test.results }}</div>
-        <br />
-        <div># # # # # # # # # # # # # # # # # # # # # # # # # # # # #</div>
-        <br />
+    
+    -->
+
+        <div v-for="test in reversedTests" :key="test.id" class="test-container" >
+          <div class="uk-overflow-auto">
+            <table class="uk-table uk-table-small uk-table-striped uk-table-responsive">
+              <thead>
+                <tr>
+                  <th>{{test.id}}</th>
+                  <th>{{test.info.users}}</th>
+                  <th>{{test.info.spawn_rate}}</th>
+                  <th>{{test.info.workers}}</th>
+                  <th>{{test.info.host}}</th>
+                  <th>{{test.info.time}}</th>
+                  <th>{{test.status}}</th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                </tr>
+              </thead>
+                            <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Requests</th>
+                  <th>Failures</th>
+                  <th>Med Res Time</th>
+                  <th>Avg Res Time</th>
+                  <th>Min Res Time</th>
+                  <th>Max Res Time</th>
+                  <th>Avg Content Size</th>
+                  <th>Requests/s</th>
+                  <th>Failures/s</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="result in test.results" :key="result">
+                  <td>{{ result.type }}</td>
+                  <td>{{ result.name }}</td>
+                  <td>{{ result.request_count }}</td>
+                  <td>{{ result.failure_count }}</td>
+                  <td>{{ result.median_response_time.slice(0,6) }}</td>
+                  <td>{{ result.avarage_response_time.slice(0,6) }}</td>
+                  <td>{{ result.min_response_time.slice(0,6) }}</td>
+                  <td>{{ result.max_response_time.slice(0,6) }}</td>
+                  <td>{{ result.avarage_content_size.slice(0,6) }}</td>
+                  <td>{{ result.requests_per_second.slice(0,6) }}</td>
+                  <td>{{ result.failures_per_seconde.slice(0,6) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         <button type="button" @click="stop(test.id)">Stop</button>
         <button type="button" @click="del(test.id)">Delete</button>
-      </li>
-    </ul>
+        </div>
+
   </div>
 </template>
 
@@ -109,6 +228,9 @@ export default {
     },
   },
   methods: {
+    hideStartModal() {
+      UIkit.modal(this.$refs["start-modal"]).hide();
+    },
     connenctWebsocket() {
       this.ws = new WebSocket(
         `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
@@ -146,14 +268,6 @@ export default {
       };
     },
     start() {
-      console.log(
-        this.users,
-        this.spawnRate,
-        this.workers,
-        this.host,
-        this.time,
-        this.description
-      );
       fetch(`/api/worker/start_test/${this.pid}/${this.id}`, {
         method: "POST",
         headers: {
@@ -181,11 +295,13 @@ export default {
                 },
               })
             );
+            this.hideStartModal();
           } else {
             console.log(data.error);
           }
         })
         .catch(() => {});
+      return false;
     },
     stop(test_id) {
       fetch(`/api/master/stop_test/${this.pid}/${this.id}/${test_id}`, {
@@ -221,7 +337,7 @@ export default {
       .then((data) => data.json())
       .then((data) => {
         this.tests = data.content.tests;
-        console.log(data.content.tests);
+        console.log(this.tests);
       })
       .catch();
   },

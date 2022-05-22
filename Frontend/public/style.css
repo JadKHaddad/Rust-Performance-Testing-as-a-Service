@@ -107,3 +107,14 @@ input.checkbox-input:checked ~ .checkbox {
     transition: all 0.375s; 
 }
 /*end of checkbox*/
+
+/*test*/
+.test-container {
+    text-align: left;
+}
+
+.trimmed {
+    overflow: hidden;
+    max-width: 5ch;
+}
+/*end of test*/
