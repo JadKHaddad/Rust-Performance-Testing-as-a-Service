@@ -288,7 +288,7 @@ pub async fn upload(
                 sleep(Duration::from_secs(3)).await;
             }
         });
-        currently_installing_projects.store(true, Ordering::SeqCst);
+        currently_installing_projects.store(true, Ordering::SeqCst); //TODO: maybe move up? before the thread?
     } else {
         println!("PROJECTS GARBAGE COLLECTOR: Already running!");
     }

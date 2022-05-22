@@ -474,6 +474,7 @@ async fn main() -> Result<(), std::io::Error> {
         .await
 }
 
+//TODO! use eprintln! for errors instead of println!
 //FIXME! running tests count could be lost if worker died. fix this by getting the count from the results hashmap that gets deleted if if worker did not update it
 
 // #[handler]

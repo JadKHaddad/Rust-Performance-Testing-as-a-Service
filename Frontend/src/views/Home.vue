@@ -39,7 +39,7 @@
         </form>
       </div>
     </div>
-
+    
     <h1>Projects</h1>
     <ul class="uk-list">
       <li
@@ -72,6 +72,9 @@
         </div>
       </li>
     </ul>
+    <br>
+    <br>
+    <label class="checkbox-label"> <input type="checkbox" class="checkbox-input" @click="notification"/> <span class="checkbox"> </span> </label>
   </div>
 </template>
 
@@ -92,6 +95,9 @@ export default {
     };
   },
   methods: {
+    notification(){
+      UIkit.notification("This is a notification", {status: 'primary', pos: 'bottom-right', timeout: 0});
+    },
     getProjects() {
       fetch("/api/master/projects")
         .then((data) => data.json())
