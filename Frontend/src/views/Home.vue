@@ -95,7 +95,9 @@ export default {
     };
   },
   methods: {
+    
     notification(){
+      //TODO: implement notification
       UIkit.notification("This is a notification", {status: 'primary', pos: 'bottom-right', timeout: 0});
     },
     getProjects() {

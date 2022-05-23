@@ -149,66 +149,22 @@
     
     -->
 
-        <div v-for="test in reversedTests" :key="test.id" class="test-container" >
-          <div class="uk-overflow-auto">
-            <table class="uk-table uk-table-small uk-table-striped uk-table-responsive">
-              <thead>
-                <tr>
-                  <th>{{test.id}}</th>
-                  <th>{{test.info.users}}</th>
-                  <th>{{test.info.spawn_rate}}</th>
-                  <th>{{test.info.workers}}</th>
-                  <th>{{test.info.host}}</th>
-                  <th>{{test.info.time}}</th>
-                  <th>{{test.status}}</th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                </tr>
-              </thead>
-                            <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Name</th>
-                  <th>Requests</th>
-                  <th>Failures</th>
-                  <th>Med Res Time</th>
-                  <th>Avg Res Time</th>
-                  <th>Min Res Time</th>
-                  <th>Max Res Time</th>
-                  <th>Avg Content Size</th>
-                  <th>Requests/s</th>
-                  <th>Failures/s</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="result in test.results" :key="result">
-                  <td>{{ result.type }}</td>
-                  <td>{{ result.name }}</td>
-                  <td>{{ result.request_count }}</td>
-                  <td>{{ result.failure_count }}</td>
-                  <td>{{ result.median_response_time.slice(0,6) }}</td>
-                  <td>{{ result.avarage_response_time.slice(0,6) }}</td>
-                  <td>{{ result.min_response_time.slice(0,6) }}</td>
-                  <td>{{ result.max_response_time.slice(0,6) }}</td>
-                  <td>{{ result.avarage_content_size.slice(0,6) }}</td>
-                  <td>{{ result.requests_per_second.slice(0,6) }}</td>
-                  <td>{{ result.failures_per_seconde.slice(0,6) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        <button type="button" @click="stop(test.id)">Stop</button>
-        <button type="button" @click="del(test.id)">Delete</button>
-        </div>
-
+    <div v-for="test in reversedTests" :key="test.id">
+      
+      <button type="button" @click="stop(test.id)">Stop</button>
+      <button type="button" @click="del(test.id)">Delete</button>
+      <Test  :test="test"/>
+  </div>
   </div>
 </template>
 
 <script>
+import Test from "@/components/Test.vue";
 export default {
   name: "Script",
+  components: {
+    Test,
+  },
   props: ["pid", "id"],
   data() {
     return {
