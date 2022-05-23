@@ -294,6 +294,7 @@ pub async fn start_test(
         script_id: script_id.to_string(),
         status: 0,
         results: None,
+        history: None,
         info: Some(test_info),
     };
     response.content = Some(started_test);

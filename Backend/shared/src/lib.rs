@@ -100,6 +100,10 @@ pub fn get_csv_file_path(project_id: &str, script_id: &str, test_id: &str) -> Pa
     get_a_test_results_dir(project_id, script_id, test_id).join("results_stats.csv")
 }
 
+pub fn get_csv_history_file_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_test_results_dir(project_id, script_id, test_id).join("results_stats_history.csv")
+}
+
 pub fn get_csv_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     Path::new("../..")
         .join(RESULTS_DIR)
@@ -154,3 +158,40 @@ pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> Option
         return None;
     }
 }
+
+pub fn get_results_history(project_id: &str, script_id: &str, test_id: &str) -> Option<Vec<models::ResultHistory>> {
+    let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
+    let mut rdr = match Reader::from_path(csv_file) {
+        Ok(rdr) => rdr,
+        Err(_) => return None,
+    };
+    let mut results = Vec::new();
+    for result in rdr.deserialize() {
+        let row: models::ResultHistory = match result {
+            Ok(record) => record,
+            Err(_) => return None,
+        };
+        results.push(row);
+    }
+    return Some(results);
+}
+
+/*
+pub fn get_last_result_history(project_id: &str, script_id: &str, test_id: &str) -> Option<models::ResultHistory> {
+    let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
+    let mut rdr = match Reader::from_path(csv_file) {
+        Ok(rdr) => rdr,
+        Err(_) => return None,
+    };
+    match rdr.deserialize().last(){
+        Some(result) => {
+            let row: models::ResultHistory = match result {
+                Ok(record) => record,
+                Err(_) => return None,
+            };
+            return Some(row);
+        }
+        None => return None,
+    }
+}
+*/

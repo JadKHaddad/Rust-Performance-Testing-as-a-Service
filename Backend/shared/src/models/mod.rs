@@ -6,6 +6,7 @@ pub struct Test {
     pub project_id: String,
     pub status: u8, // 0 running, 1 finished
     pub results: Option<Vec<ResultRow>>,
+    pub history: Option<Vec<ResultHistory>>,
     pub info: Option<http::TestInfo>,
 }
 
@@ -44,6 +45,25 @@ pub struct ResultRow {
     #[serde(rename(serialize = "failures_per_seconde"))]
     #[serde(rename(deserialize = "Failures/s"))]
     failures_per_second: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ResultHistory {
+    #[serde(rename(serialize = "timestamp"))]
+    #[serde(rename(deserialize = "Timestamp"))]
+    timestamp: String,
+    #[serde(rename(serialize = "total_median_response_time"))]
+    #[serde(rename(deserialize = "Total Median Response Time"))]
+    total_median_response_time: String,
+    #[serde(rename(serialize = "total_average_response_time"))]
+    #[serde(rename(deserialize = "Total Average Response Time"))]
+    total_average_response_time: String,
+    #[serde(rename(serialize = "total_min_response_time"))]
+    #[serde(rename(deserialize = "Total Min Response Time"))]
+    total_min_response_time: String,
+    #[serde(rename(serialize = "total_max_response_time"))]
+    #[serde(rename(deserialize = "Total Max Response Time"))]
+    total_max_response_time: String,
 }
 
 pub mod websocket {

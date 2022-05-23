@@ -419,12 +419,15 @@ pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::C
         }
         //get info
         let info = shared::get_info(project_id, script_id, &test_id);
+        //get history
+        let history = shared::get_results_history(project_id, script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id,
             project_id: project_id.to_owned(),
             script_id: script_id.to_owned(),
             status: status,
             results: results,
+            history: history,
             info: info,
         });
     }
