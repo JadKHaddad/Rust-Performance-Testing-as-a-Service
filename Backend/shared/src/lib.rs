@@ -176,7 +176,6 @@ pub fn get_results_history(project_id: &str, script_id: &str, test_id: &str) -> 
     return Some(results);
 }
 
-/*
 pub fn get_last_result_history(project_id: &str, script_id: &str, test_id: &str) -> Option<models::ResultHistory> {
     let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
     let mut rdr = match Reader::from_path(csv_file) {
@@ -194,4 +193,3 @@ pub fn get_last_result_history(project_id: &str, script_id: &str, test_id: &str)
         None => return None,
     }
 }
-*/

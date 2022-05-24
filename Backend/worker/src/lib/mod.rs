@@ -242,10 +242,12 @@ pub async fn start_test(
                         if wanted_scripts.contains(global_script_id) {
                             println!("SCRIPT WANTED: {}", global_script_id);
                             let results = shared::get_results(project_id, script_id, test_id);
+                            let last_history = shared::get_last_result_history(project_id, script_id, test_id);
                             let test_info = models::websocket::tests::TestInfo {
                                 id: test_id.to_owned(),
                                 results: results,
                                 status: status,
+                                last_history: last_history,
                             };
                             if tests_info_map.contains_key(global_script_id) {
                                 tests_info_map
@@ -279,7 +281,7 @@ pub async fn start_test(
                         .unwrap();
                     let _: () = red_connection.expire(script_id, 5).unwrap();
                 }
-                sleep(Duration::from_secs(3)).await;
+                sleep(Duration::from_secs(2)).await;
             }
         });
         currently_running_tests.store(true, Ordering::SeqCst);

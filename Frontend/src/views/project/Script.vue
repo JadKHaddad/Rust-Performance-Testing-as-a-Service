@@ -204,6 +204,7 @@ export default {
             if (test) {
               test.results = incomingTest.results;
               test.status = incomingTest.status;
+              test.last_history = incomingTest.last_history;
             }
           }
           return;

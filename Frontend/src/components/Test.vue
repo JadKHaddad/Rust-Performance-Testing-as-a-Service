@@ -69,83 +69,123 @@
 export default {
   name: "Test",
   props: ["test"],
-  mounted() {
-    if (this.test.history == null || this.test.history.length < 1) return; 
-    var total_median_response_time = {
-      name: "Total Median Response Time",
-      type: "spline",
-      showInLegend: true,
-      dataPoints: [],
-    };
-    var total_average_response_time = {
-      name: "Total Average Response Time",
-      type: "spline",
-      showInLegend: true,
-      dataPoints: [],
-    };
-    var total_min_response_time = {
-      name: "Total Min Response Time",
-      type: "spline",
-      showInLegend: true,
-      dataPoints: [],
-    };
-    var total_max_response_time = {
-      name: "Total Max Response Time",
-      type: "spline",
-      showInLegend: true,
-      dataPoints: [],
-    };
-    
-    console.log(this.test);
-    
-    for (var i = 0; i < this.test.history.length; i++) {
-      const record = this.test.history[i];
-      total_median_response_time.dataPoints.push({
-        x: i,
-        y: parseInt(record.total_median_response_time),
-      });
-      total_average_response_time.dataPoints.push({
-        x: i,
-        y: parseInt(record.total_average_response_time),
-      });
-      total_min_response_time.dataPoints.push({
-        x: i,
-        y: parseInt(record.total_min_response_time),
-      });
-      total_max_response_time.dataPoints.push({
-        x: i,
-        y: parseInt(record.total_max_response_time),
-      });
-    }
-
-    
-    var chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
-      animationEnabled: true,
-
-      axisY: {
-
+  watch: {
+    test: {
+      handler(newVal) {
+        const lastHistory = newVal.last_history;
+        if (lastHistory != null){
+          const i = this.total_median_response_time.dataPoints.length;
+          this.total_median_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(lastHistory.total_median_response_time),
+          });
+          this.total_average_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(lastHistory.total_average_response_time),
+          });
+          this.total_min_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(lastHistory.total_min_response_time),
+          });
+          this.total_max_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(lastHistory.total_max_response_time),
+          });
+          this.chart.render();
+        }
       },
-      legend: {
-        cursor: "pointer",
-        fontSize: 16,
-        itemclick: toggleDataSeries,
+      deep: true,
+    },
+  },
+  data() {
+    return {
+      chart: null,
+      total_median_response_time: {
+        name: "Total Median Response Time",
+        type: "spline",
+        showInLegend: true,
+        dataPoints: [],
       },
-      toolTip: {
-        shared: true,
+      total_average_response_time: {
+        name: "Total Average Response Time",
+        type: "spline",
+        showInLegend: true,
+        dataPoints: [],
       },
-      data: [total_median_response_time, total_average_response_time, total_min_response_time, total_max_response_time],
-    });
-    chart.render();
+      total_min_response_time: {
+        name: "Total Min Response Time",
+        type: "spline",
+        showInLegend: true,
+        dataPoints: [],
+      },
+      total_max_response_time: {
+        name: "Total Max Response Time",
+        type: "spline",
+        showInLegend: true,
+        dataPoints: [],
+      },
+    };
+  },
 
-    function toggleDataSeries(e) {
-      if (typeof e.dataSeries.visible === "undefined" || e.dataSeries.visible) {
-        e.dataSeries.visible = false;
-      } else {
-        e.dataSeries.visible = true;
+  methods: {
+    setupChart() {
+      if (this.test.history != null && this.test.history.length > 0) {
+        for (var i = 0; i < this.test.history.length; i++) {
+          const record = this.test.history[i];
+          this.total_median_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(record.total_median_response_time),
+          });
+          this.total_average_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(record.total_average_response_time),
+          });
+          this.total_min_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(record.total_min_response_time),
+          });
+          this.total_max_response_time.dataPoints.push({
+            x: i,
+            y: parseInt(record.total_max_response_time),
+          });
+        }
       }
-      chart.render();
-    }
-  /*
+      this.chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
+        animationEnabled: true,
+        axisY: {},
+        legend: {
+          cursor: "pointer",
+          fontSize: 16,
+          itemclick: toggleDataSeries,
+        },
+        toolTip: {
+          shared: true,
+        },
+        data: [
+          this.total_median_response_time,
+          this.total_average_response_time,
+          this.total_min_response_time,
+          this.total_max_response_time,
+        ],
+      });
+      this.chart.render();
+
+      function toggleDataSeries(e) {
+        if (
+          typeof e.dataSeries.visible === "undefined" ||
+          e.dataSeries.visible
+        ) {
+          e.dataSeries.visible = false;
+        } else {
+          e.dataSeries.visible = true;
+        }
+        this.chart.render();
+      }
+    },
+  },
+  mounted() {
+    this.setupChart();
+    /*
     setInterval(function () {
       data1.dataPoints.push({
         x: data1.dataPoints[data1.dataPoints.length - 1].x + 1,

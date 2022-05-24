@@ -118,6 +118,7 @@ pub mod websocket {
             pub id: String,
             pub status: u8, // 0 running, 1 finished
             pub results: Option<Vec<super::super::ResultRow>>,
+            pub last_history: Option<super::super::ResultHistory>,
         }
 
         #[derive(Debug, Serialize)]
