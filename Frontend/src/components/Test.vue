@@ -12,11 +12,11 @@
             <th>{{ test.info.workers }}</th>
             <th>{{ test.info.host }}</th>
             <th>{{ test.info.time }}</th>
-            <th>{{ test.status }}</th>
             <th></th>
             <th></th>
             <th></th>
             <th></th>
+            <th><div v-if="test.status == 0" uk-spinner></div></th>
           </tr>
         </thead>
         <thead>
@@ -73,22 +73,22 @@ export default {
     test: {
       handler(newVal) {
         const lastHistory = newVal.last_history;
-        if (lastHistory != null){
-          const i = this.total_median_response_time.dataPoints.length;
+        if (lastHistory != null) {
+          const date = new Date(parseInt(lastHistory.timestamp) * 1000);
           this.total_median_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(lastHistory.total_median_response_time),
           });
           this.total_average_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(lastHistory.total_average_response_time),
           });
           this.total_min_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(lastHistory.total_min_response_time),
           });
           this.total_max_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(lastHistory.total_max_response_time),
           });
           this.chart.render();
@@ -102,25 +102,25 @@ export default {
       chart: null,
       total_median_response_time: {
         name: "Total Median Response Time",
-        type: "spline",
+        type: "line",
         showInLegend: true,
         dataPoints: [],
       },
       total_average_response_time: {
         name: "Total Average Response Time",
-        type: "spline",
+        type: "line",
         showInLegend: true,
         dataPoints: [],
       },
       total_min_response_time: {
         name: "Total Min Response Time",
-        type: "spline",
+        type: "line",
         showInLegend: true,
         dataPoints: [],
       },
       total_max_response_time: {
         name: "Total Max Response Time",
-        type: "spline",
+        type: "line",
         showInLegend: true,
         dataPoints: [],
       },
@@ -128,35 +128,54 @@ export default {
   },
 
   methods: {
+    toggleDataSeries(e) {
+      if (typeof e.dataSeries.visible === "undefined" || e.dataSeries.visible) {
+        e.dataSeries.visible = false;
+      } else {
+        e.dataSeries.visible = true;
+      }
+      this.chart.render();
+    },
     setupChart() {
       if (this.test.history != null && this.test.history.length > 0) {
         for (var i = 0; i < this.test.history.length; i++) {
           const record = this.test.history[i];
+          const date = new Date(parseInt(record.timestamp) * 1000);
           this.total_median_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(record.total_median_response_time),
           });
           this.total_average_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(record.total_average_response_time),
           });
           this.total_min_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(record.total_min_response_time),
           });
           this.total_max_response_time.dataPoints.push({
-            x: i,
+            x: date,
             y: parseInt(record.total_max_response_time),
           });
         }
       }
       this.chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
         animationEnabled: true,
-        axisY: {},
+        zoomEnabled: true,
+        exportEnabled: true,
+        //theme: "dark2",
+        axisX: {
+          gridThickness: 0,
+          lineThickness: 1,
+        },
+        axisY: {
+          gridThickness: 0,
+          lineThickness: 1,
+        },
         legend: {
           cursor: "pointer",
           fontSize: 16,
-          itemclick: toggleDataSeries,
+          itemclick: this.toggleDataSeries,
         },
         toolTip: {
           shared: true,
@@ -169,18 +188,6 @@ export default {
         ],
       });
       this.chart.render();
-
-      function toggleDataSeries(e) {
-        if (
-          typeof e.dataSeries.visible === "undefined" ||
-          e.dataSeries.visible
-        ) {
-          e.dataSeries.visible = false;
-        } else {
-          e.dataSeries.visible = true;
-        }
-        this.chart.render();
-      }
     },
   },
   mounted() {

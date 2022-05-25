@@ -295,7 +295,7 @@ pub async fn ws(
                             }
                         }
                     }
-                    sleep(Duration::from_secs(3)).await;
+                    sleep(Duration::from_secs(2)).await;
                 }
             });
             information_thread_running.store(true, Ordering::SeqCst);
