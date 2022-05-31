@@ -128,7 +128,7 @@ pub async fn start_test(
             args.push(host_command_splitted.next().unwrap());
             args.push(host_command_splitted.next().unwrap());
         }
-
+        
         Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
             .current_dir(shared::get_a_project_dir(&project_id))
             .args(&args)

@@ -26,12 +26,12 @@
             <div class="uk-navbar-item">
               <span uk-icon="download"></span>
               <div v-if="showInstallingProjects" class="uk-navbar-dropdown">
-                    <ul class="uk-nav uk-navbar-dropdown-nav uk-list-divider">
-                      <li v-for="project in installingProjects" :key="project">
-                        {{ project}}
-                      </li>
-                    </ul>
-                </div>
+                <ul class="uk-nav uk-navbar-dropdown-nav uk-list-divider">
+                  <li v-for="project in installingProjects" :key="project">
+                    {{ project }}
+                  </li>
+                </ul>
+              </div>
               <label>{{ installingProjects.length }}</label>
             </div>
           </li>
@@ -39,7 +39,7 @@
       </div>
     </nav>
     <div class="content">
-    <router-view :newProject="newProject"/>
+      <router-view :newProject="newProject" />
     </div>
   </div>
 </template>
@@ -58,6 +58,13 @@ export default {
     };
   },
   methods: {
+    notification(text, status, timeout) {
+      UIkit.notification(text, {
+        status: status,
+        pos: "bottom-right",
+        timeout: timeout,
+      });
+    },
     connenctWebsocket() {
       this.ws = new WebSocket(`ws://${location.host}/api/master/ws`);
       this.ws.onopen = () => {};
@@ -78,28 +85,34 @@ export default {
           return;
         }
         if (event_type === "PROJECTS") {
-          
           const istalling_projects = data.event.istalling_projects;
           for (var i = 0; i < istalling_projects.length; i++) {
             let project = istalling_projects[i];
-            if (project.status === 1){
+            if (project.status === 1) {
               //get scripts
               fetch(`/api/master/project/${project.id}`)
-              .then((data) => data.json())
-              .then((data) => {
-                if (data.success) {
-                  const scripts = data.content.scripts;
-                  this.newProject = {id: project.id, scripts: scripts};
-                }
-              })
-              .catch();
-              return;
-            }if (project.status === 2){
-              const error = project.error;
+                .then((data) => data.json())
+                .then((data) => {
+                  if (data.success) {
+                    const scripts = data.content.scripts;
+                    this.newProject = { id: project.id, scripts: scripts };
+                  }
+                })
+                .catch();
               //notify
+              this.notification(
+                `${project.id} installed successfully`,
+                "primary",
+                10000
+              );
               return;
             }
-
+            if (project.status === 2) {
+              const error = project.error;
+              //notify
+              this.notification(`Error: ${project.id}: ${error}`, "danger", 0);
+              return;
+            }
           }
           //{"event_type":"PROJECTS","event":{"istalling_projects":[{"id":"Neuer_Ordner-Kopie","status":0,"error":null}]}}
           return;

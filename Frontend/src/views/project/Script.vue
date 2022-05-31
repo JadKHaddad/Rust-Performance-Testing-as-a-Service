@@ -79,82 +79,14 @@
     </div>
 
     <h3>Project: {{ pid }} | Script: {{ id }}</h3>
-    <!--
-    <form>
 
-      <div>
-        <input
-          type="text"
-          id="users-input"
-          class="form-control"
-          v-model="users"
-        />
-        <label for="users-input">Users</label>
-      </div>
-
-      <div>
-        <input
-          type="text"
-          id="spawn-rate-input"
-          class="form-control"
-          v-model="spawnRate"
-        />
-        <label for="spawn-rate-input">Spawn rate</label>
-      </div>
-
-      <div>
-        <input
-          type="text"
-          id="workers-input"
-          class="form-control"
-          v-model="workers"
-        />
-        <label for="workers-input">Workers</label>
-      </div>
-      <div class="form-text">This will overwrite all hosts in your file</div>
-
-      <div>
-        <input
-          type="text"
-          id="host-input"
-          class="form-control"
-          v-model="host"
-        />
-        <label class="form-label" for="host-input">Host</label>
-      </div>
-      <div class="form-text">
-        If time is not set, the test will not stop automatically
-      </div>
-      <div>
-        <input
-          type="text"
-          id="time-input"
-          class="form-control"
-          v-model="time"
-        />
-        <label class="form-label" for="time-input">Time in seconds</label>
-      </div>
-      <div class="form-text">Descripe your test</div>
-      <div>
-        <input
-          type="text"
-          id="description-input"
-          class="form-control"
-          v-model="description"
-        />
-        <label for="description-input">Description</label>
-      </div>
-      <button type="button" id="start-btn" @click="start">Start</button>
-    </form>
-    
-    -->
-
-    <div v-for="test in reversedTests" :key="test.id">
-      
-      <button type="button" @click="stop(test.id)">Stop</button>
-      <button type="button" @click="del(test.id)">Delete</button>
-      <Test  :test="test"/>
-  </div>
+    <Test
+      v-for="test in reversedTests"
+      :key="test.id"
+      :test="test"
+      @stop_me="stop(test.id)"
+      @delete_me="del(test.id)"
+    />
   </div>
 </template>
 

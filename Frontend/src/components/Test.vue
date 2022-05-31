@@ -1,6 +1,8 @@
 <template>
   <div class="test-container">
     <div class="uk-overflow-auto">
+      <button type="button" @click="stop_me()">Stop</button>
+      <button type="button" @click="delete_me()">Delete</button>
       <table
         class="uk-table uk-table-small uk-table-striped uk-table-responsive"
       >
@@ -128,6 +130,12 @@ export default {
   },
 
   methods: {
+    stop_me(){
+      this.$emit("stop_me");
+    },
+    delete_me(){
+      this.$emit("delete_me");
+    },
     toggleDataSeries(e) {
       if (typeof e.dataSeries.visible === "undefined" || e.dataSeries.visible) {
         e.dataSeries.visible = false;
@@ -192,29 +200,6 @@ export default {
   },
   mounted() {
     this.setupChart();
-    /*
-    setInterval(function () {
-      data1.dataPoints.push({
-        x: data1.dataPoints[data1.dataPoints.length - 1].x + 1,
-        y:
-          data1.dataPoints[data1.dataPoints.length - 1].y +
-          (Math.random() * 10 - 5),
-      });
-      data2.dataPoints.push({
-        x: data2.dataPoints[data2.dataPoints.length - 1].x + 1,
-        y:
-          data2.dataPoints[data2.dataPoints.length - 1].y +
-          (Math.random() * 10 - 5),
-      });
-      data3.dataPoints.push({
-        x: data3.dataPoints[data3.dataPoints.length - 1].x + 1,
-        y:
-          data3.dataPoints[data3.dataPoints.length - 1].y +
-          (Math.random() * 10 - 5),
-      });
-      chart.render();
-    }, 2000);
-    */
   },
 };
 </script>
