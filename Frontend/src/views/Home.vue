@@ -14,7 +14,6 @@
         <form>
           <div class="uk-margin" uk-margin>
             <h2>Upload a new project</h2>
-            <h5>Please make sure all names don't include blank spaces</h5>
             <div class="upload-container">
               <div uk-form-custom="target: true">
                 <input type="file" webkitdirectory mozdirectory ref="files" />

@@ -86,6 +86,8 @@ pub async fn upload(
             .file_name()
             .map(ToString::to_string)
             .ok_or("Upload Error")?;
+        let re = regex::Regex::new(r"\s+").unwrap();
+        let file_name = re.replace_all(&file_name, "_").into_owned();
         let project_name = Path::new(&file_name)
             .components()
             .next()
