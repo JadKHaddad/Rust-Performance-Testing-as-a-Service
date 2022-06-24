@@ -1,10 +1,10 @@
 extern crate redis;
 use parking_lot::RwLock;
 use poem::{
-    handler,
+    get, handler,
     listener::TcpListener,
     middleware::AddData,
-    post, get, 
+    post,
     web::{Data, Json, Path},
     EndpointExt, Route, Server,
 };
@@ -133,6 +133,11 @@ async fn main() -> Result<(), std::io::Error> {
 
     //redis client
     let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
+
+    //remove running tests that belong to this worker //TODO!: Running test in the GUI is still shown as running
+    lib::remove_all_running_tests(&red_client, &ip)
+        .await
+        .unwrap();
 
     tracing_subscriber::fmt::init();
 

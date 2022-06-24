@@ -128,7 +128,6 @@ pub async fn start_test(
             args.push(host_command_splitted.next().unwrap());
             args.push(host_command_splitted.next().unwrap());
         }
-        
         Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
             .current_dir(shared::get_a_project_dir(&project_id))
             .args(&args)
@@ -242,7 +241,8 @@ pub async fn start_test(
                         if wanted_scripts.contains(global_script_id) {
                             println!("SCRIPT WANTED: {}", global_script_id);
                             let results = shared::get_results(project_id, script_id, test_id);
-                            let last_history = shared::get_last_result_history(project_id, script_id, test_id);
+                            let last_history =
+                                shared::get_last_result_history(project_id, script_id, test_id);
                             let test_info = models::websocket::tests::TestInfo {
                                 id: test_id.to_owned(),
                                 results: results,
@@ -395,4 +395,28 @@ pub async fn delete_test(
     }
 
     return Ok(serde_json::to_string(&response).unwrap());
+}
+
+pub async fn remove_all_running_tests(
+    red_client: &redis::Client,
+    worker_ip: &str,
+) -> Result<(), Box<dyn Error>> {
+    let mut red_connection = red_client.get_connection()?;
+    let running_tests: std::collections::HashSet<String> =
+        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
+            set
+        } else {
+            HashSet::new()
+        };
+    for test_id in running_tests {
+        //get tests worked ip
+        let (project_id, script_id, test_id_d) = shared::decode_test_id(&test_id);
+        let test_worker_ip =
+            shared::get_worker_ip(project_id, script_id, test_id_d).ok_or("Id Error")?;
+        if test_worker_ip == worker_ip {
+            let _: () = red_connection.srem(shared::RUNNING_TESTS, &test_id)?;
+            println!("OLD RUNNING TEST REMOVED!: [{}] ", test_id);
+        }
+    }
+    Ok(())
 }
