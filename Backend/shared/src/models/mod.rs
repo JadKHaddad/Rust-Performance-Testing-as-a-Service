@@ -65,6 +65,17 @@ pub struct ResultHistory {
     #[serde(rename(deserialize = "Total Max Response Time"))]
     total_max_response_time: String,
 }
+pub mod redis {
+    use serde::{Deserialize, Serialize};
+    #[derive(Debug, Deserialize, Serialize)]
+    pub struct RedisMessage
+    {
+        pub event_type: String,
+        pub id: String,
+        pub message: String,
+    }
+
+}
 
 pub mod websocket {
     use serde::Serialize;
@@ -123,6 +134,11 @@ pub mod websocket {
 
         #[derive(Debug, Serialize)]
         pub struct TestDeletedEvent {
+            pub id: String,
+        }
+
+        #[derive(Debug, Serialize)]
+        pub struct TestStoppeddEvent {
             pub id: String,
         }
     }

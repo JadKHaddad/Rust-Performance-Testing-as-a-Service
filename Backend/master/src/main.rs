@@ -23,6 +23,7 @@ use std::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
     },
+    thread,
     time::Duration,
 };
 use tokio::sync::broadcast::Sender;
@@ -74,9 +75,7 @@ async fn projects() -> String {
 }
 
 #[handler]
-async fn project_scripts(
-    Path(project_id): Path<String>,
-) -> String {
+async fn project_scripts(Path(project_id): Path<String>) -> String {
     match lib::project_scripts(&project_id).await {
         Ok(response) => response,
         Err(err) => {
@@ -105,6 +104,7 @@ async fn tests(
 #[handler]
 async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
 ) -> String {
     match shared::get_worker_ip(&project_id, &script_id, &test_id) {
         Some(ip) => {
@@ -117,8 +117,26 @@ async fn stop_test(
                 .send()
                 .await
             {
-                // TODO! Notify subs
-                Ok(response) => return response.text().await.unwrap(),
+                Ok(response) => {
+                    {
+                        let script_id = shared::encode_script_id(&project_id, &script_id);
+                        let subscriptions_guard = subscriptions.read();
+                        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+                            //create event
+                            let websocket_message = models::websocket::WebSocketMessage {
+                                event_type: "TEST_STOPPED",
+                                event: models::websocket::tests::TestStoppeddEvent { id: test_id },
+                            };
+                            if sender
+                                .send(serde_json::to_string(&websocket_message).unwrap())
+                                .is_err()
+                            {
+                                println!("STOP TEST: No clients are connected!");
+                            }
+                        }
+                    }
+                    return response.text().await.unwrap();
+                }
                 Err(err) => {
                     return serde_json::to_string(&models::http::ErrorResponse::new(
                         &err.to_string(),
@@ -262,7 +280,10 @@ pub async fn ws(
                     let istalling_projects;
                     {
                         let installing_tasks_guard = installing_tasks.read();
-                        istalling_projects = installing_tasks_guard.iter().map(|(k, _)| k.to_owned()).collect::<Vec<_>>();
+                        istalling_projects = installing_tasks_guard
+                            .iter()
+                            .map(|(k, _)| k.to_owned())
+                            .collect::<Vec<_>>();
                     }
 
                     let running_tests_count: u32 =
@@ -276,7 +297,7 @@ pub async fn ws(
                         event: models::websocket::information::Event {
                             connected_clients_count,
                             running_tests_count,
-                            istalling_projects
+                            istalling_projects,
                         },
                     };
                     if tokio_main_sender
@@ -285,16 +306,18 @@ pub async fn ws(
                     {
                         println!("INFORMATION THREAD: No clients are connected!");
                     }
-                    {
-                        let subscriptions_guard = subscriptions.read();
-                        for (script_id, (_, sender)) in subscriptions_guard.iter() {
-                            if let Ok(event) = red_connection.get(script_id) {
-                                if sender.send(event).is_err() {
-                                    println!("INFORMATION THREAD: No clients are connected!");
-                                }
-                            }
-                        }
-                    }
+
+                    // {
+                    //     let subscriptions_guard = subscriptions.read();
+                    //     for (script_id, (_, sender)) in subscriptions_guard.iter() {
+                    //         if let Ok(event) = red_connection.get(script_id) {
+                    //             if sender.send(event).is_err() {
+                    //                 println!("INFORMATION THREAD: No clients are connected!");
+                    //             }
+                    //         }
+                    //     }
+                    // }
+
                     sleep(Duration::from_secs(2)).await;
                 }
             });
@@ -431,12 +454,58 @@ async fn main() -> Result<(), std::io::Error> {
     //subscriptions
     let subscriptions: Arc<RwLock<HashMap<String, (u32, Sender<String>)>>> =
         Arc::new(RwLock::new(HashMap::new()));
+
+    //main sender
+    let main_sender = tokio::sync::broadcast::channel::<String>(512).0;
+
     //redis client
     let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
     let mut red_connection = red_client.get_connection().unwrap();
     //FIXME! no flush on start
     //flushdb on start
-    let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
+    //let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
+
+    let pubsub_main_sender = main_sender.clone();
+    let pubsub_subscriptions = subscriptions.clone();
+    thread::spawn(move || {
+        let mut pubsub = red_connection.as_pubsub();
+        pubsub.subscribe("main_channel").unwrap();
+        loop {
+            let msg = pubsub.get_message().unwrap();
+            let payload: String = msg.get_payload().unwrap();
+            //println!("channel '{}': {}", msg.get_channel_name(), payload);
+            let redis_message: models::redis::RedisMessage =
+                serde_json::from_str(&payload).unwrap();
+            if redis_message.event_type == "UPDATE" || redis_message.event_type == "TEST_STOPPED" {
+                let subscriptions_guard = pubsub_subscriptions.read();
+                println!("{:?}", subscriptions_guard);
+                if let Some(sender) = &subscriptions_guard.get(&redis_message.id){
+                    if sender.1.send(redis_message.message).is_err() {
+                        println!("REDIS CHANNEL THREAD: No clients are connected!");
+                    };
+                }else{
+                    println!("REDIS CHANNEL THREAD: test [{}] was not found in running tests!", redis_message.id);
+                }
+                
+            }
+
+            // for (script_id, (_, sender)) in subscriptions_guard.iter() {
+            //     if let Ok(event) = red_connection.get(script_id) {
+            //         if sender.send(event).is_err() {
+            //             println!("INFORMATION THREAD: No clients are connected!");
+            //         }
+            //     }
+            // }
+            //println!("channel '{}': {:?}", msg.get_channel_name(), redis_message);
+
+            // if pubsub_main_sender
+            //     .send(serde_json::to_string(&payload).unwrap())
+            //     .is_err()
+            // {
+            //     println!("INFORMATION THREAD: No clients are connected!");
+            // }
+        }
+    });
 
     tracing_subscriber::fmt::init();
 
@@ -465,9 +534,7 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(subscriptions))
-        .with(AddData::new(
-            tokio::sync::broadcast::channel::<String>(512).0,
-        ))
+        .with(AddData::new(main_sender))
         .with(AddData::new(red_client));
     Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run(app)

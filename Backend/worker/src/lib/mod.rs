@@ -266,6 +266,7 @@ pub async fn start_test(
                     }
                 }
                 //save in redis
+                
                 for (script_id, tests_info) in tests_info_map.iter() {
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: "UPDATE",
@@ -273,13 +274,22 @@ pub async fn start_test(
                             tests_info: tests_info,
                         },
                     };
+
+                    let redis_message = models::redis::RedisMessage {
+                        event_type: websocket_message.event_type.to_owned(),
+                        id: script_id.to_owned(),
+                        message: serde_json::to_string(&websocket_message).unwrap()
+                    };
                     let _: () = red_connection
-                        .set(
-                            script_id,
-                            serde_json::to_string(&websocket_message).unwrap(),
-                        )
-                        .unwrap();
-                    let _: () = red_connection.expire(script_id, 5).unwrap();
+                        .publish("main_channel", serde_json::to_string(&redis_message).unwrap()).unwrap();
+
+                    // let _: () = red_connection
+                    //     .set(
+                    //         script_id,
+                    //         serde_json::to_string(&websocket_message).unwrap(),
+                    //     )
+                    //     .unwrap();
+                    // let _: () = red_connection.expire(script_id, 5).unwrap();
                 }
                 sleep(Duration::from_secs(2)).await;
             }
@@ -414,6 +424,21 @@ pub async fn remove_all_running_tests(
         let test_worker_ip =
             shared::get_worker_ip(project_id, script_id, test_id_d).ok_or("Id Error")?;
         if test_worker_ip == worker_ip {
+            //notify master
+            let websocket_message = models::websocket::WebSocketMessage {
+                event_type: "TEST_STOPPED",
+                event: models::websocket::tests::TestStoppeddEvent { id: test_id_d.to_owned() },
+            };
+            let redis_message = models::redis::RedisMessage {
+                event_type: websocket_message.event_type.to_owned(),
+                id: shared::encode_script_id(project_id, script_id),
+                message: serde_json::to_string(&websocket_message).unwrap()
+            };
+            println!("SENDING REDIS MESSAGE: {:?}", redis_message);
+            let _: () = red_connection
+                .publish("main_channel", serde_json::to_string(&redis_message).unwrap()).unwrap();
+
+            //remove from redis
             let _: () = red_connection.srem(shared::RUNNING_TESTS, &test_id)?;
             println!("OLD RUNNING TEST REMOVED!: [{}] ", test_id);
         }

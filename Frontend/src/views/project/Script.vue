@@ -141,6 +141,14 @@ export default {
           }
           return;
         }
+        if (event_type === "TEST_STOPPED") {
+          const id = data.event.id;
+          let test = this.tests.find((test) => test.id === id);
+          if (test) {
+            test.status = 1;
+          }
+          console.log("test stopped: ", id);
+        }
         if (event_type === "TEST_STARTED") {
           const new_test = data.event.test;
           let test = this.tests.find((test) => test.id === new_test.id);
@@ -199,6 +207,10 @@ export default {
         .then((data) => data.json())
         .then((data) => {
           if (data.success) {
+            let test = this.tests.find((test) => test.id === test_id);
+            if (test) {
+              test.status = 1;
+            }
           } else {
             console.log(data.error);
           }
