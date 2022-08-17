@@ -234,7 +234,7 @@ pub async fn start_test(
                                 status = 0; // process is running
                             }
                             Err(e) => {
-                                println!("ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}", id, e);
+                                eprintln!("ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}", id, e);
                             }
                         }
                         //check if the script is wanted and save results in redis
@@ -341,7 +341,7 @@ pub async fn stop_test(
                 //     .unwrap();
             }
             Err(_) => {
-                println!("ERROR: test: [{}] could not be killed!", task_id);
+                eprintln!("ERROR: test: [{}] could not be killed!", task_id);
                 response.success = false;
                 response.error = Some("Could not stop test");
             }
@@ -392,7 +392,7 @@ pub async fn delete_test(
             );
         }
         Err(e) => {
-            println!(
+            eprintln!(
                 "ERROR: test: [{}] could not be deleted! Error: {:?}",
                 test_dir.to_str().ok_or("System Error")?,
                 e

@@ -170,7 +170,7 @@ export default {
       this.chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
         animationEnabled: true,
         zoomEnabled: true,
-        exportEnabled: true,
+        //exportEnabled: true,
         //theme: "dark2",
         axisX: {
           gridThickness: 0,

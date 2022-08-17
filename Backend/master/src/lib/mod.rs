@@ -27,7 +27,7 @@ where
         let mut buf = [0];
         match stream.read(&mut buf) {
             Err(err) => {
-                println!("{}] Error reading from stream: {}", line!(), err);
+                eprintln!("{}] Error reading from stream: {}", line!(), err);
                 break;
             }
             Ok(got) => {
@@ -36,7 +36,7 @@ where
                 } else if got == 1 {
                     vec.push(buf[0])
                 } else {
-                    println!("{}] Unexpected number of bytes: {}", line!(), got);
+                    eprintln!("{}] Unexpected number of bytes: {}", line!(), got);
                     break;
                 }
             }
@@ -232,7 +232,7 @@ pub async fn upload(
                                                     println!("PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", id);
                                                 }
                                                 Err(e) => {
-                                                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", id, e);
+                                                    eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", id, e);
                                                 }
                                             }
                                         }
@@ -246,7 +246,7 @@ pub async fn upload(
                                 project.status = 0; // process is running
                             }
                             Err(e) => {
-                                println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", id, e);
+                                eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", id, e);
                             }
                         }
                         installing_projects.push(project);
@@ -262,13 +262,13 @@ pub async fn upload(
                     match std::fs::remove_dir_all(shared::get_a_temp_dir(id)) {
                         Ok(_) => (),
                         Err(e) => {
-                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
+                            eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
                         }
                     };
                     match std::fs::remove_dir_all(shared::get_an_environment_dir(id)) {
                         Ok(_) => (),
                         Err(e) => {
-                            println!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
+                            eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
                         }
                     };
                     println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);

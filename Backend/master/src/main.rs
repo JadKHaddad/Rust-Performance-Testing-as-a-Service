@@ -213,7 +213,6 @@ pub async fn ws(
     connected_clients: Data<&Arc<AtomicU32>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
     red_client: Data<&redis::Client>,
-    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
@@ -224,7 +223,6 @@ pub async fn ws(
     let tokio_information_thread_running = information_thread_running.clone();
     let information_thread_running = Arc::clone(&information_thread_running);
     let red_client = red_client.clone();
-    let subscriptions = subscriptions.clone();
     let installing_tasks = installing_tasks.clone();
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
@@ -422,7 +420,7 @@ pub async fn register_worker() -> impl IntoResponse {
 }
 
 #[handler]
-pub async fn delelte_worker() -> impl IntoResponse {
+pub async fn delete_worker() -> impl IntoResponse {
     todo!()
 }
 
@@ -461,11 +459,10 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
     let mut red_connection = red_client.get_connection().unwrap();
-    //FIXME! no flush on start
-    //flushdb on start
-    //let _: () = redis::cmd("FLUSHDB").query(&mut red_connection).unwrap();
+    //reset subs on master start
+    let _: () = red_connection.del(shared::SUBS).unwrap();
 
-    let pubsub_main_sender = main_sender.clone();
+    //setup redis channel
     let pubsub_subscriptions = subscriptions.clone();
     thread::spawn(move || {
         let mut pubsub = red_connection.as_pubsub();
@@ -478,32 +475,18 @@ async fn main() -> Result<(), std::io::Error> {
                 serde_json::from_str(&payload).unwrap();
             if redis_message.event_type == "UPDATE" || redis_message.event_type == "TEST_STOPPED" {
                 let subscriptions_guard = pubsub_subscriptions.read();
-                println!("{:?}", subscriptions_guard);
-                if let Some(sender) = &subscriptions_guard.get(&redis_message.id){
+                //println!("{:?}", subscriptions_guard);
+                if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
                     if sender.1.send(redis_message.message).is_err() {
                         println!("REDIS CHANNEL THREAD: No clients are connected!");
                     };
-                }else{
-                    println!("REDIS CHANNEL THREAD: test [{}] was not found in running tests!", redis_message.id);
+                } else {
+                    println!(
+                        "REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
+                        redis_message.id
+                    );
                 }
-                
             }
-
-            // for (script_id, (_, sender)) in subscriptions_guard.iter() {
-            //     if let Ok(event) = red_connection.get(script_id) {
-            //         if sender.send(event).is_err() {
-            //             println!("INFORMATION THREAD: No clients are connected!");
-            //         }
-            //     }
-            // }
-            //println!("channel '{}': {:?}", msg.get_channel_name(), redis_message);
-
-            // if pubsub_main_sender
-            //     .send(serde_json::to_string(&payload).unwrap())
-            //     .is_err()
-            // {
-            //     println!("INFORMATION THREAD: No clients are connected!");
-            // }
         }
     });
 
@@ -540,9 +523,6 @@ async fn main() -> Result<(), std::io::Error> {
         .run(app)
         .await
 }
-
-//TODO! use eprintln! for errors instead of println!
-//FIXME! running tests count could be lost if worker died. fix this by getting the count from the results hashmap that gets deleted if if worker did not update it
 
 // #[handler]
 // async fn single_download(req: poem::web::StaticFileRequest) -> poem::error::Result<impl IntoResponse> {
