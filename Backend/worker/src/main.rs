@@ -152,12 +152,12 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
-        .with(AddData::new(ip))
+        .with(AddData::new(ip.clone()))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))
         .with(AddData::new(red_client));
 
-    Server::new(TcpListener::bind("0.0.0.0:5000"))
+    Server::new(TcpListener::bind(ip))
         .run(app)
         .await
 }
