@@ -186,6 +186,7 @@ pub async fn start_test(
 
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
+        println!("SCRIPTS GARBAGE COLLECTOR: Running!");
         let tokio_currently_running_tests = currently_running_tests.clone();
         let tokio_running_tests = Arc::clone(&running_tests);
         tokio::spawn(async move {
@@ -199,7 +200,7 @@ pub async fn start_test(
                         println!("SCRIPTS GARBAGE COLLECTOR: Terminating!");
                         break;
                     }
-                    println!("SCRIPTS GARBAGE COLLECTOR: Running!");
+                    
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     let wanted_scripts: HashSet<String> =
@@ -266,7 +267,6 @@ pub async fn start_test(
                     }
                 }
                 //save in redis
-                
                 for (script_id, tests_info) in tests_info_map.iter() {
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: "UPDATE",
@@ -278,10 +278,14 @@ pub async fn start_test(
                     let redis_message = models::redis::RedisMessage {
                         event_type: websocket_message.event_type.to_owned(),
                         id: script_id.to_owned(),
-                        message: serde_json::to_string(&websocket_message).unwrap()
+                        message: serde_json::to_string(&websocket_message).unwrap(),
                     };
                     let _: () = red_connection
-                        .publish("main_channel", serde_json::to_string(&redis_message).unwrap()).unwrap();
+                        .publish(
+                            "main_channel",
+                            serde_json::to_string(&redis_message).unwrap(),
+                        )
+                        .unwrap();
 
                     // let _: () = red_connection
                     //     .set(
@@ -377,33 +381,12 @@ pub async fn delete_test(
     {
         response.success = false;
         response.error = Some("Could not stop test");
+        return Ok(serde_json::to_string(&response).unwrap());
     }
-    //get test folder and delete it
-    let test_dir = shared::get_a_test_results_dir(project_id, script_id, test_id);
-    //sometimes on windows the folder is not deleted but info is deleted so lets back it up
-    let info_file = shared::get_info_file_path(project_id, script_id, &test_id);
-    let test_info = std::fs::read_to_string(&info_file)?;
-
-    match std::fs::remove_dir_all(&test_dir) {
-        Ok(_) => {
-            println!(
-                "TEST DELETED: [{}]!",
-                test_dir.to_str().ok_or("System Error")?
-            );
-        }
-        Err(e) => {
-            eprintln!(
-                "ERROR: test: [{}] could not be deleted! Error: {:?}",
-                test_dir.to_str().ok_or("System Error")?,
-                e
-            );
-            let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
-            file.write(test_info.as_bytes())?;
-            response.success = false;
-            response.error = Some("Could not delete test");
-        }
+    if shared::delete_test(&project_id, &script_id, &test_id).is_err() {
+        response.success = false;
+        response.error = Some("Could not delete test");
     }
-
     return Ok(serde_json::to_string(&response).unwrap());
 }
 
@@ -427,16 +410,22 @@ pub async fn remove_all_running_tests(
             //notify master
             let websocket_message = models::websocket::WebSocketMessage {
                 event_type: "TEST_STOPPED",
-                event: models::websocket::tests::TestStoppeddEvent { id: test_id_d.to_owned() },
+                event: models::websocket::tests::TestStoppeddEvent {
+                    id: test_id_d.to_owned(),
+                },
             };
             let redis_message = models::redis::RedisMessage {
                 event_type: websocket_message.event_type.to_owned(),
                 id: shared::encode_script_id(project_id, script_id),
-                message: serde_json::to_string(&websocket_message).unwrap()
+                message: serde_json::to_string(&websocket_message).unwrap(),
             };
             println!("SENDING REDIS MESSAGE: {:?}", redis_message);
             let _: () = red_connection
-                .publish("main_channel", serde_json::to_string(&redis_message).unwrap()).unwrap();
+                .publish(
+                    "main_channel",
+                    serde_json::to_string(&redis_message).unwrap(),
+                )
+                .unwrap();
 
             //remove from redis
             let _: () = red_connection.srem(shared::RUNNING_TESTS, &test_id)?;

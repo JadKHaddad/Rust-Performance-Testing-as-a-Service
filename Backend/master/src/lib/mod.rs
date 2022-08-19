@@ -1,5 +1,6 @@
 use parking_lot::RwLock;
 use poem::web::{Data, Multipart};
+use redis::Commands;
 use shared::models;
 use std::error::Error;
 use std::io::Write;
@@ -15,7 +16,7 @@ use std::{
     },
     time::Duration,
 };
-use redis::Commands;
+use tokio::sync::broadcast::Sender;
 use tokio::time::sleep;
 
 fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
@@ -350,7 +351,7 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
-pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>{
+pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,
         message: "Project",
@@ -381,7 +382,11 @@ pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>
     Ok(response)
 }
 
-pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::Client>,) -> Result<String, Box<dyn Error>> {
+pub async fn tests(
+    project_id: &str,
+    script_id: &str,
+    red_client: Data<&redis::Client>,
+) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,
         message: "Tests",
@@ -390,11 +395,11 @@ pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::C
     };
     let mut red_connection = red_client.get_connection().unwrap();
     let running_tests: HashSet<String> =
-    if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
-        set
-    } else {
-        HashSet::new()
-    };
+        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
+            set
+        } else {
+            HashSet::new()
+        };
     let mut content = shared::models::http::tests::Content { tests: Vec::new() };
     let script_dir =
         match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
@@ -405,7 +410,6 @@ pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::C
                 return Ok(response);
             }
         };
-    
     for test_dir in script_dir {
         let test_id = test_dir?
             .file_name()
@@ -416,7 +420,7 @@ pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::C
         let results = shared::get_results(project_id, script_id, &test_id);
         let task_id = shared::encode_test_id(project_id, script_id, &test_id);
         let mut status = 1;
-        if running_tests.contains(&task_id){
+        if running_tests.contains(&task_id) {
             status = 0;
         }
         //get info
@@ -436,4 +440,99 @@ pub async fn tests(project_id: &str, script_id: &str, red_client: Data<&redis::C
     response.content = Some(content);
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
+}
+
+pub async fn stop_test(
+    project_id: String,
+    script_id: String,
+    test_id: String,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+) -> Result<String, Box<dyn Error>> {
+    let ip =
+        shared::get_worker_ip(&project_id, &script_id, &test_id).ok_or("No worker ip found")?;
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&format!(
+            "http://{}/stop_test/{}/{}/{}",
+            ip, project_id, script_id, test_id
+        ))
+        .send()
+        .await?;
+    {
+        let script_id = shared::encode_script_id(&project_id, &script_id);
+        let subscriptions_guard = subscriptions.read();
+        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+            //create event
+            let websocket_message = models::websocket::WebSocketMessage {
+                event_type: "TEST_STOPPED",
+                event: models::websocket::tests::TestStoppeddEvent { id: test_id },
+            };
+            if sender
+                .send(serde_json::to_string(&websocket_message).unwrap())
+                .is_err()
+            {
+                println!("STOP TEST: No clients are connected!");
+            }
+        }
+    }
+    Ok(response.text().await.unwrap())
+}
+
+pub async fn delete_test(
+    project_id: String,
+    script_id: String,
+    test_id: String,
+    subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+    red_client: Data<&redis::Client>,
+) -> Result<String, Box<dyn Error>> {
+    //check if test is running
+    let mut red_connection = red_client.get_connection().unwrap();
+    let running_tests: std::collections::HashSet<String> =
+        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
+            set
+        } else {
+            std::collections::HashSet::new()
+        };
+    if !running_tests.contains(&shared::encode_test_id(&project_id, &script_id, &test_id)) {
+        let mut response = models::http::Response::<String> {
+            success: true,
+            message: "Test delete",
+            error: None,
+            content: None,
+        };
+        if shared::delete_test(&project_id, &script_id, &test_id).is_err() {
+            response.success = false;
+            response.error = Some("Could not delete test");
+        }
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    //TODO! if worker is not responding?
+    let ip =
+        shared::get_worker_ip(&project_id, &script_id, &test_id).ok_or("No worker ip found")?;
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&format!(
+            "http://{}/delete_test/{}/{}/{}",
+            ip, project_id, script_id, test_id
+        ))
+        .send()
+        .await?;
+    {
+        let script_id = shared::encode_script_id(&project_id, &script_id);
+        let subscriptions_guard = subscriptions.read();
+        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+            //create event
+            let websocket_message = models::websocket::WebSocketMessage {
+                event_type: "TEST_DELETED",
+                event: models::websocket::tests::TestDeletedEvent { id: test_id },
+            };
+            if sender
+                .send(serde_json::to_string(&websocket_message).unwrap())
+                .is_err()
+            {
+                println!("DELETE TEST: No clients are connected!");
+            }
+        }
+    }
+    Ok(response.text().await.unwrap())
 }

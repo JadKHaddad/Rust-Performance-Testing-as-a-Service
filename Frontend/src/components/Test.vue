@@ -3,6 +3,7 @@
     <div class="uk-overflow-auto">
       <button type="button" @click="stop_me()">Stop</button>
       <button type="button" @click="delete_me()">Delete</button>
+      <button type="button" @click="restart_me()">Restart</button>
       <table
         class="uk-table uk-table-small uk-table-striped uk-table-responsive"
       >
@@ -135,6 +136,9 @@ export default {
     },
     delete_me(){
       this.$emit("delete_me");
+    },
+    restart_me(){
+      this.$emit("restart_me");
     },
     toggleDataSeries(e) {
       if (typeof e.dataSeries.visible === "undefined" || e.dataSeries.visible) {

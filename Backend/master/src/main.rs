@@ -106,48 +106,11 @@ async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
 ) -> String {
-    match shared::get_worker_ip(&project_id, &script_id, &test_id) {
-        Some(ip) => {
-            let mut client = reqwest::Client::new();
-            match client
-                .post(&format!(
-                    "http://{}/stop_test/{}/{}/{}",
-                    ip, project_id, script_id, test_id
-                ))
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    {
-                        let script_id = shared::encode_script_id(&project_id, &script_id);
-                        let subscriptions_guard = subscriptions.read();
-                        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
-                            //create event
-                            let websocket_message = models::websocket::WebSocketMessage {
-                                event_type: "TEST_STOPPED",
-                                event: models::websocket::tests::TestStoppeddEvent { id: test_id },
-                            };
-                            if sender
-                                .send(serde_json::to_string(&websocket_message).unwrap())
-                                .is_err()
-                            {
-                                println!("STOP TEST: No clients are connected!");
-                            }
-                        }
-                    }
-                    return response.text().await.unwrap();
-                }
-                Err(err) => {
-                    return serde_json::to_string(&models::http::ErrorResponse::new(
-                        &err.to_string(),
-                    ))
-                    .unwrap();
-                }
-            }
-        }
-        None => {
+    match lib::stop_test(project_id, script_id, test_id, subscriptions).await {
+        Ok(response) => response,
+        Err(err) => {
             // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new("No worker ip found"))
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
                 .unwrap();
         }
     }
@@ -157,50 +120,13 @@ async fn stop_test(
 async fn delete_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
+    red_client: Data<&redis::Client>,
 ) -> String {
-    // TODO! if not running delete it. if running let worker delete it
-    match shared::get_worker_ip(&project_id, &script_id, &test_id) {
-        Some(ip) => {
-            let mut client = reqwest::Client::new();
-            match client
-                .post(&format!(
-                    "http://{}/delete_test/{}/{}/{}",
-                    ip, project_id, script_id, test_id
-                ))
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    {
-                        let script_id = shared::encode_script_id(&project_id, &script_id);
-                        let subscriptions_guard = subscriptions.read();
-                        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
-                            //create event
-                            let websocket_message = models::websocket::WebSocketMessage {
-                                event_type: "TEST_DELETED",
-                                event: models::websocket::tests::TestDeletedEvent { id: test_id },
-                            };
-                            if sender
-                                .send(serde_json::to_string(&websocket_message).unwrap())
-                                .is_err()
-                            {
-                                println!("DELETE TEST: No clients are connected!");
-                            }
-                        }
-                    }
-                    return response.text().await.unwrap();
-                }
-                Err(err) => {
-                    return serde_json::to_string(&models::http::ErrorResponse::new(
-                        &err.to_string(),
-                    ))
-                    .unwrap();
-                }
-            }
-        }
-        None => {
+    match lib::delete_test(project_id, script_id, test_id, subscriptions, red_client).await {
+        Ok(response) => response,
+        Err(err) => {
             // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new("No worker ip found"))
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
                 .unwrap();
         }
     }
@@ -265,6 +191,7 @@ pub async fn ws(
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
+            println!("INFORMATION THREAD: Running!");
             let mut red_connection = red_client.get_connection().unwrap();
             tokio::spawn(async move {
                 loop {
@@ -274,7 +201,6 @@ pub async fn ws(
                         println!("INFORMATION THREAD: Terminating!");
                         break;
                     }
-                    println!("INFORMATION THREAD: Running!");
                     let istalling_projects;
                     {
                         let installing_tasks_guard = installing_tasks.read();

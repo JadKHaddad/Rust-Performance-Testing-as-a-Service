@@ -70,7 +70,7 @@
           <button
             class="uk-button uk-button-default uk-margin-small-right"
             type="button"
-            @click="start"
+            @click="start_from_modal"
           >
             Start
           </button>
@@ -86,6 +86,7 @@
       :test="test"
       @stop_me="stop(test.id)"
       @delete_me="del(test.id)"
+      @restart_me="restart(test.info)"
     />
   </div>
 </template>
@@ -164,20 +165,13 @@ export default {
         }
       };
     },
-    start() {
+    start(test_info) {
       fetch(`/api/worker/start_test/${this.pid}/${this.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          users: parseInt(this.users),
-          spawn_rate: parseInt(this.spawnRate),
-          workers: parseInt(this.workers),
-          host: this.host,
-          time: parseInt(this.time),
-          description: this.description,
-        }),
+        body: JSON.stringify(test_info),
       })
         .then((data) => data.json())
         .then((data) => {
@@ -198,6 +192,17 @@ export default {
           }
         })
         .catch(() => {});
+    },
+    start_from_modal() {
+      const test_info = {
+        users: parseInt(this.users),
+        spawn_rate: parseInt(this.spawnRate),
+        workers: parseInt(this.workers),
+        host: this.host,
+        time: parseInt(this.time),
+        description: this.description,
+      };
+      this.start(test_info);
       return false;
     },
     stop(test_id) {
@@ -230,6 +235,10 @@ export default {
           }
         })
         .catch(() => {});
+    },
+    restart(test_info) {
+      this.start(test_info);
+      return false;
     },
   },
   created() {

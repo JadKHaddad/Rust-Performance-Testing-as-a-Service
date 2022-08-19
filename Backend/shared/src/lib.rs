@@ -1,5 +1,6 @@
 use csv::Reader;
 use std::path::{Path, PathBuf};
+use std::io::Write;
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -192,4 +193,36 @@ pub fn get_last_result_history(project_id: &str, script_id: &str, test_id: &str)
         }
         None => return None,
     }
+}
+
+pub fn delete_test(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    //get test folder and delete it
+    let test_dir = get_a_test_results_dir(&project_id, &script_id, &test_id);
+    //sometimes on windows the folder is not deleted but info is deleted so lets back it up
+    let info_file = get_info_file_path(&project_id, &script_id, &test_id);
+    let test_info = std::fs::read_to_string(&info_file)?;
+
+    match std::fs::remove_dir_all(&test_dir) {
+        Ok(_) => {
+            println!(
+                "TEST DELETED: [{}]!",
+                test_dir.to_str().ok_or("System Error")?
+            );
+        }
+        Err(e) => {
+            eprintln!(
+                "ERROR: test: [{}] could not be deleted! Error: {:?}",
+                test_dir.to_str().ok_or("System Error")?,
+                e
+            );
+            let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
+            file.write(test_info.as_bytes())?;
+        }
+    }
+
+    return Ok(());
 }
