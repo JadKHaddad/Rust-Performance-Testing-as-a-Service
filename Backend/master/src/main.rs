@@ -388,8 +388,8 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     println!(
-        "MASTER: Starting on Port: [{}] with REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
-        port, redis_host, redis_port
+        "[{}] MASTER: Starting on Port: [{}] with REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
+        shared::get_date_and_time(), port, redis_host, redis_port
     );
 
     //create download directory

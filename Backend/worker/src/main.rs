@@ -160,8 +160,8 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     println!(
-        "WORKER: Starting on Port: [{}] with WORKER_NAME: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
-        port, worker_name, master_ip, redis_host, redis_port
+        "[{}] WORKER: Starting on Port: [{}] with WORKER_NAME: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
+        shared::get_date_and_time(), port, worker_name, master_ip, redis_host, redis_port
     );
     //TODO! register with master
 

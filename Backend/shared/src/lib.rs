@@ -1,6 +1,7 @@
 use csv::Reader;
 use std::path::{Path, PathBuf};
 use std::io::Write;
+use chrono::{DateTime, Utc};
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -14,6 +15,11 @@ pub const SUBS: &str = "SUBS";
 pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 
 pub mod models;
+
+pub fn get_date_and_time<'a>() -> chrono::format::DelayedFormat<chrono::format::StrftimeItems<'a>>{
+    let now: DateTime<Utc> = Utc::now();
+    now.format("%Y.%m.%d %H:%M:%S")
+}
 
 pub fn get_data_dir() -> PathBuf {
     Path::new("..").join(DATA_DIR)
