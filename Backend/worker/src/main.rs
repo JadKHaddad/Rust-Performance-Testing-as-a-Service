@@ -100,26 +100,68 @@ async fn delete_test(
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
-    //IP
-    let ip = if let Some(ip) = args.get(1) {
-        ip.to_owned()
+
+    let mut port = "5000".to_owned();
+    if let Some(port_) = args.get(1) {
+        port = port_.to_owned();
     } else {
-        "127.0.0.1:5000".to_owned()
-    };
-    let master_ip = if let Some(ip) = args.get(2) {
-        ip.to_owned()
+        println!("CONFIG: No port was given");
+        if let Ok(port_) = std::env::var("PORT") {
+            port = port_.to_owned();
+        } else {
+            println!("CONFIG: No port is set in environment");
+        }
+    }
+    //worker name is used to let the master communicate with the worker. Kubernetes Service name for example: worker_1
+    //inside the cluster, the worker will be available under the name: worker_1
+    let mut worker_name = format!("127.0.0.1:{}", port);
+    if let Some(name) = args.get(2) {
+        worker_name = name.to_owned();
     } else {
-        "127.0.0.1:3000".to_owned()
-    };
-    let redis_host = if let Some(r_host) = args.get(3) {
-        r_host.to_owned()
+        println!("CONFIG: No worker name was given");
+        if let Ok(name) = std::env::var("WORKER_NAME") {
+            worker_name = name.to_owned();
+        } else {
+            println!("CONFIG: No worker name is set in environment");
+        }
+    }
+    let mut master_ip = "127.0.0.1:3000".to_owned();
+    if let Some(master_ip_) = args.get(3) {
+        master_ip = master_ip_.to_owned()
     } else {
-        "localhost".to_owned()
-    };
+        println!("CONFIG: No master ip was given");
+        if let Ok(master_ip_) = std::env::var("MASTER_IP") {
+            master_ip = master_ip_.to_owned()
+        } else {
+            println!("CONFIG: No master ip is set in environment");
+        }
+    }
+    let mut redis_host = "127.0.0.1".to_owned();
+    if let Some(r_host) = args.get(4) {
+        redis_host = r_host.to_owned();
+    } else {
+        println!("CONFIG: No redis host was given");
+        if let Ok(r_host) = std::env::var("REDIS_HOST") {
+            redis_host = r_host.to_owned();
+        } else {
+            println!("CONFIG: No redis host is set in environment");
+        }
+    }
+    let mut redis_port = "6379".to_owned();
+    if let Some(r_port) = args.get(5) {
+        redis_port = r_port.to_owned();
+    } else {
+        println!("CONFIG: No redis port was given");
+        if let Ok(r_port) = std::env::var("REDIS_PORT") {
+            redis_port = r_port.to_owned();
+        } else {
+            println!("CONFIG: No redis port is set in environment");
+        }
+    }
 
     println!(
-        "WORKER: Starting with IP: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}]\n",
-        ip, master_ip, redis_host
+        "WORKER: Starting on Port: [{}] with WORKER_NAME: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
+        port, worker_name, master_ip, redis_host, redis_port
     );
     //TODO! register with master
 
@@ -132,10 +174,11 @@ async fn main() -> Result<(), std::io::Error> {
     let currently_running_tests = Arc::new(AtomicBool::new(false));
 
     //redis client
-    let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
+    let red_client =
+        redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
 
     //remove running tests that belong to this worker //TODO!: Running test in the GUI is still shown as running
-    lib::remove_all_running_tests(&red_client, &ip)
+    lib::remove_all_running_tests(&red_client, &worker_name)
         .await
         .unwrap();
 
@@ -152,12 +195,12 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
-        .with(AddData::new(ip.clone()))
+        .with(AddData::new(worker_name.clone()))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))
         .with(AddData::new(red_client));
 
-    Server::new(TcpListener::bind(ip))
+    Server::new(TcpListener::bind(format!("0.0.0.0:{}", port)))
         .run(app)
         .await
 }

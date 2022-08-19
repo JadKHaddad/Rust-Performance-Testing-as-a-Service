@@ -427,13 +427,44 @@ pub async fn delete_worker() -> impl IntoResponse {
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
-    let redis_host = if let Some(r_host) = args.get(1) {
-        r_host.to_owned()
+    let mut port = "3000".to_owned();
+    if let Some(port_) = args.get(1) {
+        port = port_.to_owned();
     } else {
-        "localhost".to_owned()
-    };
+        println!("CONFIG: No port was given");
+        if let Ok(port_) = std::env::var("PORT") {
+            port = port_.to_owned();
+        } else {
+            println!("CONFIG: No port is set in environment");
+        }
+    }
+    let mut redis_host = "127.0.0.1".to_owned();
+    if let Some(r_host) = args.get(2) {
+        redis_host = r_host.to_owned();
+    } else {
+        println!("CONFIG: No redis host was given");
+        if let Ok(r_host) = std::env::var("REDIS_HOST") {
+            redis_host = r_host.to_owned();
+        } else {
+            println!("CONFIG: No redis host is set in environment");
+        }
+    }
+    let mut redis_port = "6379".to_owned();
+    if let Some(r_port) = args.get(3) {
+        redis_port = r_port.to_owned();
+    } else {
+        println!("CONFIG: No redis port was given");
+        if let Ok(r_port) = std::env::var("REDIS_PORT") {
+            redis_port = r_port.to_owned();
+        } else {
+            println!("CONFIG: No redis port is set in environment");
+        }
+    }
 
-    println!("MASTER: Starting with REDIS_HOST: [{}]\n", redis_host);
+    println!(
+        "MASTER: Starting on Port: [{}] with REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
+        port, redis_host, redis_port
+    );
 
     //create download directory
     std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
@@ -457,7 +488,8 @@ async fn main() -> Result<(), std::io::Error> {
     let main_sender = tokio::sync::broadcast::channel::<String>(512).0;
 
     //redis client
-    let red_client = redis::Client::open(format!("redis://{}:{}/", redis_host, "6379")).unwrap();
+    let red_client =
+        redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
     let mut red_connection = red_client.get_connection().unwrap();
     //reset subs on master start
     let _: () = red_connection.del(shared::SUBS).unwrap();
@@ -519,7 +551,7 @@ async fn main() -> Result<(), std::io::Error> {
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))
         .with(AddData::new(red_client));
-    Server::new(TcpListener::bind("0.0.0.0:3000"))
+    Server::new(TcpListener::bind(format!("0.0.0.0:{}", port)))
         .run(app)
         .await
 }
