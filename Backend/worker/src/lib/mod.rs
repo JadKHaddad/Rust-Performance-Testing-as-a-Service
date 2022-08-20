@@ -186,7 +186,10 @@ pub async fn start_test(
 
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
-        println!("SCRIPTS GARBAGE COLLECTOR: Running!");
+        println!(
+            "[{}] SCRIPTS GARBAGE COLLECTOR: Running!",
+            shared::get_date_and_time()
+        );
         let tokio_currently_running_tests = currently_running_tests.clone();
         let tokio_running_tests = Arc::clone(&running_tests);
         tokio::spawn(async move {
@@ -197,10 +200,12 @@ pub async fn start_test(
                     let mut tokio_tests_guard = tokio_running_tests.write();
                     if tokio_tests_guard.len() < 1 {
                         tokio_currently_running_tests.store(false, Ordering::SeqCst);
-                        println!("SCRIPTS GARBAGE COLLECTOR: Terminating!");
+                        println!(
+                            "[{}] SCRIPTS GARBAGE COLLECTOR: Terminating!",
+                            shared::get_date_and_time()
+                        );
                         break;
                     }
-                    
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     let wanted_scripts: HashSet<String> =
@@ -221,10 +226,10 @@ pub async fn start_test(
                                 to_be_removed.push(id.to_owned());
                                 match exit_status.code() {
                                     Some(code) => {
-                                        println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated with code [{}]!", id, code);
+                                        println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
                                     }
                                     None => {
-                                        println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!", id);
+                                        println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!",shared::get_date_and_time(), id);
                                     }
                                 }
                                 //remove from redis
@@ -235,12 +240,16 @@ pub async fn start_test(
                                 status = 0; // process is running
                             }
                             Err(e) => {
-                                eprintln!("ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}", id, e);
+                                eprintln!("[{}] ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}",shared::get_date_and_time(), id, e);
                             }
                         }
                         //check if the script is wanted and save results in redis
                         if wanted_scripts.contains(global_script_id) {
-                            println!("SCRIPT WANTED: {}", global_script_id);
+                            println!(
+                                "[{}] SCRIPT WANTED: {}",
+                                shared::get_date_and_time(),
+                                global_script_id
+                            );
                             let results = shared::get_results(project_id, script_id, test_id);
                             let last_history =
                                 shared::get_last_result_history(project_id, script_id, test_id);
@@ -263,7 +272,11 @@ pub async fn start_test(
                     //remove finished
                     for id in to_be_removed.iter() {
                         tokio_tests_guard.remove_entry(id);
-                        println!("SCRIPTS GARBAGE COLLECTOR: Script [{}] removed!", id);
+                        println!(
+                            "[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] removed!",
+                            shared::get_date_and_time(),
+                            id
+                        );
                     }
                 }
                 //save in redis
@@ -300,7 +313,10 @@ pub async fn start_test(
         });
         currently_running_tests.store(true, Ordering::SeqCst);
     } else {
-        println!("SCRIPTS GARBAGE COLLECTOR: Already running!");
+        println!(
+            "[{}] SCRIPTS GARBAGE COLLECTOR: Already running!",
+            shared::get_date_and_time()
+        );
     }
     //Notify
 
@@ -335,7 +351,11 @@ pub async fn stop_test(
     match running_tests_guard.get_mut(&task_id) {
         Some(cmd) => match cmd.kill() {
             Ok(_) => {
-                println!("TEST KILLED: [{}]!", task_id);
+                println!(
+                    "[{}] TEST KILLED: [{}]!",
+                    shared::get_date_and_time(),
+                    task_id
+                );
                 response.message = "Task stopped";
                 //running_tests_guard.remove_entry(&task_id);
                 //remove from redis
@@ -345,7 +365,11 @@ pub async fn stop_test(
                 //     .unwrap();
             }
             Err(_) => {
-                eprintln!("ERROR: test: [{}] could not be killed!", task_id);
+                eprintln!(
+                    "[{}] ERROR: test: [{}] could not be killed!",
+                    shared::get_date_and_time(),
+                    task_id
+                );
                 response.success = false;
                 response.error = Some("Could not stop test");
             }
@@ -419,7 +443,11 @@ pub async fn remove_all_running_tests(
                 id: shared::encode_script_id(project_id, script_id),
                 message: serde_json::to_string(&websocket_message).unwrap(),
             };
-            println!("SENDING REDIS MESSAGE: {:?}", redis_message);
+            println!(
+                "[{}] SENDING REDIS MESSAGE: {:?}",
+                shared::get_date_and_time(),
+                redis_message
+            );
             let _: () = red_connection
                 .publish(
                     "main_channel",
@@ -429,7 +457,11 @@ pub async fn remove_all_running_tests(
 
             //remove from redis
             let _: () = red_connection.srem(shared::RUNNING_TESTS, &test_id)?;
-            println!("OLD RUNNING TEST REMOVED!: [{}] ", test_id);
+            println!(
+                "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
+                shared::get_date_and_time(),
+                test_id
+            );
         }
     }
     Ok(())

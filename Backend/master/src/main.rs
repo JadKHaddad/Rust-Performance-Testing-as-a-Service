@@ -159,9 +159,10 @@ pub async fn ws(
             .as_micros()
             .to_string();
 
-        println!("WEBSOCKET: CONNECTED: [{}]", id);
         println!(
-            "WEBSOCKET: COUNT: [{}]",
+            "[{}] WEBSOCKET: CONNECTED: [{}] | COUNT: [{}]",
+            shared::get_date_and_time(),
+            id,
             ws_upgrade_connected_clients.load(Ordering::SeqCst)
         );
         let id_tx = id.clone();
@@ -169,13 +170,19 @@ pub async fn ws(
         tokio::spawn(async move {
             while let Some(Ok(msg)) = stream.next().await {
                 if let Message::Text(rec_msg) = msg {
-                    println!("WEBSOCKET: Received message: [{}], [{}]", rec_msg, id);
+                    println!(
+                        "[{}] WEBSOCKET: Received message: [{}], [{}]",
+                        shared::get_date_and_time(),
+                        rec_msg,
+                        id
+                    );
                 }
             }
-            println!("WEBSOCKET: STREAM DISCONNECTED: [{}]", id);
             ws_stream_connected_clients.fetch_sub(1, Ordering::SeqCst);
             println!(
-                "WEBSOCKET: COUNT: [{}]",
+                "[{}] WEBSOCKET: STREAM DISCONNECTED: [{}] | COUNT: [{}]",
+                shared::get_date_and_time(),
+                id,
                 ws_stream_connected_clients.load(Ordering::SeqCst)
             );
         });
@@ -186,19 +193,29 @@ pub async fn ws(
                     break;
                 }
             }
-            println!("WEBSOCKET: LISTENER DROPPED: [{}]", id_tx);
+            println!(
+                "[{}] WEBSOCKET: LISTENER DROPPED: [{}]",
+                shared::get_date_and_time(),
+                id_tx
+            );
         });
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
-            println!("INFORMATION THREAD: Running!");
+            println!(
+                "[{}] INFORMATION THREAD: Running!",
+                shared::get_date_and_time()
+            );
             let mut red_connection = red_client.get_connection().unwrap();
             tokio::spawn(async move {
                 loop {
                     let connected_clients_count = tokio_connected_clients.load(Ordering::SeqCst);
                     if connected_clients_count < 1 {
                         tokio_information_thread_running.store(false, Ordering::SeqCst);
-                        println!("INFORMATION THREAD: Terminating!");
+                        println!(
+                            "[{}] INFORMATION THREAD: Terminating!",
+                            shared::get_date_and_time()
+                        );
                         break;
                     }
                     let istalling_projects;
@@ -228,7 +245,10 @@ pub async fn ws(
                         .send(serde_json::to_string(&websocket_message).unwrap())
                         .is_err()
                     {
-                        println!("INFORMATION THREAD: No clients are connected!");
+                        println!(
+                            "[{}] INFORMATION THREAD: No clients are connected!",
+                            shared::get_date_and_time()
+                        );
                     }
 
                     // {
@@ -247,7 +267,10 @@ pub async fn ws(
             });
             information_thread_running.store(true, Ordering::SeqCst);
         } else {
-            println!("INFORMATION THREAD: Already running!");
+            println!(
+                "[{}] INFORMATION THREAD: Already running!",
+                shared::get_date_and_time()
+            );
         }
     })
 }
@@ -289,8 +312,10 @@ pub async fn subscribe(
             let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
         }
         println!(
-            "SUBSCRIBER: Script [{}]: COUNT: [{}]",
-            script_id, subscriptions_guard[&script_id_debug].0
+            "[{}] SUBSCRIBER: Script [{}]: COUNT: [{}]",
+            shared::get_date_and_time(),
+            script_id,
+            subscriptions_guard[&script_id_debug].0
         );
         let sender = subscriptions_guard[&script_id_debug].1.clone();
         let mut receiver = subscriptions_guard[&script_id_debug].1.subscribe();
@@ -310,13 +335,20 @@ pub async fn subscribe(
                 }
             }
             println!(
-                "SUBSCRIBER: Script [{}]: STREAM DISCONNECTED: [{}]",
-                script_id, id
+                "[{}] SUBSCRIBER: Script [{}]: STREAM DISCONNECTED: [{}]",
+                shared::get_date_and_time(),
+                script_id,
+                id
             );
 
             let mut subscriptions_guard = tokio_subscriptions.write();
             let new_count = subscriptions_guard[&script_id].0 - 1;
-            println!("SUBSCRIBER: Script [{}]: COUNT: [{}]", script_id, new_count);
+            println!(
+                "[{}] SUBSCRIBER: Script [{}]: COUNT: [{}]",
+                shared::get_date_and_time(),
+                script_id,
+                new_count
+            );
             if new_count < 1 {
                 subscriptions_guard.remove(&script_id);
                 //update
@@ -333,8 +365,10 @@ pub async fn subscribe(
                 }
             }
             println!(
-                "WEBSOCKET: Script [{}]: LISTENER DROPPED: [{}]",
-                tokio_listener_script_id, id_tx
+                "[{}] WEBSOCKET: Script [{}]: LISTENER DROPPED: [{}]",
+                shared::get_date_and_time(),
+                tokio_listener_script_id,
+                id_tx
             );
         });
     })
@@ -357,39 +391,60 @@ async fn main() -> Result<(), std::io::Error> {
     if let Some(port_) = args.get(1) {
         port = port_.to_owned();
     } else {
-        println!("CONFIG: No port was given");
+        println!(
+            "[{}] CONFIG: No port was given",
+            shared::get_date_and_time()
+        );
         if let Ok(port_) = std::env::var("PORT") {
             port = port_.to_owned();
         } else {
-            println!("CONFIG: No port is set in environment");
+            println!(
+                "[{}] CONFIG: No port is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     let mut redis_host = "127.0.0.1".to_owned();
     if let Some(r_host) = args.get(2) {
         redis_host = r_host.to_owned();
     } else {
-        println!("CONFIG: No redis host was given");
+        println!(
+            "[{}] CONFIG: No redis host was given",
+            shared::get_date_and_time()
+        );
         if let Ok(r_host) = std::env::var("REDIS_HOST") {
             redis_host = r_host.to_owned();
         } else {
-            println!("CONFIG: No redis host is set in environment");
+            println!(
+                "[{}] CONFIG: No redis host is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     let mut redis_port = "6379".to_owned();
     if let Some(r_port) = args.get(3) {
         redis_port = r_port.to_owned();
     } else {
-        println!("CONFIG: No redis port was given");
+        println!(
+            "[{}] CONFIG: No redis port was given",
+            shared::get_date_and_time()
+        );
         if let Ok(r_port) = std::env::var("REDIS_PORT") {
             redis_port = r_port.to_owned();
         } else {
-            println!("CONFIG: No redis port is set in environment");
+            println!(
+                "[{}] CONFIG: No redis port is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
 
     println!(
         "[{}] MASTER: Starting on Port: [{}] with REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
-        shared::get_date_and_time(), port, redis_host, redis_port
+        shared::get_date_and_time(),
+        port,
+        redis_host,
+        redis_port
     );
 
     //create download directory
@@ -436,11 +491,15 @@ async fn main() -> Result<(), std::io::Error> {
                 //println!("{:?}", subscriptions_guard);
                 if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
                     if sender.1.send(redis_message.message).is_err() {
-                        println!("REDIS CHANNEL THREAD: No clients are connected!");
+                        println!(
+                            "[{}] REDIS CHANNEL THREAD: No clients are connected!",
+                            shared::get_date_and_time()
+                        );
                     };
                 } else {
                     println!(
-                        "REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
+                        "[{}] REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
+                        shared::get_date_and_time(),
                         redis_message.id
                     );
                 }

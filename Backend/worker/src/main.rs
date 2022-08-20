@@ -105,11 +105,17 @@ async fn main() -> Result<(), std::io::Error> {
     if let Some(port_) = args.get(1) {
         port = port_.to_owned();
     } else {
-        println!("CONFIG: No port was given");
+        println!(
+            "[{}] CONFIG: No port was given",
+            shared::get_date_and_time()
+        );
         if let Ok(port_) = std::env::var("PORT") {
             port = port_.to_owned();
         } else {
-            println!("CONFIG: No port is set in environment");
+            println!(
+                "[{}] CONFIG: No port is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     //worker name is used to let the master communicate with the worker. Kubernetes Service name for example: worker_1
@@ -118,44 +124,68 @@ async fn main() -> Result<(), std::io::Error> {
     if let Some(name) = args.get(2) {
         worker_name = name.to_owned();
     } else {
-        println!("CONFIG: No worker name was given");
+        println!(
+            "[{}] CONFIG: No worker name was given",
+            shared::get_date_and_time()
+        );
         if let Ok(name) = std::env::var("WORKER_NAME") {
             worker_name = name.to_owned();
         } else {
-            println!("CONFIG: No worker name is set in environment");
+            println!(
+                "[{}] CONFIG: No worker name is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     let mut master_ip = "127.0.0.1:3000".to_owned();
     if let Some(master_ip_) = args.get(3) {
         master_ip = master_ip_.to_owned()
     } else {
-        println!("CONFIG: No master ip was given");
+        println!(
+            "[{}] CONFIG: No master ip was given",
+            shared::get_date_and_time()
+        );
         if let Ok(master_ip_) = std::env::var("MASTER_IP") {
             master_ip = master_ip_.to_owned()
         } else {
-            println!("CONFIG: No master ip is set in environment");
+            println!(
+                "[{}] CONFIG: No master ip is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     let mut redis_host = "127.0.0.1".to_owned();
     if let Some(r_host) = args.get(4) {
         redis_host = r_host.to_owned();
     } else {
-        println!("CONFIG: No redis host was given");
+        println!(
+            "[{}] CONFIG: No redis host was given",
+            shared::get_date_and_time()
+        );
         if let Ok(r_host) = std::env::var("REDIS_HOST") {
             redis_host = r_host.to_owned();
         } else {
-            println!("CONFIG: No redis host is set in environment");
+            println!(
+                "[{}] CONFIG: No redis host is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
     let mut redis_port = "6379".to_owned();
     if let Some(r_port) = args.get(5) {
         redis_port = r_port.to_owned();
     } else {
-        println!("CONFIG: No redis port was given");
+        println!(
+            "[{}] CONFIG: No redis port was given",
+            shared::get_date_and_time()
+        );
         if let Ok(r_port) = std::env::var("REDIS_PORT") {
             redis_port = r_port.to_owned();
         } else {
-            println!("CONFIG: No redis port is set in environment");
+            println!(
+                "[{}] CONFIG: No redis port is set in environment",
+                shared::get_date_and_time()
+            );
         }
     }
 

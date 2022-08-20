@@ -1,7 +1,7 @@
-use csv::Reader;
-use std::path::{Path, PathBuf};
-use std::io::Write;
 use chrono::{DateTime, Utc};
+use csv::Reader;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -16,7 +16,7 @@ pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 
 pub mod models;
 
-pub fn get_date_and_time<'a>() -> chrono::format::DelayedFormat<chrono::format::StrftimeItems<'a>>{
+pub fn get_date_and_time<'a>() -> chrono::format::DelayedFormat<chrono::format::StrftimeItems<'a>> {
     let now: DateTime<Utc> = Utc::now();
     now.format("%Y.%m.%d %H:%M:%S")
 }
@@ -124,7 +124,11 @@ pub fn get_info_file_path(project_id: &str, script_id: &str, test_id: &str) -> P
     get_a_test_results_dir(project_id, script_id, test_id).join("info.json")
 }
 
-pub fn get_results(project_id: &str, script_id: &str, test_id: &str) -> Option<Vec<models::ResultRow>> {
+pub fn get_results(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Option<Vec<models::ResultRow>> {
     let csv_file = get_csv_file_path(project_id, script_id, &test_id);
     let mut rdr = match Reader::from_path(csv_file) {
         Ok(rdr) => rdr,
@@ -166,7 +170,11 @@ pub fn get_worker_ip(project_id: &str, script_id: &str, test_id: &str) -> Option
     }
 }
 
-pub fn get_results_history(project_id: &str, script_id: &str, test_id: &str) -> Option<Vec<models::ResultHistory>> {
+pub fn get_results_history(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Option<Vec<models::ResultHistory>> {
     let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
     let mut rdr = match Reader::from_path(csv_file) {
         Ok(rdr) => rdr,
@@ -183,13 +191,17 @@ pub fn get_results_history(project_id: &str, script_id: &str, test_id: &str) -> 
     return Some(results);
 }
 
-pub fn get_last_result_history(project_id: &str, script_id: &str, test_id: &str) -> Option<models::ResultHistory> {
+pub fn get_last_result_history(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Option<models::ResultHistory> {
     let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
     let mut rdr = match Reader::from_path(csv_file) {
         Ok(rdr) => rdr,
         Err(_) => return None,
     };
-    match rdr.deserialize().last(){
+    match rdr.deserialize().last() {
         Some(result) => {
             let row: models::ResultHistory = match result {
                 Ok(record) => record,
@@ -215,13 +227,15 @@ pub fn delete_test(
     match std::fs::remove_dir_all(&test_dir) {
         Ok(_) => {
             println!(
-                "TEST DELETED: [{}]!",
+                "[{}] TEST DELETED: [{}]!",
+                get_date_and_time(),
                 test_dir.to_str().ok_or("System Error")?
             );
         }
         Err(e) => {
             eprintln!(
-                "ERROR: test: [{}] could not be deleted! Error: {:?}",
+                "[{}] ERROR: test: [{}] could not be deleted! Error: {:?}",
+                get_date_and_time(),
                 test_dir.to_str().ok_or("System Error")?,
                 e
             );

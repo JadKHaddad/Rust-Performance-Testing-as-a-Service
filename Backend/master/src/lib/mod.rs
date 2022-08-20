@@ -28,7 +28,12 @@ where
         let mut buf = [0];
         match stream.read(&mut buf) {
             Err(err) => {
-                eprintln!("{}] Error reading from stream: {}", line!(), err);
+                eprintln!(
+                    "[{}] [{}] Error reading from stream: {}",
+                    shared::get_date_and_time(),
+                    line!(),
+                    err
+                );
                 break;
             }
             Ok(got) => {
@@ -37,7 +42,12 @@ where
                 } else if got == 1 {
                     vec.push(buf[0])
                 } else {
-                    eprintln!("{}] Unexpected number of bytes: {}", line!(), got);
+                    eprintln!(
+                        "[{}] [{}] Unexpected number of bytes: {}",
+                        shared::get_date_and_time(),
+                        line!(),
+                        got
+                    );
                     break;
                 }
             }
@@ -192,10 +202,16 @@ pub async fn upload(
                     let mut tokio_tasks_guard = tokio_installing_tasks.write();
                     if tokio_tasks_guard.len() < 1 {
                         tokio_currently_installing_projects.store(false, Ordering::SeqCst);
-                        println!("PROJECTS GARBAGE COLLECTOR: Terminating!");
+                        println!(
+                            "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
+                            shared::get_date_and_time()
+                        );
                         break;
                     }
-                    println!("PROJECTS GARBAGE COLLECTOR: Running!");
+                    println!(
+                        "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
+                        shared::get_date_and_time()
+                    );
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
@@ -212,14 +228,14 @@ pub async fn upload(
                                 // delete on fail
                                 match exit_status.code() {
                                     Some(code) => {
-                                        println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", id, code);
+                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
                                         if code != 0 {
                                             if let Some(stderr) = cmd.stderr.take() {
                                                 let err = child_stream_to_vec(stderr);
                                                 if let Ok(error_string) = str::from_utf8(&err) {
                                                     to_be_deleted.push(id.to_owned());
                                                     project.error = Some(error_string.to_owned());
-                                                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", id, error_string);
+                                                    println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", shared::get_date_and_time(), id, error_string);
                                                 }
                                             }
                                         } else {
@@ -230,16 +246,16 @@ pub async fn upload(
                                                 shared::get_a_project_dir(id),
                                             ) {
                                                 Ok(_) => {
-                                                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", id);
+                                                    println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", shared::get_date_and_time(), id);
                                                 }
                                                 Err(e) => {
-                                                    eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", id, e);
+                                                    eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", shared::get_date_and_time(), id, e);
                                                 }
                                             }
                                         }
                                     }
                                     None => {
-                                        println!("PROJECTS GARBAGE COLLECTOR: Project [{}] terminated by signal!", id);
+                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated by signal!", shared::get_date_and_time(), id);
                                     }
                                 }
                             }
@@ -247,7 +263,7 @@ pub async fn upload(
                                 project.status = 0; // process is running
                             }
                             Err(e) => {
-                                eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", id, e);
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", shared::get_date_and_time(), id, e);
                             }
                         }
                         installing_projects.push(project);
@@ -255,7 +271,11 @@ pub async fn upload(
                     //remove finished
                     for id in to_be_removed.iter() {
                         tokio_tasks_guard.remove_entry(id);
-                        println!("PROJECTS GARBAGE COLLECTOR: Project [{}] removed!", id);
+                        println!(
+                            "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] removed!",
+                            shared::get_date_and_time(),
+                            id
+                        );
                     }
                 }
                 //delete not valid
@@ -263,16 +283,20 @@ pub async fn upload(
                     match std::fs::remove_dir_all(shared::get_a_temp_dir(id)) {
                         Ok(_) => (),
                         Err(e) => {
-                            eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}", id, e);
+                            eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
                         }
                     };
                     match std::fs::remove_dir_all(shared::get_an_environment_dir(id)) {
                         Ok(_) => (),
                         Err(e) => {
-                            eprintln!("ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}", id, e);
+                            eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
                         }
                     };
-                    println!("PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!", id);
+                    println!(
+                        "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!",
+                        shared::get_date_and_time(),
+                        id
+                    );
                 }
                 // send info
                 let websocket_message = models::websocket::WebSocketMessage {
@@ -286,14 +310,20 @@ pub async fn upload(
                     .send(serde_json::to_string(&websocket_message).unwrap())
                     .is_err()
                 {
-                    println!("PROJECTS GARBAGE COLLECTOR: No clients are connected!");
+                    println!(
+                        "[{}] PROJECTS GARBAGE COLLECTOR: No clients are connected!",
+                        shared::get_date_and_time()
+                    );
                 }
                 sleep(Duration::from_secs(3)).await;
             }
         });
         currently_installing_projects.store(true, Ordering::SeqCst); //TODO: maybe move up? before the thread?
     } else {
-        println!("PROJECTS GARBAGE COLLECTOR: Already running!");
+        println!(
+            "[{}] PROJECTS GARBAGE COLLECTOR: Already running!",
+            shared::get_date_and_time()
+        );
     }
     Ok(serde_json::to_string(&response).unwrap())
 }
@@ -471,7 +501,10 @@ pub async fn stop_test(
                 .send(serde_json::to_string(&websocket_message).unwrap())
                 .is_err()
             {
-                println!("STOP TEST: No clients are connected!");
+                println!(
+                    "[{}] STOP TEST: No clients are connected!",
+                    shared::get_date_and_time()
+                );
             }
         }
     }
@@ -530,7 +563,10 @@ pub async fn delete_test(
                 .send(serde_json::to_string(&websocket_message).unwrap())
                 .is_err()
             {
-                println!("DELETE TEST: No clients are connected!");
+                println!(
+                    "[{}] DELETE TEST: No clients are connected!",
+                    shared::get_date_and_time()
+                );
             }
         }
     }
