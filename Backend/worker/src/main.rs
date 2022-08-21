@@ -97,6 +97,38 @@ async fn delete_test(
     }
 }
 
+#[handler]
+async fn stop_script(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+) -> String {
+    todo!()
+}
+
+async fn register(worker_name: &str, master_ip: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&format!("http://{}/register_worker", master_ip))
+        .body(
+            serde_json::to_string(&models::http::WorkerInfo {
+                worker_name: worker_name.to_owned(),
+            })
+            .unwrap(),
+        )
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await?;
+        panic!(
+            "Could not register worker | STATUS: {} | RESPONSE: {}",
+            status, body
+        );
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -193,7 +225,6 @@ async fn main() -> Result<(), std::io::Error> {
         "[{}] WORKER: Starting on Port: [{}] with WORKER_NAME: [{}] | MASTER_IP: [{}] | REDIS_HOST: [{}] | REDIS_PORT: [{}]\n",
         shared::get_date_and_time(), port, worker_name, master_ip, redis_host, redis_port
     );
-    //TODO! register with master
 
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
@@ -212,6 +243,19 @@ async fn main() -> Result<(), std::io::Error> {
         .await
         .unwrap();
 
+    println!(
+        "[{}] WORKER: Registering with master",
+        shared::get_date_and_time()
+    );
+    if let Err(err) = register(&worker_name, &master_ip).await {
+        eprintln!(
+            "[{}] ERROR: WORKER: Failed to register with master\n{}\n",
+            shared::get_date_and_time(),
+            err
+        );
+        panic!("WORKER: Failed to register with master");
+    }
+
     tracing_subscriber::fmt::init();
 
     let app = Route::new()
@@ -225,7 +269,7 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
-        .with(AddData::new(worker_name.clone()))
+        .with(AddData::new(worker_name))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))
         .with(AddData::new(red_client));

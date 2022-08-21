@@ -10,14 +10,14 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Multipart, Path,
+        Data, Multipart, Path, Json,
     },
     EndpointExt, IntoResponse, Route, Server,
 };
 use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
-    collections::HashMap,
+    collections::{HashMap,HashSet},
     process::Child,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -133,7 +133,7 @@ async fn delete_test(
 }
 
 #[handler]
-pub async fn ws(
+async fn ws(
     ws: WebSocket,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
     connected_clients: Data<&Arc<AtomicU32>>,
@@ -276,7 +276,7 @@ pub async fn ws(
 }
 
 #[handler]
-pub async fn subscribe(
+async fn subscribe(
     other_ws: WebSocket,
     Path((project_id, script_id)): Path<(String, String)>,
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
@@ -375,12 +375,25 @@ pub async fn subscribe(
 }
 
 #[handler]
-pub async fn register_worker() -> impl IntoResponse {
+async fn stop_script(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+) -> String {
     todo!()
 }
 
 #[handler]
-pub async fn delete_worker() -> impl IntoResponse {
+async fn register_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>, mut worker_info: Json<models::http::WorkerInfo>,) -> String {
+    let mut workers_guard = workers.write();
+    let worker_name = std::mem::take(&mut worker_info.worker_name);
+    println!("[{}] MASTER: REGISTER WORKER: Received request: [{}]", shared::get_date_and_time(), worker_name);
+    workers_guard.insert(worker_name);
+    println!("[{}] MASTER: CURRENT WORKERS: [{:?}]", shared::get_date_and_time(),workers_guard);
+    return "OK".to_owned();
+}
+
+#[handler]
+async fn delete_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> String {
+    println!("[{}] MASTER: DELETE WORKER: Received request", shared::get_date_and_time());
     todo!()
 }
 
@@ -449,6 +462,9 @@ async fn main() -> Result<(), std::io::Error> {
 
     //create download directory
     std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
+    //workers
+    let workers: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
+
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -512,6 +528,8 @@ async fn main() -> Result<(), std::io::Error> {
     let app = Route::new()
         .at("/health", get(health))
         .at("/upload", post(upload.data(currently_installing_projects)))
+        .at("/register_worker", post(register_worker))
+        .at("/delete_worker", post(delete_worker))
         .at(
             "/ws",
             get(ws.data(information_thread_running).data(connected_clients)),
@@ -533,6 +551,7 @@ async fn main() -> Result<(), std::io::Error> {
             StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
+        .with(AddData::new(workers))
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))
         .with(AddData::new(red_client));

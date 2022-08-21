@@ -149,6 +149,11 @@ pub mod http {
     use serde::Serialize;
 
     #[derive(Debug, Serialize, Deserialize)]
+    pub struct  WorkerInfo{
+        pub worker_name: String
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct TestInfo {
         pub project_id: Option<String>,
         pub script_id: Option<String>,

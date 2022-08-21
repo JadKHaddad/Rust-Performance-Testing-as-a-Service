@@ -7,6 +7,12 @@
     >
       Start
     </button>
+        <button
+      class="uk-button uk-button-default uk-margin-small-right"
+      type="button"
+    >
+      Stop All
+    </button>
 
     <div id="start-modal" uk-modal ref="start-modal">
       <div class="uk-modal-dialog uk-modal-body">
