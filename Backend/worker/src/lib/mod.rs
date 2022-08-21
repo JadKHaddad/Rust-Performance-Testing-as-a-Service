@@ -282,7 +282,7 @@ pub async fn start_test(
                 //save in redis
                 for (script_id, tests_info) in tests_info_map.iter() {
                     let websocket_message = models::websocket::WebSocketMessage {
-                        event_type: "UPDATE",
+                        event_type: shared::UPDATE_TEST_INFO,
                         event: models::websocket::tests::TestInfoEvent {
                             tests_info: tests_info,
                         },
@@ -392,12 +392,9 @@ pub async fn delete_test(
         content: None,
     };
     let task_id = shared::encode_test_id(&project_id, &script_id, &test_id);
-    if stop_test(
-        &task_id,
-        &running_tests, /*red_client*/
-    )
-    .await
-    .is_err()
+    if stop_test(&task_id, &running_tests /*red_client*/)
+        .await
+        .is_err()
     {
         response.success = false;
         response.error = Some("Could not stop test");
@@ -429,7 +426,7 @@ pub async fn remove_all_running_tests(
         if test_worker_ip == worker_ip {
             //notify master
             let websocket_message = models::websocket::WebSocketMessage {
-                event_type: "TEST_STOPPED",
+                event_type: shared::TEST_STOPPED,
                 event: models::websocket::tests::TestStoppeddEvent {
                     id: test_id_d.to_owned(),
                 },
@@ -463,7 +460,10 @@ pub async fn remove_all_running_tests(
     Ok(())
 }
 
-pub async fn stop_script(script_id: &str, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,) -> Result<String, Box<dyn Error>> {
+pub async fn stop_script(
+    script_id: &str,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+) -> Result<String, Box<dyn Error>> {
     let mut stopped_tests = HashMap::new();
     for running_test in running_tests.write().iter_mut() {
         if running_test.0.starts_with(script_id) {

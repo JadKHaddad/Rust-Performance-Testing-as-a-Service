@@ -14,6 +14,11 @@ pub const SUBS: &str = "SUBS";
 //redis running tests
 pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 
+//events
+pub const UPDATE_TEST_INFO: &str = "UPDATE";
+pub const TEST_STOPPED: &str = "TEST_STOPPED";
+pub const TEST_DELETED: &str = "TEST_DELETED";
+
 pub mod models;
 
 pub fn get_date_and_time<'a>() -> chrono::format::DelayedFormat<chrono::format::StrftimeItems<'a>> {

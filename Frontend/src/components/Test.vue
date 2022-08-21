@@ -131,13 +131,13 @@ export default {
   },
 
   methods: {
-    stop_me(){
+    stop_me() {
       this.$emit("stop_me");
     },
-    delete_me(){
+    delete_me() {
       this.$emit("delete_me");
     },
-    restart_me(){
+    restart_me() {
       this.$emit("restart_me");
     },
     toggleDataSeries(e) {

@@ -68,13 +68,11 @@ pub struct ResultHistory {
 pub mod redis {
     use serde::{Deserialize, Serialize};
     #[derive(Debug, Deserialize, Serialize)]
-    pub struct RedisMessage
-    {
+    pub struct RedisMessage {
         pub event_type: String,
         pub id: String,
         pub message: String,
     }
-
 }
 
 pub mod websocket {
@@ -93,7 +91,7 @@ pub mod websocket {
         use serde::Serialize;
 
         #[derive(Debug, Serialize)]
-        pub struct Event{
+        pub struct Event {
             pub connected_clients_count: u32,
             pub running_tests_count: u32,
             pub istalling_projects: Vec<String>,
@@ -149,8 +147,8 @@ pub mod http {
     use serde::Serialize;
 
     #[derive(Debug, Serialize, Deserialize)]
-    pub struct  WorkerInfo{
-        pub worker_name: String
+    pub struct WorkerInfo {
+        pub worker_name: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -231,7 +229,6 @@ pub mod http {
             pub scripts: Vec<String>,
         }
     }
-    
     pub mod tests {
         use serde::Serialize;
 

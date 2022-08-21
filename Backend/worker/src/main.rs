@@ -58,12 +58,7 @@ async fn stop_test(
     /*red_client: Data<&redis::Client>,*/
 ) -> String {
     let task_id = shared::encode_test_id(&project_id, &script_id, &test_id);
-    match lib::stop_test(
-        &task_id,
-        &running_tests, /*red_client*/
-    )
-    .await
-    {
+    match lib::stop_test(&task_id, &running_tests /*red_client*/).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -98,14 +93,11 @@ async fn delete_test(
 
 #[handler]
 async fn stop_script(
-    Path((project_id, script_id)): Path<(String, String)>, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    Path((project_id, script_id)): Path<(String, String)>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> String {
     let script_id = shared::encode_script_id(&project_id, &script_id);
-    match lib::stop_script(
-        &script_id,
-        running_tests, 
-    ).await
-    {
+    match lib::stop_script(&script_id, running_tests).await {
         Ok(response) => response,
         Err(err) => {
             // Server error

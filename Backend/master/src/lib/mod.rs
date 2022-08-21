@@ -494,7 +494,7 @@ pub async fn stop_test(
         if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
             //create event
             let websocket_message = models::websocket::WebSocketMessage {
-                event_type: "TEST_STOPPED",
+                event_type: shared::TEST_STOPPED,
                 event: models::websocket::tests::TestStoppeddEvent { id: test_id },
             };
             if sender
@@ -556,7 +556,7 @@ pub async fn delete_test(
         if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
             //create event
             let websocket_message = models::websocket::WebSocketMessage {
-                event_type: "TEST_DELETED",
+                event_type: shared::TEST_DELETED,
                 event: models::websocket::tests::TestDeletedEvent { id: test_id },
             };
             if sender

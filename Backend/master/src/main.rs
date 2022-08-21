@@ -536,7 +536,7 @@ async fn main() -> Result<(), std::io::Error> {
             //println!("channel '{}': {}", msg.get_channel_name(), payload);
             let redis_message: models::redis::RedisMessage =
                 serde_json::from_str(&payload).unwrap();
-            if redis_message.event_type == "UPDATE" || redis_message.event_type == "TEST_STOPPED" {
+            if redis_message.event_type == shared::UPDATE_TEST_INFO || redis_message.event_type == shared::TEST_STOPPED {
                 let subscriptions_guard = pubsub_subscriptions.read();
                 //println!("{:?}", subscriptions_guard);
                 if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
