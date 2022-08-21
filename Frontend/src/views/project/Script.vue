@@ -7,9 +7,10 @@
     >
       Start
     </button>
-        <button
+    <button
       class="uk-button uk-button-default uk-margin-small-right"
       type="button"
+      @click="stop_all"
     >
       Stop All
     </button>
@@ -244,6 +245,20 @@ export default {
     },
     restart(test_info) {
       this.start(test_info);
+      return false;
+    },
+    stop_all() {
+      fetch(`/api/master/stop_script/${this.pid}/${this.id}`, {
+        method: "POST",
+      })
+        .then((data) => data.json())
+        .then((data) => {
+          if (data.success) {
+          } else {
+            console.log(data.error);
+          }
+        })
+        .catch(() => {});
       return false;
     },
   },

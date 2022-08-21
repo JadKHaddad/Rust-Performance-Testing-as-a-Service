@@ -26,7 +26,7 @@ def index(path):
 
 
 balancer.add("http://localhost:5000")
-# balancer.add("http://localhost:5001")
+balancer.add("http://localhost:5001")
 
 host = "localhost"
 port = 6000

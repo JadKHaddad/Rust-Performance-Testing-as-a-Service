@@ -464,12 +464,7 @@ pub async fn remove_all_running_tests(
 }
 
 pub async fn stop_script(script_id: &str, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,) -> Result<String, Box<dyn Error>> {
-    let mut response = models::http::Response::<String> {
-        success: true,
-        message: "Tests stop",
-        error: None,
-        content: None,
-    };
+    let mut stopped_tests = HashMap::new();
     for running_test in running_tests.write().iter_mut() {
         if running_test.0.starts_with(script_id) {
             match running_test.1.kill() {
@@ -479,7 +474,7 @@ pub async fn stop_script(script_id: &str, running_tests: Data<&Arc<RwLock<HashMa
                         shared::get_date_and_time(),
                         running_test.0
                     );
-                    response.message = "Task stopped";
+                    stopped_tests.insert(running_test.0.to_owned(), true);
                 }
                 Err(_) => {
                     eprintln!(
@@ -487,13 +482,10 @@ pub async fn stop_script(script_id: &str, running_tests: Data<&Arc<RwLock<HashMa
                         shared::get_date_and_time(),
                         running_test.0
                     );
-                    response.success = false;
-                    response.error = Some("Could not stop test");
-                    break;
+                    stopped_tests.insert(running_test.0.to_owned(), false);
                 }
             }
         }
     }
-
-    return Ok(serde_json::to_string(&response).unwrap());
+    return Ok(serde_json::to_string(&stopped_tests).unwrap());
 }

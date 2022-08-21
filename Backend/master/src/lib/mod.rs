@@ -573,23 +573,54 @@ pub async fn delete_test(
     Ok(response.text().await.unwrap())
 }
 
-pub async fn stop_script(project_id: &str, script_id: &str, workers: Data<&Arc<RwLock<HashSet<String>>>>) -> Result<String, Box<dyn Error>> {
-    let response = models::http::Response::<String> {
+pub async fn stop_script(
+    project_id: &str,
+    script_id: &str,
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<HashMap<&str, String>> {
         success: true,
-        message: "Tests stop",
+        message: "Script stop",
         error: None,
         content: None,
     };
+    let mut contents: HashMap<&str, String> = HashMap::new();
     let workers = workers.read().clone();
-    for worker in workers.iter(){
+    let script_id_enc = shared::encode_script_id(project_id, script_id);
+    println!(
+        "[{}] MASTER: STOP SCRIPT ATTEMPT: [{}]",
+        shared::get_date_and_time(),
+        script_id_enc
+    );
+    for worker in workers.iter() {
         let client = reqwest::Client::new();
-        client
+        if let Ok(response) = client
             .post(&format!(
                 "http://{}/stop_script/{}/{}",
                 worker, project_id, script_id
             ))
             .send()
-            .await?;
+            .await
+        {
+            let res = response.text().await.unwrap();
+            println!(
+                "[{}] MASTER: STOP SCRIPT [{}]: Worker [{}] response: [{}]",
+                shared::get_date_and_time(),
+                script_id_enc,
+                worker,
+                res
+            );
+            contents.insert(worker, res);
+        } else {
+            eprintln!(
+                "[{}] MASTER: STOP SCRIPT [{}]: Worker [{}]: Could not connect to worker!",
+                shared::get_date_and_time(),
+                script_id_enc,
+                worker
+            );
+            contents.insert(worker, "Could not connect to worker".to_owned());
+        }
     }
+    response.content = Some(contents);
     Ok(serde_json::to_string(&response).unwrap())
 }

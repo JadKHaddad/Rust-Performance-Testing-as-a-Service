@@ -568,6 +568,7 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
+        .at("/stop_script/:project_id/:script_id", post(stop_script))
         .nest(
             "/download",
             StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
