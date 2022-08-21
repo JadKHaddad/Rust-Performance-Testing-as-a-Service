@@ -334,10 +334,8 @@ pub async fn start_test(
 }
 
 pub async fn stop_test(
-    project_id: &str,
-    script_id: &str,
-    test_id: &str,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    task_id: &str,
+    running_tests: &Data<&Arc<RwLock<HashMap<String, Child>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
@@ -346,9 +344,8 @@ pub async fn stop_test(
         error: None,
         content: None,
     };
-    let task_id = shared::encode_test_id(project_id, script_id, test_id);
     let mut running_tests_guard = running_tests.write();
-    match running_tests_guard.get_mut(&task_id) {
+    match running_tests_guard.get_mut(task_id) {
         Some(cmd) => match cmd.kill() {
             Ok(_) => {
                 println!(
@@ -394,11 +391,10 @@ pub async fn delete_test(
         error: None,
         content: None,
     };
+    let task_id = shared::encode_test_id(&project_id, &script_id, &test_id);
     if stop_test(
-        project_id,
-        script_id,
-        test_id,
-        running_tests, /*red_client*/
+        &task_id,
+        &running_tests, /*red_client*/
     )
     .await
     .is_err()
@@ -465,4 +461,39 @@ pub async fn remove_all_running_tests(
         }
     }
     Ok(())
+}
+
+pub async fn stop_script(script_id: &str, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Tests stop",
+        error: None,
+        content: None,
+    };
+    for running_test in running_tests.write().iter_mut() {
+        if running_test.0.starts_with(script_id) {
+            match running_test.1.kill() {
+                Ok(_) => {
+                    println!(
+                        "[{}] TEST KILLED: [{}]!",
+                        shared::get_date_and_time(),
+                        running_test.0
+                    );
+                    response.message = "Task stopped";
+                }
+                Err(_) => {
+                    eprintln!(
+                        "[{}] ERROR: test: [{}] could not be killed!",
+                        shared::get_date_and_time(),
+                        running_test.0
+                    );
+                    response.success = false;
+                    response.error = Some("Could not stop test");
+                    break;
+                }
+            }
+        }
+    }
+
+    return Ok(serde_json::to_string(&response).unwrap());
 }

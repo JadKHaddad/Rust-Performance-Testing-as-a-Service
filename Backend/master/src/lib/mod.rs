@@ -572,3 +572,24 @@ pub async fn delete_test(
     }
     Ok(response.text().await.unwrap())
 }
+
+pub async fn stop_script(project_id: &str, script_id: &str, workers: Data<&Arc<RwLock<HashSet<String>>>>) -> Result<String, Box<dyn Error>> {
+    let response = models::http::Response::<String> {
+        success: true,
+        message: "Tests stop",
+        error: None,
+        content: None,
+    };
+    let workers = workers.read().clone();
+    for worker in workers.iter(){
+        let client = reqwest::Client::new();
+        client
+            .post(&format!(
+                "http://{}/stop_script/{}/{}",
+                worker, project_id, script_id
+            ))
+            .send()
+            .await?;
+    }
+    Ok(serde_json::to_string(&response).unwrap())
+}

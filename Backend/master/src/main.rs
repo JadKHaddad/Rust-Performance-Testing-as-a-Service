@@ -10,14 +10,14 @@ use poem::{
     post,
     web::{
         websocket::{Message, WebSocket},
-        Data, Multipart, Path, Json,
+        Data, Json, Multipart, Path,
     },
     EndpointExt, IntoResponse, Route, Server,
 };
 use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
-    collections::{HashMap,HashSet},
+    collections::{HashMap, HashSet},
     process::Child,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -376,24 +376,46 @@ async fn subscribe(
 
 #[handler]
 async fn stop_script(
-    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+    Path((project_id, script_id)): Path<(String, String)>,
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
 ) -> String {
-    todo!()
+    match lib::stop_script(&project_id, &script_id, workers).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
 }
 
 #[handler]
-async fn register_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>, mut worker_info: Json<models::http::WorkerInfo>,) -> String {
-    let mut workers_guard = workers.write();
+async fn register_worker(
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    mut worker_info: Json<models::http::WorkerInfo>,
+) -> String {
     let worker_name = std::mem::take(&mut worker_info.worker_name);
-    println!("[{}] MASTER: REGISTER WORKER: Received request: [{}]", shared::get_date_and_time(), worker_name);
+    println!(
+        "[{}] MASTER: REGISTER WORKER: Received request: [{}]",
+        shared::get_date_and_time(),
+        worker_name
+    );
+    let mut workers_guard = workers.write();
     workers_guard.insert(worker_name);
-    println!("[{}] MASTER: CURRENT WORKERS: [{:?}]", shared::get_date_and_time(),workers_guard);
+    println!(
+        "[{}] MASTER: CURRENT WORKERS: [{:?}]",
+        shared::get_date_and_time(),
+        workers_guard
+    );
     return "OK".to_owned();
 }
 
 #[handler]
-async fn delete_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> String {
-    println!("[{}] MASTER: DELETE WORKER: Received request", shared::get_date_and_time());
+async fn delete_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>) -> String {
+    println!(
+        "[{}] MASTER: DELETE WORKER: Received request",
+        shared::get_date_and_time()
+    );
     todo!()
 }
 

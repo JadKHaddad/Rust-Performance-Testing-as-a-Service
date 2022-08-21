@@ -57,11 +57,10 @@ async fn stop_test(
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> String {
+    let task_id = shared::encode_test_id(&project_id, &script_id, &test_id);
     match lib::stop_test(
-        &project_id,
-        &script_id,
-        &test_id,
-        running_tests, /*red_client*/
+        &task_id,
+        &running_tests, /*red_client*/
     )
     .await
     {
@@ -99,9 +98,21 @@ async fn delete_test(
 
 #[handler]
 async fn stop_script(
-    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+    Path((project_id, script_id)): Path<(String, String)>, running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> String {
-    todo!()
+    let script_id = shared::encode_script_id(&project_id, &script_id);
+    match lib::stop_script(
+        &script_id,
+        running_tests, 
+    ).await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
 }
 
 async fn register(worker_name: &str, master_ip: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -269,6 +280,7 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
+        .at("/stop_script/:project_id/:script_id", post(stop_script))
         .with(AddData::new(worker_name))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))
