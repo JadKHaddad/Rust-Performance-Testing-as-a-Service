@@ -411,12 +411,24 @@ async fn register_worker(
 }
 
 #[handler]
-async fn delete_worker(workers: Data<&Arc<RwLock<HashSet<String>>>>) -> String {
+async fn delete_worker(
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    mut worker_info: Json<models::http::WorkerInfo>,
+) -> String {
+    let worker_name = std::mem::take(&mut worker_info.worker_name);
     println!(
-        "[{}] MASTER: DELETE WORKER: Received request",
-        shared::get_date_and_time()
+        "[{}] MASTER: DELETE WORKER: Received request, [{}]",
+        shared::get_date_and_time(),
+        worker_name
     );
-    todo!()
+    let mut workers_guard = workers.write();
+    workers_guard.remove(&worker_name);
+    println!(
+        "[{}] MASTER: CURRENT WORKERS: [{:?}]",
+        shared::get_date_and_time(),
+        workers_guard
+    );
+    return "OK".to_owned();
 }
 
 #[tokio::main]
