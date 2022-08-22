@@ -208,6 +208,12 @@ pub mod http {
 
     pub mod projects {
         use serde::Serialize;
+        use serde::Deserialize;
+
+        #[derive(Debug, Serialize, Deserialize)]
+        pub struct ProjectIds{
+            pub project_ids: Vec<String>,
+        }
 
         #[derive(Debug, Serialize)]
         pub struct Content {

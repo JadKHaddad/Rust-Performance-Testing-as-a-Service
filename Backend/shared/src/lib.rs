@@ -13,6 +13,8 @@ pub const RESULTS_DIR: &str = "results";
 pub const SUBS: &str = "SUBS";
 //redis running tests
 pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
+//redis locked projects
+pub const LOCKED_PROJECTS: &str = "LOCKED_PROJECTS";
 
 //events
 pub const UPDATE_TEST_INFO: &str = "UPDATE";

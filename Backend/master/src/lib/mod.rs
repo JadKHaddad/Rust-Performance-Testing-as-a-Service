@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use poem::web::{Data, Multipart};
+use poem::web::{Data, Multipart, Json};
 use redis::Commands;
 use shared::models;
 use std::error::Error;
@@ -192,6 +192,10 @@ pub async fn upload(
     // run the thread
     let main_sender = main_sender.clone();
     if !currently_installing_projects.load(Ordering::SeqCst) {
+        println!(
+            "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
+            shared::get_date_and_time()
+        );
         let tokio_currently_installing_projects = currently_installing_projects.clone();
         let tokio_installing_tasks = Arc::clone(&installing_tasks);
         tokio::spawn(async move {
@@ -208,10 +212,6 @@ pub async fn upload(
                         );
                         break;
                     }
-                    println!(
-                        "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
-                        shared::get_date_and_time()
-                    );
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     for (id, cmd) in tokio_tasks_guard.iter_mut() {
@@ -623,4 +623,79 @@ pub async fn stop_script(
     }
     response.content = Some(contents);
     Ok(serde_json::to_string(&response).unwrap())
+}
+
+
+pub async fn stop_project(
+    project_id: &str,
+    workers: Arc<RwLock<HashSet<String>>>,
+) -> HashMap<String, String> {
+    let mut contents: HashMap<String, String> = HashMap::new();
+    let workers = workers.read().clone();
+    println!(
+        "[{}] MASTER: STOP PROJECT ATTEMPT: [{}]",
+        shared::get_date_and_time(),
+        project_id
+    );
+    for worker in workers.iter() {
+        let client = reqwest::Client::new();
+        if let Ok(response) = client
+            .post(&format!(
+                "http://{}/stop_project/{}",
+                worker, project_id
+            ))
+            .send()
+            .await
+        {
+            let res = response.text().await.unwrap();
+            println!(
+                "[{}] MASTER: STOP PROJECT [{}]: Worker [{}] response: [{}]",
+                shared::get_date_and_time(),
+                project_id,
+                worker,
+                res
+            );
+            contents.insert(worker.to_owned(), res);
+        } else {
+            eprintln!(
+                "[{}] MASTER: STOP PROJECT [{}]: Worker [{}]: Could not connect to worker!",
+                shared::get_date_and_time(),
+                project_id,
+                worker
+            );
+            contents.insert(worker.to_owned(), "Could not connect to worker".to_owned());
+        }
+    }
+    return contents;
+}
+
+pub async fn delete_projects(projects_to_be_deleted: Json<models::http::projects::ProjectIds>, red_client: Data<&redis::Client>, workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> Result<String, Box<dyn Error>>  {
+    println!("{:?}", projects_to_be_deleted);
+    let mut red_connection = red_client.get_connection().unwrap();
+    
+    for project_id in projects_to_be_deleted.project_ids.iter(){
+        //if project is allready locked continue
+        let locked_projects: std::collections::HashSet<String> =
+        if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
+            set
+        } else {
+            HashSet::new()
+        };
+        if locked_projects.contains(project_id){
+            continue;
+        }
+        //lock project
+        let _: () = red_connection
+        .sadd(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+        .unwrap();
+        //stop project
+        let response = stop_project(&project_id, workers.clone()).await;
+        println!("{:?}", response);
+        //delete project if all tests are stopped //TODO!
+
+        //unlock project
+        let _: () = red_connection.srem(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+        .unwrap();
+    }
+    return Ok("Ok".to_owned());
 }

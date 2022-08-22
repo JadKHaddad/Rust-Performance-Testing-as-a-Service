@@ -97,7 +97,22 @@ async fn stop_script(
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> String {
     let script_id = shared::encode_script_id(&project_id, &script_id);
-    match lib::stop_script(&script_id, running_tests).await {
+    match lib::stop_prefix(&script_id, running_tests).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn stop_project(
+    Path(project_id): Path<String>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+) -> String {
+    match lib::stop_prefix(&project_id, running_tests).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -273,6 +288,7 @@ async fn main() -> Result<(), std::io::Error> {
             post(delete_test),
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
+        .at("/stop_project/:project_id", post(stop_project))
         .with(AddData::new(worker_name))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))

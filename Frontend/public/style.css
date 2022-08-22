@@ -77,9 +77,12 @@ html,body {
 /*checkbox*/
 label.checkbox-label {
     display: block; 
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     cursor: pointer;
+    position: absolute;
+    left: 30px;
+    top: 20px;
 }
 
 input.checkbox-input { 
@@ -118,3 +121,7 @@ input.checkbox-input:checked ~ .checkbox {
     max-width: 5ch;
 }
 /*end of test*/
+
+.uk-card-title {
+    margin-top: 20px;
+}

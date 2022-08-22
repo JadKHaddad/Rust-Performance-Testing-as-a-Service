@@ -27,6 +27,7 @@ pub async fn start_test(
     red_client: Data<&redis::Client>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
+    //TODO! check if project is locked
     //let workers = req.workers.unwrap_or(1);
     let mut response = models::http::Response {
         success: true,
@@ -460,13 +461,13 @@ pub async fn remove_all_running_tests(
     Ok(())
 }
 
-pub async fn stop_script(
-    script_id: &str,
+pub async fn stop_prefix(
+    prefix: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut stopped_tests = HashMap::new();
     for running_test in running_tests.write().iter_mut() {
-        if running_test.0.starts_with(script_id) {
+        if running_test.0.starts_with(prefix) {
             match running_test.1.kill() {
                 Ok(_) => {
                     println!(

@@ -8,6 +8,13 @@
     >
       Upload
     </button>
+    <button
+      class="uk-button uk-button-default uk-margin-small-right"
+      type="button"
+      @click="deleteProjects"
+    >
+      Delete
+    </button>
 
     <div id="upload-modal" uk-modal ref="upload-modal">
       <div class="uk-modal-dialog uk-modal-body">
@@ -55,6 +62,10 @@
         }"
       >
         <div class="uk-card uk-card-default uk-card-body">
+          <label class="checkbox-label">
+            <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted"/>
+            <span class="checkbox"> </span>
+          </label>
           <h3 class="uk-card-title">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
             <li v-for="script in project.scripts" :key="script">
@@ -73,10 +84,6 @@
     </ul>
     <br />
     <br />
-    <label class="checkbox-label">
-      <input type="checkbox" class="checkbox-input" />
-      <span class="checkbox"> </span>
-    </label>
   </div>
 </template>
 
@@ -94,6 +101,7 @@ export default {
       uploading: false,
       projects: [],
       uploadMessage: "",
+      projectsToBeDeleted: [],
     };
   },
   methods: {
@@ -167,6 +175,26 @@ export default {
         });
       return false;
     },
+    deleteProjects(){
+      console.log(this.projectsToBeDeleted);
+      fetch(`/api/master/delete_projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({project_ids: this.projectsToBeDeleted}),
+      })
+        .then((data) => data.json())
+        .then((data) => {
+          if (data.success) {
+            
+          } else {
+            console.log(data.error);
+          }
+        })
+        .catch(() => {});
+      return false;
+    }
   },
   created() {
     this.getProjects();

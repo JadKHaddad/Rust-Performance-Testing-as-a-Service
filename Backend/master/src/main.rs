@@ -394,6 +394,7 @@ async fn register_worker(
     workers: Data<&Arc<RwLock<HashSet<String>>>>,
     mut worker_info: Json<models::http::WorkerInfo>,
 ) -> String {
+    //TODO! resistered workers will be lost on master restart
     let worker_name = std::mem::take(&mut worker_info.worker_name);
     println!(
         "[{}] MASTER: REGISTER WORKER: Received request: [{}]",
@@ -430,6 +431,20 @@ async fn delete_worker(
     );
     return "OK".to_owned();
 }
+
+#[handler]
+async fn delete_projects(projects_to_be_deleted: Json<models::http::projects::ProjectIds>, red_client: Data<&redis::Client>,workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> String {
+    match lib::delete_projects(projects_to_be_deleted, red_client, workers).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -581,6 +596,7 @@ async fn main() -> Result<(), std::io::Error> {
             post(delete_test),
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
+        .at("/delete_projects", post(delete_projects))
         .nest(
             "/download",
             StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
@@ -594,6 +610,8 @@ async fn main() -> Result<(), std::io::Error> {
         .run(app)
         .await
 }
+
+//TODO! what happens if redis dies?
 
 // #[handler]
 // async fn single_download(req: poem::web::StaticFileRequest) -> poem::error::Result<impl IntoResponse> {
