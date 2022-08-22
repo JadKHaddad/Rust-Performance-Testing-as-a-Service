@@ -465,6 +465,13 @@ pub async fn stop_prefix(
     prefix: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<HashMap<String, bool>> {
+        success: true,
+        message: "Prefix stop",
+        error: None,
+        content: None,
+    };
+    let mut error = String::new();
     let mut stopped_tests = HashMap::new();
     for running_test in running_tests.write().iter_mut() {
         if running_test.0.starts_with(prefix) {
@@ -483,10 +490,16 @@ pub async fn stop_prefix(
                         shared::get_date_and_time(),
                         running_test.0
                     );
+                    error.push_str(&format!("test: [{}] could not be killed!\n", running_test.0));
+                    response.success = false;
                     stopped_tests.insert(running_test.0.to_owned(), false);
                 }
             }
         }
     }
-    return Ok(serde_json::to_string(&stopped_tests).unwrap());
+    if !response.success{
+        response.error = Some(&error);
+    }
+    response.content = Some(stopped_tests);
+    return Ok(serde_json::to_string(&response).unwrap());
 }

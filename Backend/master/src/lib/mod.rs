@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use poem::web::{Data, Multipart, Json};
+use poem::web::{Data, Json, Multipart};
 use redis::Commands;
 use shared::models;
 use std::error::Error;
@@ -584,6 +584,7 @@ pub async fn stop_script(
         error: None,
         content: None,
     };
+    let mut error = String::new();
     let mut contents: HashMap<&str, String> = HashMap::new();
     let workers = workers.read().clone();
     let script_id_enc = shared::encode_script_id(project_id, script_id);
@@ -618,18 +619,29 @@ pub async fn stop_script(
                 script_id_enc,
                 worker
             );
+            error.push_str(&format!("Could not connect to worker [{}]\n", worker));
+            response.success = false;
             contents.insert(worker, "Could not connect to worker".to_owned());
         }
+    }
+    if !response.success {
+        response.error = Some(&error);
     }
     response.content = Some(contents);
     Ok(serde_json::to_string(&response).unwrap())
 }
 
-
-pub async fn stop_project(
+pub async fn stop_project<'a>(
     project_id: &str,
     workers: Arc<RwLock<HashSet<String>>>,
-) -> HashMap<String, String> {
+    error: &'a mut String,
+) -> models::http::Response<'a, HashMap<String, String>> {
+    let mut response = models::http::Response::<HashMap<String, String>> {
+        success: true,
+        message: "Project stop",
+        error: None,
+        content: None,
+    };
     let mut contents: HashMap<String, String> = HashMap::new();
     let workers = workers.read().clone();
     println!(
@@ -639,15 +651,14 @@ pub async fn stop_project(
     );
     for worker in workers.iter() {
         let client = reqwest::Client::new();
-        if let Ok(response) = client
-            .post(&format!(
-                "http://{}/stop_project/{}",
-                worker, project_id
-            ))
+        if let Ok(res) = client
+            .post(&format!("http://{}/stop_project/{}", worker, project_id))
             .send()
             .await
         {
-            let res = response.text().await.unwrap();
+            let res = res.text().await.unwrap();
+            let de_res: models::http::Response<HashMap<String, bool>> =
+                serde_json::from_str(&res).unwrap();
             println!(
                 "[{}] MASTER: STOP PROJECT [{}]: Worker [{}] response: [{}]",
                 shared::get_date_and_time(),
@@ -655,6 +666,10 @@ pub async fn stop_project(
                 worker,
                 res
             );
+            if !de_res.success {
+                error.push_str(&format!("{}\n", de_res.error.unwrap()));
+                response.success = false;
+            }
             contents.insert(worker.to_owned(), res);
         } else {
             eprintln!(
@@ -663,39 +678,164 @@ pub async fn stop_project(
                 project_id,
                 worker
             );
+            error.push_str(&format!("Could not connect to worker [{}]\n", worker));
+            response.success = false;
             contents.insert(worker.to_owned(), "Could not connect to worker".to_owned());
         }
     }
-    return contents;
+    if !response.success {
+        response.error = Some(error);
+    }
+    response.content = Some(contents);
+    return response;
 }
 
-pub async fn delete_projects(projects_to_be_deleted: Json<models::http::projects::ProjectIds>, red_client: Data<&redis::Client>, workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> Result<String, Box<dyn Error>>  {
-    println!("{:?}", projects_to_be_deleted);
+pub async fn delete_projects(
+    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
+    red_client: Data<&redis::Client>,
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<HashMap<String, (bool, String)>> {
+        success: true,
+        message: "Delete projects",
+        error: None,
+        content: None,
+    };
+    let mut contents: HashMap<String, (bool, String)> = HashMap::new();
     let mut red_connection = red_client.get_connection().unwrap();
-    
-    for project_id in projects_to_be_deleted.project_ids.iter(){
+    for project_id in projects_to_be_deleted.project_ids.iter() {
         //if project is allready locked continue
         let locked_projects: std::collections::HashSet<String> =
-        if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-            set
-        } else {
-            HashSet::new()
-        };
-        if locked_projects.contains(project_id){
+            if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
+                set
+            } else {
+                HashSet::new()
+            };
+        if locked_projects.contains(project_id) {
             continue;
         }
         //lock project
         let _: () = red_connection
-        .sadd(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
-        .unwrap();
+            .sadd(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+            .unwrap();
         //stop project
-        let response = stop_project(&project_id, workers.clone()).await;
-        println!("{:?}", response);
-        //delete project if all tests are stopped //TODO!
+        let mut stop_project_error = String::new();
+        let stop_response =
+            stop_project(&project_id, workers.clone(), &mut stop_project_error).await;
+        if stop_response.success {
+            //delete project if all tests are stopped
+            let mut delete_project_error = String::new();
+            let delete_response = delete_project(&project_id, &mut delete_project_error);
+            if delete_response.success {
+                contents.insert(
+                    project_id.to_owned(),
+                    (true, delete_project_error.to_owned()),
+                );
+                //TODO! notify browser
+            } else {
+                response.success = false;
+                contents.insert(
+                    project_id.to_owned(),
+                    (false, delete_project_error.to_owned()),
+                );
+            }
+        } else {
+            response.success = false;
+            contents.insert(
+                project_id.to_owned(),
+                (false, stop_project_error.to_owned()),
+            );
+        }
 
         //unlock project
-        let _: () = red_connection.srem(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
-        .unwrap();
+        let _: () = red_connection
+            .srem(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+            .unwrap();
     }
-    return Ok("Ok".to_owned());
+    response.content = Some(contents);
+    Ok(serde_json::to_string(&response).unwrap())
+}
+
+fn delete_project<'a>(
+    project_id: &str,
+    error: &'a mut String,
+) -> models::http::Response<'a, HashMap<String, String>> {
+    let mut response = models::http::Response::<HashMap<String, String>> {
+        success: true,
+        message: "Delete project",
+        error: None,
+        content: None,
+    };
+    let project_dir = shared::get_a_project_dir(project_id);
+    let env_dir = shared::get_an_environment_dir(project_id);
+    let results_dir = shared::get_a_project_results_dir(project_id);
+    if results_dir.exists() {
+        match std::fs::remove_dir_all(&results_dir) {
+            Ok(_) => {
+                println!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: results directory deleted!",
+                    shared::get_date_and_time(),
+                    project_id,
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete results directory: {}\n",
+                    shared::get_date_and_time(),
+                    project_id,
+                    e
+                );
+                error.push_str("Could not delete results directory\n");
+                response.success = false;
+            }
+        }
+    }
+    if env_dir.exists() {
+        match std::fs::remove_dir_all(&env_dir) {
+            Ok(_) => {
+                println!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: environment directory deleted!",
+                    shared::get_date_and_time(),
+                    project_id,
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete environment directory: {}\n",
+                    shared::get_date_and_time(),
+                    project_id,
+                    e
+                );
+                error.push_str("Could not delete environment directory\n");
+                response.success = false;
+            }
+        }
+    }
+    if project_dir.exists() {
+        match std::fs::remove_dir_all(&project_dir) {
+            Ok(_) => {
+                println!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: project directory deleted!",
+                    shared::get_date_and_time(),
+                    project_id,
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete project directory: {}\n",
+                    shared::get_date_and_time(),
+                    project_id,
+                    e
+                );
+                error.push_str("Could not delete project directory\n");
+                response.success = false;
+            }
+        }
+    }
+
+    if !response.success {
+        response.error = Some(error);
+    }
+
+    return response;
 }

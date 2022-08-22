@@ -178,7 +178,7 @@ pub mod http {
         pub script_id: String,
     }
 
-    #[derive(Debug, Serialize)]
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Response<'a, T>
     where
         T: Serialize,

@@ -250,6 +250,5 @@ pub fn delete_test(
             file.write(test_info.as_bytes())?;
         }
     }
-
     return Ok(());
 }

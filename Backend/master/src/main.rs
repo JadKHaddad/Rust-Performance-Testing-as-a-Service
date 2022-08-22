@@ -522,6 +522,7 @@ async fn main() -> Result<(), std::io::Error> {
     //clients
     let connected_clients = Arc::new(AtomicU32::new(0));
     let information_thread_running = Arc::new(AtomicBool::new(false));
+    
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
