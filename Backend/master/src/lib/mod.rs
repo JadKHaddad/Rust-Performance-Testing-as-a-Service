@@ -192,6 +192,7 @@ pub async fn upload(
     // run the thread
     let main_sender = main_sender.clone();
     if !currently_installing_projects.load(Ordering::SeqCst) {
+        currently_installing_projects.store(true, Ordering::SeqCst); //TODO! hmm
         println!(
             "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
             shared::get_date_and_time()
@@ -318,7 +319,6 @@ pub async fn upload(
                 sleep(Duration::from_secs(3)).await;
             }
         });
-        currently_installing_projects.store(true, Ordering::SeqCst); //TODO: maybe move up? before the thread?
     } else {
         println!(
             "[{}] PROJECTS GARBAGE COLLECTOR: Already running!",

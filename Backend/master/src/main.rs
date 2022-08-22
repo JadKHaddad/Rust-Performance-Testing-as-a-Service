@@ -202,6 +202,7 @@ async fn ws(
 
         //run information thread
         if !information_thread_running.load(Ordering::SeqCst) {
+            information_thread_running.store(true, Ordering::SeqCst); //TODO! hmm
             println!(
                 "[{}] INFORMATION THREAD: Running!",
                 shared::get_date_and_time()
@@ -265,7 +266,6 @@ async fn ws(
                     sleep(Duration::from_secs(2)).await;
                 }
             });
-            information_thread_running.store(true, Ordering::SeqCst);
         } else {
             println!(
                 "[{}] INFORMATION THREAD: Already running!",
@@ -433,7 +433,11 @@ async fn delete_worker(
 }
 
 #[handler]
-async fn delete_projects(projects_to_be_deleted: Json<models::http::projects::ProjectIds>, red_client: Data<&redis::Client>,workers: Data<&Arc<RwLock<HashSet<String>>>>,) -> String {
+async fn delete_projects(
+    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
+    red_client: Data<&redis::Client>,
+    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+) -> String {
     match lib::delete_projects(projects_to_be_deleted, red_client, workers).await {
         Ok(response) => response,
         Err(err) => {
@@ -443,8 +447,6 @@ async fn delete_projects(projects_to_be_deleted: Json<models::http::projects::Pr
         }
     }
 }
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -522,7 +524,6 @@ async fn main() -> Result<(), std::io::Error> {
     //clients
     let connected_clients = Arc::new(AtomicU32::new(0));
     let information_thread_running = Arc::new(AtomicBool::new(false));
-    
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }
@@ -552,7 +553,9 @@ async fn main() -> Result<(), std::io::Error> {
             //println!("channel '{}': {}", msg.get_channel_name(), payload);
             let redis_message: models::redis::RedisMessage =
                 serde_json::from_str(&payload).unwrap();
-            if redis_message.event_type == shared::UPDATE_TEST_INFO || redis_message.event_type == shared::TEST_STOPPED {
+            if redis_message.event_type == shared::UPDATE_TEST_INFO
+                || redis_message.event_type == shared::TEST_STOPPED
+            {
                 let subscriptions_guard = pubsub_subscriptions.read();
                 //println!("{:?}", subscriptions_guard);
                 if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {

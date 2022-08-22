@@ -187,6 +187,7 @@ pub async fn start_test(
 
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
+        currently_running_tests.store(true, Ordering::SeqCst); //TODO! hmm
         println!(
             "[{}] SCRIPTS GARBAGE COLLECTOR: Running!",
             shared::get_date_and_time()
@@ -312,14 +313,13 @@ pub async fn start_test(
                 sleep(Duration::from_secs(2)).await;
             }
         });
-        currently_running_tests.store(true, Ordering::SeqCst);
     } else {
         println!(
             "[{}] SCRIPTS GARBAGE COLLECTOR: Already running!",
             shared::get_date_and_time()
         );
     }
-    //Notify
+    //TODO! Notify and remove WS Notify event form Front end
 
     let started_test = shared::models::Test {
         id: id,
@@ -490,14 +490,17 @@ pub async fn stop_prefix(
                         shared::get_date_and_time(),
                         running_test.0
                     );
-                    error.push_str(&format!("test: [{}] could not be killed!\n", running_test.0));
+                    error.push_str(&format!(
+                        "test: [{}] could not be killed!\n",
+                        running_test.0
+                    ));
                     response.success = false;
                     stopped_tests.insert(running_test.0.to_owned(), false);
                 }
             }
         }
     }
-    if !response.success{
+    if !response.success {
         response.error = Some(&error);
     }
     response.content = Some(stopped_tests);
