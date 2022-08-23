@@ -1,4 +1,4 @@
-# docker build -t builder:latest -f Dockerfile.builder .
+# docker build -t builder:latest -f Dockerfiles/Dockerfile.builder .
 
 FROM debian:10-slim
 

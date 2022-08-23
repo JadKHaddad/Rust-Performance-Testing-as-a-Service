@@ -1,4 +1,4 @@
-# docker build -t master-debug:latest -f Dockerfile.master-debug .
+# docker build -t master-debug:latest -f Dockerfiles/Dockerfile.master-debug .
 # docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data -v ${PWD}/debug-builds/master:/home/Backend/master/target master-debug:latest run -- host.docker.internal
 
 FROM debugger:latest

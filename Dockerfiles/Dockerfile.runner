@@ -1,4 +1,4 @@
-# docker build -t runner:latest -f Dockerfile.runner .
+# docker build -t runner:latest -f Dockerfiles/Dockerfile.runner .
 
 FROM debian:10-slim
 

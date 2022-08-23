@@ -1,4 +1,4 @@
-# docker build -t debugger:latest -f Dockerfile.debugger .
+# docker build -t debugger:latest -f Dockerfiles/Dockerfile.debugger .
 
 FROM debian:10-slim
 

@@ -1,4 +1,4 @@
-# docker build -t frontend:latest -f Dockerfile.frontend .
+# docker build -t frontend:latest -f Dockerfiles/Dockerfile.frontend .
 # docker run --name frontend --rm -it -p 8080:80/tcp frontend:latest
 
 # proxy and other configurations must be defined in the main proxy server or k8s ingress

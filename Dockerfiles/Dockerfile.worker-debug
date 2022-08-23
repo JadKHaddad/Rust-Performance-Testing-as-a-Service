@@ -1,4 +1,4 @@
-# docker build -t worker-debug:latest -f Dockerfile.worker-debug .
+# docker build -t worker-debug:latest -f Dockerfiles/Dockerfile.worker-debug .
 # docker run --name worker --rm -it -p 5000:5000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data -v ${PWD}/debug-builds/worker:/home/Backend/worker/target worker-debug:latest run -- host.docker.internal:5000 host.docker.internal:3000 host.docker.internal
 
 FROM debugger:latest
