@@ -189,8 +189,9 @@ export default {
         .then((data) => data.json())
         .then((data) => {
           if (data.success) {
-            let test = data.content;
-            this.tests.push(test);
+            // ws will add the new test
+            // let test = data.content;
+            // this.tests.push(test);
             // this.ws.send(
             //   JSON.stringify({
             //     event_type: "TEST_STARTED",
@@ -203,7 +204,11 @@ export default {
           } else {
             console.log(data.error);
             //notify
-            this.$root.notification(`Error running test: ${data.error}`, "danger", 0);
+            this.$root.notification(
+              `Error running test: ${data.error}`,
+              "danger",
+              0
+            );
           }
         })
         .catch(() => {});

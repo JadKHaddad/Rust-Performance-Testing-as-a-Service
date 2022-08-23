@@ -3,9 +3,9 @@
     <nav class="uk-navbar-container uk-margin" uk-navbar>
       <div class="uk-navbar-left">
         <ul class="uk-navbar-nav">
-          <li><a href="#">Item</a></li>
-          <li><a href="#">Item</a></li>
-          <li><a href="#">Item</a></li>
+          <li><a href="#">Home</a></li>
+          <li><a href="#">Control</a></li>
+          <li><a href="#">Live</a></li>
         </ul>
       </div>
       <div class="uk-navbar-right">

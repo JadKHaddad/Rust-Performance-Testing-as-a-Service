@@ -1,0 +1,127 @@
+/*main*/
+html,body {
+    height: 100%;
+    width: 100%;
+}
+
+#app{
+    height: 100%;
+    width: 100%;
+}
+/*end of main*/
+
+/*helpers*/
+.border {
+    border: 1px solid black;
+}
+
+.border-red {
+    border: 1px solid rgb(255, 0, 0);
+}
+/*end of helpers*/
+
+/*navbar*/
+
+/*end of navbar*/
+
+/*global*/
+.full-height {
+    height: 100% !important;
+}
+
+.full-width {
+    width: 100% !important;
+}
+
+.no-padding {
+    padding: 0px !important;
+}
+
+.fixed {
+    position: fixed !important;
+}
+
+.z-index-5 {
+    z-index: 5 !important;
+}
+
+.flex-content {
+    display: flex;
+}
+/*end of global*/
+
+.content {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+}
+
+.script-list>li>a {
+    color: #999;
+    text-transform: uppercase;
+    transition: .1s ease-in-out;
+    transition-property: color,background-color;
+}
+
+.upload-spinner{
+    margin-left: 1rem;
+}
+
+.upload-container{
+    display: flex;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+/*checkbox*/
+label.checkbox-label {
+    display: block; 
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    position: absolute;
+    left: 30px;
+    top: 20px;
+}
+
+input.checkbox-input { 
+    position: absolute; 
+    transform: scale(0); 
+}
+
+input.checkbox-input:checked ~ .checkbox {
+    transform: rotate(45deg); 
+    width: 10px;
+    border-color: #1e87f0;
+    border-top-color: transparent;
+    border-left-color: transparent;
+}
+
+.checkbox:hover{
+    border: 1px solid #999;
+}
+
+.checkbox {
+    display: block; 
+    width: inherit; 
+    height: inherit; 
+    border: 1px solid #e5e5e5;
+    transition: all 0.375s; 
+}
+/*end of checkbox*/
+
+/*test*/
+.test-container {
+    text-align: left;
+}
+
+.trimmed {
+    overflow: hidden;
+    max-width: 5ch;
+}
+/*end of test*/
+
+.uk-card-title {
+    margin-top: 20px;
+}
