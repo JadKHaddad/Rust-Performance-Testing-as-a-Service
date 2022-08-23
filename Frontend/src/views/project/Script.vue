@@ -105,7 +105,14 @@ export default {
   components: {
     Test,
   },
-  props: ["pid", "id"],
+  props: ["pid", "id", "deletedProject"],
+  watch: {
+    deletedProject: function () {
+      if (this.pid == this.deletedProject.id) {
+        this.$router.replace({ name: "Home" });
+      }
+    },
+  },
   data() {
     return {
       ws: null,

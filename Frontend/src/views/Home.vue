@@ -63,7 +63,12 @@
       >
         <div class="uk-card uk-card-default uk-card-body">
           <label class="checkbox-label">
-            <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted"/>
+            <input
+              type="checkbox"
+              class="checkbox-input"
+              :value="project.id"
+              v-model="projectsToBeDeleted"
+            />
             <span class="checkbox"> </span>
           </label>
           <h3 class="uk-card-title">{{ project.id }}</h3>
@@ -90,10 +95,15 @@
 <script>
 export default {
   name: "Home",
-  props: ["newProject"],
+  props: ["newProject", "deletedProject"],
   watch: {
     newProject: function () {
       this.projects.push(this.newProject);
+    },
+    deletedProject: function () {
+      this.projects = this.projects.filter(
+        (project) => project.id !== this.deletedProject.id
+      );
     },
   },
   data() {
@@ -175,26 +185,24 @@ export default {
         });
       return false;
     },
-    deleteProjects(){
-      console.log(this.projectsToBeDeleted);
+    deleteProjects() {
       fetch(`/api/master/delete_projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({project_ids: this.projectsToBeDeleted}),
+        body: JSON.stringify({ project_ids: this.projectsToBeDeleted }),
       })
         .then((data) => data.json())
         .then((data) => {
           if (data.success) {
-            
           } else {
             console.log(data.error);
           }
         })
         .catch(() => {});
       return false;
-    }
+    },
   },
   created() {
     this.getProjects();

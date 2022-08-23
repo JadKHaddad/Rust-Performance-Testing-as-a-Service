@@ -235,7 +235,7 @@ async fn ws(
                             0
                         };
                     let websocket_message = models::websocket::WebSocketMessage {
-                        event_type: "INFORMATION",
+                        event_type: shared::INFORMATION,
                         event: models::websocket::information::Event {
                             connected_clients_count,
                             running_tests_count,
@@ -437,8 +437,9 @@ async fn delete_projects(
     projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
     red_client: Data<&redis::Client>,
     workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> String {
-    match lib::delete_projects(projects_to_be_deleted, red_client, workers).await {
+    match lib::delete_projects(projects_to_be_deleted, red_client, workers, main_sender).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -555,6 +556,7 @@ async fn main() -> Result<(), std::io::Error> {
                 serde_json::from_str(&payload).unwrap();
             if redis_message.event_type == shared::UPDATE_TEST_INFO
                 || redis_message.event_type == shared::TEST_STOPPED
+                //|| redis_message.event_type == shared::TEST_STARTED
             {
                 let subscriptions_guard = pubsub_subscriptions.read();
                 //println!("{:?}", subscriptions_guard);

@@ -112,6 +112,11 @@ pub mod websocket {
             pub status: u8, // 0 running, 1 finished, 2 failed
             pub error: Option<String>,
         }
+
+        #[derive(Debug, Serialize)]
+        pub struct DeletedProject {
+            pub id: String,
+        }
     }
 
     pub mod tests {

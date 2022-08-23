@@ -694,6 +694,7 @@ pub async fn delete_projects(
     projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
     red_client: Data<&redis::Client>,
     workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<HashMap<String, (bool, String)>> {
         success: true,
@@ -731,7 +732,22 @@ pub async fn delete_projects(
                     project_id.to_owned(),
                     (true, delete_project_error.to_owned()),
                 );
-                //TODO! notify browser
+                //notify browser
+                let websocket_message = models::websocket::WebSocketMessage {
+                    event_type: shared::PROJECT_DELETED,
+                    event: models::websocket::projects::DeletedProject {
+                        id: project_id.to_owned(),
+                    },
+                };
+                if main_sender
+                    .send(serde_json::to_string(&websocket_message).unwrap())
+                    .is_err()
+                {
+                    println!(
+                        "[{}] DELETE PROJECT EVENT: No clients are connected!",
+                        shared::get_date_and_time()
+                    );
+                }
             } else {
                 response.success = false;
                 contents.insert(

@@ -17,9 +17,11 @@ pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 pub const LOCKED_PROJECTS: &str = "LOCKED_PROJECTS";
 
 //events
+pub const INFORMATION: &str = "INFORMATION";
 pub const UPDATE_TEST_INFO: &str = "UPDATE";
 pub const TEST_STOPPED: &str = "TEST_STOPPED";
 pub const TEST_DELETED: &str = "TEST_DELETED";
+pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
 

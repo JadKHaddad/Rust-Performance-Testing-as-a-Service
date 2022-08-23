@@ -39,7 +39,7 @@
       </div>
     </nav>
     <div class="content">
-      <router-view :newProject="newProject" />
+      <router-view :newProject="newProject" :deletedProject="deletedProject"/>
     </div>
   </div>
 </template>
@@ -55,6 +55,7 @@ export default {
       installingProjects: [],
       showInstallingProjects: false,
       newProject: null,
+      deletedProject: null,
     };
   },
   methods: {
@@ -117,12 +118,22 @@ export default {
           //{"event_type":"PROJECTS","event":{"istalling_projects":[{"id":"Neuer_Ordner-Kopie","status":0,"error":null}]}}
           return;
         }
+        if (event_type === "PROJECT_DELETED") {
+          const project_id = data.event.id;
+          //notify
+          this.notification(
+            `${project_id} was deleted`,
+            "primary",
+            10000
+          );
+          this.deletedProject = { id: project_id };
+        }
       };
     },
   },
   created() {
     this.connenctWebsocket();
-  },
+  }
 };
 </script>
 
