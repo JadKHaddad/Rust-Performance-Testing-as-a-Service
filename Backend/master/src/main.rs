@@ -556,7 +556,7 @@ async fn main() -> Result<(), std::io::Error> {
                 serde_json::from_str(&payload).unwrap();
             if redis_message.event_type == shared::UPDATE_TEST_INFO
                 || redis_message.event_type == shared::TEST_STOPPED
-                //|| redis_message.event_type == shared::TEST_STARTED
+                || redis_message.event_type == shared::TEST_STARTED
             {
                 let subscriptions_guard = pubsub_subscriptions.read();
                 //println!("{:?}", subscriptions_guard);

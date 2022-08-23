@@ -195,12 +195,16 @@ export default {
       })
         .then((data) => data.json())
         .then((data) => {
+          this.projectsToBeDeleted = [];
           if (data.success) {
           } else {
             console.log(data.error);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          this.projectsToBeDeleted = [];
+        });
+
       return false;
     },
   },

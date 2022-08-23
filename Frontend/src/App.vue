@@ -102,7 +102,7 @@ export default {
                 .catch();
               //notify
               this.notification(
-                `${project.id} installed successfully`,
+                `Project: [${project.id}] installed successfully`,
                 "primary",
                 10000
               );
@@ -111,7 +111,7 @@ export default {
             if (project.status === 2) {
               const error = project.error;
               //notify
-              this.notification(`Error: ${project.id}: ${error}`, "danger", 0);
+              this.notification(`Error installing project: [${project.id}]: ${error}`, "danger", 0);
               return;
             }
           }
@@ -122,7 +122,7 @@ export default {
           const project_id = data.event.id;
           //notify
           this.notification(
-            `${project_id} was deleted`,
+            `Project: [${project_id}] was deleted`,
             "primary",
             10000
           );

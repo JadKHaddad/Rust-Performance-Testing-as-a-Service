@@ -27,7 +27,6 @@ pub async fn start_test(
     red_client: Data<&redis::Client>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
-    //TODO! check if project is locked
     //let workers = req.workers.unwrap_or(1);
     let mut response = models::http::Response {
         success: true,
@@ -35,6 +34,20 @@ pub async fn start_test(
         error: None,
         content: None,
     };
+    let mut red_connection = red_client.get_connection().unwrap();
+    //check if project is locked
+    let locked_projects: std::collections::HashSet<String> =
+        if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
+            set
+        } else {
+            HashSet::new()
+        };
+    if locked_projects.contains(project_id) {
+        //TODO! run in scheduler
+        response.error = Some("Project is currently locked");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
     let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
 
     //checking here if the locust file exists and then we will check again before running if the script was in the meantime deleted
@@ -178,12 +191,38 @@ pub async fn start_test(
     file.write(serde_json::to_string(&test_info).unwrap().as_bytes())?;
 
     // save id in redis
-    let mut red_connection = red_client.get_connection().unwrap();
     let _: () = red_connection
         .sadd(shared::RUNNING_TESTS, &task_id)
         .unwrap();
 
     running_tests_guard.insert(task_id, cmd);
+
+    let started_test = shared::models::Test {
+        id: id,
+        project_id: project_id.to_string(),
+        script_id: script_id.to_string(),
+        status: 0,
+        results: None,
+        history: None,
+        info: Some(test_info),
+    };
+
+    //Notify
+    let websocket_message = models::websocket::WebSocketMessage {
+        event_type: shared::TEST_STARTED,
+        event: &started_test,
+    };
+    let redis_message = models::redis::RedisMessage {
+        event_type: websocket_message.event_type.to_owned(),
+        id: shared::encode_script_id(&project_id, &script_id),
+        message: serde_json::to_string(&websocket_message).unwrap(),
+    };
+    let _: () = red_connection
+        .publish(
+            "main_channel",
+            serde_json::to_string(&redis_message).unwrap(),
+        )
+        .unwrap();
 
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
@@ -281,7 +320,7 @@ pub async fn start_test(
                         );
                     }
                 }
-                //save in redis
+                //Notify
                 for (script_id, tests_info) in tests_info_map.iter() {
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: shared::UPDATE_TEST_INFO,
@@ -319,17 +358,6 @@ pub async fn start_test(
             shared::get_date_and_time()
         );
     }
-    //TODO! Notify and remove WS Notify event form Front end
-
-    let started_test = shared::models::Test {
-        id: id,
-        project_id: project_id.to_string(),
-        script_id: script_id.to_string(),
-        status: 0,
-        results: None,
-        history: None,
-        info: Some(test_info),
-    };
     response.content = Some(started_test);
     return Ok(serde_json::to_string(&response).unwrap());
 }

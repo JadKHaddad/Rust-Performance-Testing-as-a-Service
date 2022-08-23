@@ -162,10 +162,9 @@ export default {
           if (test) {
             test.status = 1;
           }
-          console.log("test stopped: ", id);
         }
         if (event_type === "TEST_STARTED") {
-          const new_test = data.event.test;
+          const new_test = data.event;
           let test = this.tests.find((test) => test.id === new_test.id);
           if (!test) {
             this.tests.push(new_test);
@@ -192,17 +191,19 @@ export default {
           if (data.success) {
             let test = data.content;
             this.tests.push(test);
-            this.ws.send(
-              JSON.stringify({
-                event_type: "TEST_STARTED",
-                event: {
-                  test: test,
-                },
-              })
-            );
+            // this.ws.send(
+            //   JSON.stringify({
+            //     event_type: "TEST_STARTED",
+            //     event: {
+            //       test: test,
+            //     },
+            //   })
+            // );
             this.hideStartModal();
           } else {
             console.log(data.error);
+            //notify
+            this.$root.notification(`Error running test: ${data.error}`, "danger", 0);
           }
         })
         .catch(() => {});
