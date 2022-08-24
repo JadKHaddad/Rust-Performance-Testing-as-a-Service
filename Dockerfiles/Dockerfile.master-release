@@ -1,4 +1,7 @@
 # docker build -t master-release:latest -f Dockerfiles/Dockerfile.master-release .
+# docker tag master-release:latest localhost:32000/master-release:latest
+# docker push localhost:32000/master-release:latest
+
 # docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data master-release:latest 3000 host.docker.internal
 
 FROM builder:latest AS builder

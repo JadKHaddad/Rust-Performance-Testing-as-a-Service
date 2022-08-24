@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-deployment
+  namespace: performance-testing
+  labels:
+    app: master #this label
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master #this label
+  template:
+    metadata:
+      labels:
+        app: master #this label
+    spec:
+      containers:
+      - name: master
+        image: localhost:32000/master-release:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: configmap
+              key: redis_host
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-service
+  namespace: performance-testing
+  labels:
+    app: master-service
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: master #this label
+  sessionAffinity: None

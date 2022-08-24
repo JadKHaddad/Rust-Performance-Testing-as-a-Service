@@ -1,0 +1,19 @@
+- microk8s prox dashboard
+microk8s dashboard-proxy
+
+- list images on microk8s registry
+http://<host_ip>:32000/v2/_catalog
+http://localhost:32000/v2/_catalog
+
+- shell into pod
+kubectl exec --stdin --tty <pod-name> -- /bin/bash
+
+- forward frontend [dev]
+kubectl port-forward -n performance-testing service/frontend-service 8080:80
+kubectl port-forward -n performance-testing service/frontend-service 8080:80 --address='0.0.0.0'
+
+- create namespace
+kubectl create namespace performance-testing
+
+- set current namespace
+kubectl config set-context --current --namespace=performance-testing

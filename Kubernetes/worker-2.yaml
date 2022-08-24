@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-2-deployment
+  namespace: performance-testing
+  labels:
+    app: worker-2 #this label
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-2 #this label
+  template:
+    metadata:
+      labels:
+        app: worker-2 #this label
+        label: worker
+    spec:
+      containers:
+      - name: worker-2
+        image: localhost:32000/worker-release:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: configmap
+              key: redis_host
+        - name: MASTER_IP
+          valueFrom:
+            configMapKeyRef:
+              name: configmap
+              key: master_ip
+        - name: WORKER_NAME
+          value: worker-2-service:5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-2-service
+  namespace: performance-testing
+  labels:
+    app: worker-2-service
+spec:
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: worker-2 #this label
+  sessionAffinity: None
