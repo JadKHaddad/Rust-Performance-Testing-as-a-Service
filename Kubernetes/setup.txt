@@ -1,4 +1,6 @@
-- microk8s prox dashboard
+- using microk8s for this deployment
+
+- microk8s proxy dashboard
 microk8s dashboard-proxy
 
 - list images on microk8s registry

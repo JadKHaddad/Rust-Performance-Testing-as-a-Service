@@ -256,8 +256,21 @@ async fn main() -> Result<(), std::io::Error> {
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
 
-    //remove running tests that belong to this worker //TODO!: Running test in the GUI is still shown as running
-    lib::remove_all_running_tests(&red_client, &worker_name)
+    let mut red_connection;
+
+    loop{
+        if let Ok(connection) = red_client.get_connection(){
+            red_connection = connection;
+            break;
+        }
+        println!(
+            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
+            shared::get_date_and_time()
+        );
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    //remove running tests that belong to this worker
+    lib::remove_all_running_tests(&mut red_connection, &worker_name)
         .await
         .unwrap();
 

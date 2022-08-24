@@ -48,6 +48,7 @@ pub async fn start_test(
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
     }
+
     let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
 
     //checking here if the locust file exists and then we will check again before running if the script was in the meantime deleted
@@ -105,6 +106,10 @@ pub async fn start_test(
     //let workers_command = format!("--workers {}", workers);
 
     //lock before running
+    let _: () = red_connection
+        .sadd(shared::LOCKED_PROJECTS, &project_id)
+        .unwrap();
+
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
     if !locust_file.exists() {
@@ -223,7 +228,10 @@ pub async fn start_test(
             serde_json::to_string(&redis_message).unwrap(),
         )
         .unwrap();
-
+    //unlock
+    let _: () = red_connection
+        .srem(shared::LOCKED_PROJECTS, &project_id)
+        .unwrap();
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
         currently_running_tests.store(true, Ordering::SeqCst); //TODO! hmm
@@ -437,16 +445,18 @@ pub async fn delete_test(
 }
 
 pub async fn remove_all_running_tests(
-    red_client: &redis::Client,
+    red_connection: &mut redis::Connection,
     worker_ip: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let mut red_connection = red_client.get_connection()?;
-    let running_tests: std::collections::HashSet<String> =
+    let running_tests: std::collections::HashSet<String>;
+    loop {
         if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
-            set
-        } else {
-            HashSet::new()
-        };
+            running_tests = set;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+
     for test_id in running_tests {
         //get tests worked ip
         let (project_id, script_id, test_id_d) = shared::decode_test_id(&test_id);
@@ -470,20 +480,27 @@ pub async fn remove_all_running_tests(
                 shared::get_date_and_time(),
                 redis_message
             );
-            let _: () = red_connection
-                .publish(
+            loop {
+                if let Ok(()) = red_connection.publish(
                     "main_channel",
                     serde_json::to_string(&redis_message).unwrap(),
-                )
-                .unwrap();
-
+                ) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(3));
+            }
             //remove from redis
-            let _: () = red_connection.srem(shared::RUNNING_TESTS, &test_id)?;
-            println!(
-                "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
-                shared::get_date_and_time(),
-                test_id
-            );
+            loop {
+                if let Ok(()) = red_connection.srem(shared::RUNNING_TESTS, &test_id) {
+                    println!(
+                        "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
+                        shared::get_date_and_time(),
+                        test_id
+                    );
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(3));
+            }
         }
     }
     Ok(())

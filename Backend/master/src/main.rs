@@ -539,9 +539,28 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
-    let mut red_connection = red_client.get_connection().unwrap();
+    
+    let mut red_connection;
+
+    loop{
+        if let Ok(connection) = red_client.get_connection(){
+            red_connection = connection;
+            break;
+        }
+        println!(
+            "[{}] MASTER: Could not connect to redis. Trying again in 3 seconds.",
+            shared::get_date_and_time()
+        );
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    
     //reset subs on master start
-    let _: () = red_connection.del(shared::SUBS).unwrap();
+    loop{
+        if let Ok(()) = red_connection.del(shared::SUBS){
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
 
     //setup redis channel
     let pubsub_subscriptions = subscriptions.clone();

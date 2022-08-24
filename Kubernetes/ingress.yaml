@@ -17,7 +17,6 @@ spec:
             name: master-service
             port:
               number: 3000
-      
       - path: /api/worker/(.*)
         pathType: Prefix
         backend:
@@ -25,7 +24,6 @@ spec:
             name: worker-loadbalancer
             port:
               number: 5000
-      
       - path: /(.*)
         pathType: Prefix
         backend:
@@ -33,6 +31,3 @@ spec:
             name: frontend-service
             port:
               number: 80
-
- 
-
