@@ -16,6 +16,10 @@ spec:
         app: worker-1 #this label
         label: worker
     spec:
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: pv-claim
       containers:
       - name: worker-1
         image: localhost:32000/worker-release:latest
@@ -34,6 +38,9 @@ spec:
               key: master_ip
         - name: WORKER_NAME
           value: worker-1-service:5000
+        volumeMounts:
+        - mountPath: "/home/Backend/data"
+          name: task-pv-storage
 ---
 apiVersion: v1
 kind: Service

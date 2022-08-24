@@ -3,7 +3,6 @@ Built to run on Kubernetes, this service is designed to test the performance of 
 ## TODO
 Locust does not stop if host is not valid<br>
 Remove "Unwraps"<br>
-Kubernetes volumes<br>
 Other features..<br>
 workers and worker-info should be stored in redis: if master dies or workers die. No need to register workers, save workers in redis instead<br>
 MASTER and WORKER: recovery thread to recover redis lost data if redis dies

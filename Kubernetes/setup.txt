@@ -12,6 +12,11 @@ kubectl exec --stdin --tty <pod-name> -- /bin/bash
 kubectl port-forward -n performance-testing service/frontend-service 8080:80
 kubectl port-forward -n performance-testing service/frontend-service 8080:80 --address='0.0.0.0'
 
+- delete pv / pv-claim
+kubectl patch pvc <PVC_NAME> -p '{"metadata":{"finalizers":null}}'
+kubectl delete pvc <PVC_NAME>
+kubectl delete pv <pv_name>
+
 - create namespace
 kubectl create namespace performance-testing
 

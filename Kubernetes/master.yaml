@@ -15,6 +15,10 @@ spec:
       labels:
         app: master #this label
     spec:
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: pv-claim
       containers:
       - name: master
         image: localhost:32000/master-release:latest
@@ -26,6 +30,9 @@ spec:
             configMapKeyRef:
               name: configmap
               key: redis_host
+        volumeMounts:
+        - mountPath: "/home/Backend/data"
+          name: task-pv-storage
 ---
 apiVersion: v1
 kind: Service
