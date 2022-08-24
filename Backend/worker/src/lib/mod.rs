@@ -113,7 +113,9 @@ pub async fn start_test(
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
     if !locust_file.exists() {
-        return Ok(String::from("Script was deleted!"));
+        response.error = Some("Script was deleted!");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     //run
     let cmd = if cfg!(target_os = "windows") {
@@ -228,7 +230,7 @@ pub async fn start_test(
             serde_json::to_string(&redis_message).unwrap(),
         )
         .unwrap();
-    //unlock
+    //unlock //TODO! what happens on error?
     let _: () = red_connection
         .srem(shared::LOCKED_PROJECTS, &project_id)
         .unwrap();
