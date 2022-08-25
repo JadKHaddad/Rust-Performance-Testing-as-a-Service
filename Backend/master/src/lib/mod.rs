@@ -576,7 +576,7 @@ pub async fn delete_test(
 pub async fn stop_script(
     project_id: &str,
     script_id: &str,
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    red_client: Data<&redis::Client>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<HashMap<&str, String>> {
         success: true,
@@ -586,7 +586,13 @@ pub async fn stop_script(
     };
     let mut error = String::new();
     let mut contents: HashMap<&str, String> = HashMap::new();
-    let workers = workers.read().clone();
+    let mut red_connection = red_client.get_connection().unwrap();
+    let workers: std::collections::HashSet<String> =
+            if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
+                set
+            } else {
+                HashSet::new()
+            };
     let script_id_enc = shared::encode_script_id(project_id, script_id);
     println!(
         "[{}] MASTER: STOP SCRIPT ATTEMPT: [{}]",
@@ -633,7 +639,7 @@ pub async fn stop_script(
 
 pub async fn stop_project<'a>(
     project_id: &str,
-    workers: Arc<RwLock<HashSet<String>>>,
+    workers: &HashSet<String>,
     error: &'a mut String,
 ) -> models::http::Response<'a, HashMap<String, String>> {
     let mut response = models::http::Response::<HashMap<String, String>> {
@@ -643,7 +649,6 @@ pub async fn stop_project<'a>(
         content: None,
     };
     let mut contents: HashMap<String, String> = HashMap::new();
-    let workers = workers.read().clone();
     println!(
         "[{}] MASTER: STOP PROJECT ATTEMPT: [{}]",
         shared::get_date_and_time(),
@@ -693,7 +698,7 @@ pub async fn stop_project<'a>(
 pub async fn delete_projects(
     projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
     red_client: Data<&redis::Client>,
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<HashMap<String, (bool, String)>> {
@@ -704,6 +709,12 @@ pub async fn delete_projects(
     };
     let mut contents: HashMap<String, (bool, String)> = HashMap::new();
     let mut red_connection = red_client.get_connection().unwrap();
+    let workers: std::collections::HashSet<String> =
+            if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
+                set
+            } else {
+                HashSet::new()
+            };
     for project_id in projects_to_be_deleted.project_ids.iter() {
         //if project is allready locked continue
         let locked_projects: std::collections::HashSet<String> =
@@ -722,7 +733,7 @@ pub async fn delete_projects(
         //stop project
         let mut stop_project_error = String::new();
         let stop_response =
-            stop_project(&project_id, workers.clone(), &mut stop_project_error).await;
+            stop_project(&project_id, &workers, &mut stop_project_error).await;
         if stop_response.success {
             //delete project if all tests are stopped
             let mut delete_project_error = String::new();

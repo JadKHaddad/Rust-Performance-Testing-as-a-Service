@@ -446,6 +446,21 @@ pub async fn delete_test(
     return Ok(serde_json::to_string(&response).unwrap());
 }
 
+pub fn register(red_connection: &mut redis::Connection,
+    worker_ip: &str,
+){
+    loop {
+        if let Ok(()) = red_connection.sadd(shared::REGISTERED_WORKERS, &worker_ip) {
+            println!(
+                "[{}] WORKER: Registered!",
+                shared::get_date_and_time(),
+            );
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+}
+
 pub async fn remove_all_running_tests(
     red_connection: &mut redis::Connection,
     worker_ip: &str,

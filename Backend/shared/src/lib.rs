@@ -15,6 +15,8 @@ pub const SUBS: &str = "SUBS";
 pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 //redis locked projects
 pub const LOCKED_PROJECTS: &str = "LOCKED_PROJECTS";
+//redis registered workers
+pub const REGISTERED_WORKERS: &str = "REGISTERED_WORKERS";
 
 //events
 pub const INFORMATION: &str = "INFORMATION";

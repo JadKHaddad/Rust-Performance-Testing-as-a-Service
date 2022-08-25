@@ -122,31 +122,6 @@ async fn stop_project(
     }
 }
 
-async fn register(worker_name: &str, master_ip: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-    let response = client
-        .post(&format!("http://{}/register_worker", master_ip))
-        .body(
-            serde_json::to_string(&models::http::WorkerInfo {
-                worker_name: worker_name.to_owned(),
-            })
-            .unwrap(),
-        )
-        .header("Content-Type", "application/json")
-        .send()
-        .await?;
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await?;
-        panic!(
-            "Could not register worker | STATUS: {} | RESPONSE: {}",
-            status, body
-        );
-    }
-
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -275,20 +250,16 @@ async fn main() -> Result<(), std::io::Error> {
         .unwrap();
 
     println!(
-        "[{}] WORKER: Registering with master",
+        "[{}] WORKER: Registering worker",
         shared::get_date_and_time()
     );
-    if let Err(err) = register(&worker_name, &master_ip).await {
-        eprintln!(
-            "[{}] ERROR: WORKER: Failed to register with master\n{}\n",
-            shared::get_date_and_time(),
-            err
-        );
-        panic!("WORKER: Failed to register with master");
-    }
+
+    lib::register(&mut red_connection, &worker_name);
 
     tracing_subscriber::fmt::init();
 
+    //TODO! run recovery thread
+    
     let app = Route::new()
         .at("/health", get(health))
         .at("/start_test/:project_id/:script_id", post(start_test))

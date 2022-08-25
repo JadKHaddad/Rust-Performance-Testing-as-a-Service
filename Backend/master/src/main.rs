@@ -17,7 +17,7 @@ use poem::{
 use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     process::Child,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
@@ -377,9 +377,9 @@ async fn subscribe(
 #[handler]
 async fn stop_script(
     Path((project_id, script_id)): Path<(String, String)>,
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
+    red_client: Data<&redis::Client>,
 ) -> String {
-    match lib::stop_script(&project_id, &script_id, workers).await {
+    match lib::stop_script(&project_id, &script_id, red_client).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -390,56 +390,19 @@ async fn stop_script(
 }
 
 #[handler]
-async fn register_worker(
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
-    mut worker_info: Json<models::http::WorkerInfo>,
-) -> String {
-    //TODO! resistered workers will be lost on master restart
-    let worker_name = std::mem::take(&mut worker_info.worker_name);
-    println!(
-        "[{}] MASTER: REGISTER WORKER: Received request: [{}]",
-        shared::get_date_and_time(),
-        worker_name
-    );
-    let mut workers_guard = workers.write();
-    workers_guard.insert(worker_name);
-    println!(
-        "[{}] MASTER: CURRENT WORKERS: [{:?}]",
-        shared::get_date_and_time(),
-        workers_guard
-    );
-    return "OK".to_owned();
-}
-
-#[handler]
 async fn delete_worker(
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
-    mut worker_info: Json<models::http::WorkerInfo>,
 ) -> String {
-    let worker_name = std::mem::take(&mut worker_info.worker_name);
-    println!(
-        "[{}] MASTER: DELETE WORKER: Received request, [{}]",
-        shared::get_date_and_time(),
-        worker_name
-    );
-    let mut workers_guard = workers.write();
-    workers_guard.remove(&worker_name);
-    println!(
-        "[{}] MASTER: CURRENT WORKERS: [{:?}]",
-        shared::get_date_and_time(),
-        workers_guard
-    );
-    return "OK".to_owned();
+    //remove from redis
+    "Ok".to_string()
 }
 
 #[handler]
 async fn delete_projects(
     projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
     red_client: Data<&redis::Client>,
-    workers: Data<&Arc<RwLock<HashSet<String>>>>,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> String {
-    match lib::delete_projects(projects_to_be_deleted, red_client, workers, main_sender).await {
+    match lib::delete_projects(projects_to_be_deleted, red_client, main_sender).await {
         Ok(response) => response,
         Err(err) => {
             // Server error
@@ -515,7 +478,7 @@ async fn main() -> Result<(), std::io::Error> {
     //create download directory
     std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
     //workers
-    let workers: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
+    //let workers: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
 
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
@@ -599,11 +562,11 @@ async fn main() -> Result<(), std::io::Error> {
 
     tracing_subscriber::fmt::init();
 
+    //TODO! run recovery thread
+
     let app = Route::new()
         .at("/health", get(health))
         .at("/upload", post(upload.data(currently_installing_projects)))
-        .at("/register_worker", post(register_worker))
-        .at("/delete_worker", post(delete_worker))
         .at(
             "/ws",
             get(ws.data(information_thread_running).data(connected_clients)),
@@ -627,7 +590,6 @@ async fn main() -> Result<(), std::io::Error> {
             StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
         )
         .with(AddData::new(installing_tasks))
-        .with(AddData::new(workers))
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))
         .with(AddData::new(red_client));
