@@ -11,20 +11,6 @@ microk8s enable dns registry ingress metallb
 ```
 * MicroK8s' default local registry's port is, ```32000```
 
-* You may have to add the registry to docker's insecure registries
-
-* Create ```/etc/docker/daemon.json``` file
-```sh
-sudo touch /etc/docker/daemon.json
-```
-* Paste the following text into the file
-```sh
-{
-    "insecure-registries":["localhost:32000"]
-}
-```
-* Save the file and restart docker
-
 * Build the helper images
 ```sh
 docker build -t builder:latest -f Dockerfiles/Dockerfile.builder .
