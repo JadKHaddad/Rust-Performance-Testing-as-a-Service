@@ -1,5 +1,5 @@
 # Performace Testing as a Service
-Built to run on Kubernetes, this service is designed to test the performance of given applications using locust.
+Built to run on Kubernetes, this service is designed to test the performance of given applications using locust
 
 ## Deployment using MicroK8s
 
@@ -13,11 +13,11 @@ microk8s enable dns registry ingress metallb
 
 * You may have to add the registry to docker's insecure registries
 
-* Create ```/etc/docker/daemon.json``` file:
+* Create ```/etc/docker/daemon.json``` file
 ```sh
 sudo touch /etc/docker/daemon.json
 ```
-* Paste the following text into the file:
+* Paste the following text into the file
 ```sh
 {
     "insecure-registries":["localhost:32000"]
