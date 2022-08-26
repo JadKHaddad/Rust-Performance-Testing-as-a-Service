@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-{worker_nr}-deployment
+  namespace: performance-testing
+  labels:
+    app: worker-{worker_nr}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-{worker_nr}
+  template:
+    metadata:
+      labels:
+        app: worker-{worker_nr}
+        label: worker
+    spec:
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: pv-claim
+      containers:
+      - name: worker-{worker_nr}
+        image: localhost:32000/worker-release:latest
+        imagePullPolicy: "Always"
+        ports:
+        - containerPort: 5000
+        env:
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: configmap
+              key: redis_host
+        - name: MASTER_IP
+          valueFrom:
+            configMapKeyRef:
+              name: configmap
+              key: master_ip
+        - name: WORKER_NAME
+          value: worker-{worker_nr}-service:5000
+        volumeMounts:
+        - mountPath: "/home/Backend/data"
+          name: task-pv-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-{worker_nr}-service
+  namespace: performance-testing
+  labels:
+    app: worker-{worker_nr}-service
+spec:
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: worker-{worker_nr}
+  sessionAffinity: None

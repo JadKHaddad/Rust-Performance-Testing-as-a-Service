@@ -23,6 +23,7 @@ spec:
       containers:
       - name: worker-2
         image: localhost:32000/worker-release:latest
+        imagePullPolicy: "Always"
         ports:
         - containerPort: 5000
         env:
