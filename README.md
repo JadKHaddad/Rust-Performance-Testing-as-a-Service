@@ -71,6 +71,9 @@ kubectl rollout restart deployment -n performance-testing worker-2-deployment
 
 ...
 ```
+## Architecture
+![architecture](https://github.com/JadKHaddad/Rust-Performance-Testing-as-a-Service/blob/main/assets/architecture.png?raw=true)
+
 ## Contributors
 * Jad K. Haddad <jadkhaddad@gmail.com>
 
