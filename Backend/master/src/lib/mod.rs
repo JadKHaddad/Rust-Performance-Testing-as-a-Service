@@ -518,59 +518,75 @@ pub async fn delete_test(
     subscriptions: Data<&Arc<RwLock<HashMap<String, (u32, Sender<String>)>>>>,
     red_client: Data<&redis::Client>,
 ) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Test delete",
+        error: None,
+        content: None,
+    };
     //check if test is running
-    let mut red_connection = red_client.get_connection().unwrap();
-    let running_tests: std::collections::HashSet<String> =
-        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
-            set
+    let running_tests: std::collections::HashSet<String>;
+    if let Ok(mut connection) = red_client.get_connection(){
+        if let Ok(set) = connection.smembers(shared::RUNNING_TESTS) {
+            running_tests = set;
         } else {
-            std::collections::HashSet::new()
+            response.success = false;
+            response.error = Some("Could not connect to database");
+            return Ok(serde_json::to_string(&response).unwrap())
         };
+    }else{
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap())
+    }
     if !running_tests.contains(&shared::encode_test_id(&project_id, &script_id, &test_id)) {
-        let mut response = models::http::Response::<String> {
-            success: true,
-            message: "Test delete",
-            error: None,
-            content: None,
-        };
+        
         if shared::delete_test(&project_id, &script_id, &test_id).is_err() {
             response.success = false;
             response.error = Some("Could not delete test");
         }
         return Ok(serde_json::to_string(&response).unwrap());
     }
-    //TODO! if worker is not responding?
     let ip =
         shared::get_worker_ip(&project_id, &script_id, &test_id).ok_or("No worker ip found")?;
     let client = reqwest::Client::new();
-    let response = client
+    match client
         .post(&format!(
             "http://{}/delete_test/{}/{}/{}",
             ip, project_id, script_id, test_id
         ))
         .send()
-        .await?;
-    {
-        let script_id = shared::encode_script_id(&project_id, &script_id);
-        let subscriptions_guard = subscriptions.read();
-        if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
-            //create event
-            let websocket_message = models::websocket::WebSocketMessage {
-                event_type: shared::TEST_DELETED,
-                event: models::websocket::tests::TestDeletedEvent { id: test_id },
-            };
-            if sender
-                .send(serde_json::to_string(&websocket_message).unwrap())
-                .is_err()
-            {
-                println!(
-                    "[{}] DELETE TEST: No clients are connected!",
-                    shared::get_date_and_time()
-                );
+        .await{
+            Ok(response) => {
+                {
+                    let script_id = shared::encode_script_id(&project_id, &script_id);
+                    let subscriptions_guard = subscriptions.read();
+                    if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+                        //create event
+                        let websocket_message = models::websocket::WebSocketMessage {
+                            event_type: shared::TEST_DELETED,
+                            event: models::websocket::tests::TestDeletedEvent { id: test_id },
+                        };
+                        if sender
+                            .send(serde_json::to_string(&websocket_message).unwrap())
+                            .is_err()
+                        {
+                            println!(
+                                "[{}] MASTER: DELETE TEST: No clients are connected!",
+                                shared::get_date_and_time()
+                            );
+                        }
+                    }
+                }
+                return Ok(response.text().await.unwrap());
+            },
+            Err(e) => {
+                eprintln!("[{}] MASTER: DELETE TEST: Could not connect to worker [{}],\n{}",shared::get_date_and_time(), ip, e);
+                response.success = false;
+                response.error = Some("Could not connect to worker");
+                Ok(serde_json::to_string(&response).unwrap())
             }
         }
-    }
-    Ok(response.text().await.unwrap())
 }
 
 pub async fn stop_script(
@@ -586,13 +602,20 @@ pub async fn stop_script(
     };
     let mut error = String::new();
     let mut contents: HashMap<&str, String> = HashMap::new();
-    let mut red_connection = red_client.get_connection().unwrap();
-    let workers: std::collections::HashSet<String> =
-            if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
-                set
-            } else {
-                HashSet::new()
-            };
+    let workers: std::collections::HashSet<String>;
+    if let Ok(mut connection) = red_client.get_connection(){
+        if let Ok(set) = connection.smembers(shared::REGISTERED_WORKERS) {
+            workers = set;
+        } else {
+            response.success = false;
+            response.error = Some("Could not connect to database");
+            return Ok(serde_json::to_string(&response).unwrap())
+        };
+    }else{
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap())
+    }  
     let script_id_enc = shared::encode_script_id(project_id, script_id);
     println!(
         "[{}] MASTER: STOP SCRIPT ATTEMPT: [{}]",
@@ -698,7 +721,6 @@ pub async fn stop_project<'a>(
 pub async fn delete_projects(
     projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
     red_client: Data<&redis::Client>,
-
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<HashMap<String, (bool, String)>> {
@@ -708,28 +730,43 @@ pub async fn delete_projects(
         content: None,
     };
     let mut contents: HashMap<String, (bool, String)> = HashMap::new();
-    let mut red_connection = red_client.get_connection().unwrap();
-    let workers: std::collections::HashSet<String> =
-            if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
-                set
-            } else {
-                HashSet::new()
-            };
+    let workers: std::collections::HashSet<String>;
+    let mut red_connection;
+    if let Ok(connection) = red_client.get_connection(){
+        red_connection = connection;
+    }else{
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap())
+    }
+    if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
+        workers = set;
+    } else {
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap())
+    };
     for project_id in projects_to_be_deleted.project_ids.iter() {
         //if project is allready locked continue
-        let locked_projects: std::collections::HashSet<String> =
+        let locked_projects: std::collections::HashSet<String>;
             if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-                set
+                locked_projects = set;
             } else {
-                HashSet::new()
+                response.success = false;
+                response.error = Some("Could not connect to database");
+                return Ok(serde_json::to_string(&response).unwrap())
             };
         if locked_projects.contains(project_id) {
             continue;
         }
         //lock project
-        let _: () = red_connection
-            .sadd(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
-            .unwrap();
+        if red_connection
+            .sadd::<_,_,()>(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+            .is_err(){
+                response.success = false;
+                response.error = Some("Could not connect to database");
+                return Ok(serde_json::to_string(&response).unwrap())
+            }
         //stop project
         let mut stop_project_error = String::new();
         let stop_response =
@@ -773,11 +810,10 @@ pub async fn delete_projects(
                 (false, stop_project_error.to_owned()),
             );
         }
-
         //unlock project
         let _: () = red_connection
             .srem(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
-            .unwrap();
+            .unwrap_or_default();
     }
     response.content = Some(contents);
     Ok(serde_json::to_string(&response).unwrap())
@@ -859,10 +895,8 @@ fn delete_project<'a>(
             }
         }
     }
-
     if !response.success {
         response.error = Some(error);
     }
-
     return response;
 }

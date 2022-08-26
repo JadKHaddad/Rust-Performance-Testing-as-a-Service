@@ -272,7 +272,7 @@ async fn subscribe(
     let subscriptions = subscriptions.clone();
     let red_client = red_client.clone();
     other_ws.on_upgrade(move |socket| async move {
-        let mut red_connection = red_client.get_connection().unwrap();
+        //let mut red_connection = red_client.get_connection().unwrap();
         let (mut sink, mut stream) = socket.split();
         let script_id = shared::encode_script_id(&project_id, &script_id);
         let tokio_listener_script_id = script_id.clone();
@@ -295,7 +295,10 @@ async fn subscribe(
 
             subscriptions_guard.insert(script_id.clone(), (1, sender));
             //save in redis
-            let _: () = red_connection.sadd(shared::SUBS, &script_id).unwrap();
+            if let Ok(mut connection) = red_client.get_connection(){
+                let _: () = connection.sadd(shared::SUBS, &script_id).unwrap_or_default();
+            }
+            
         }
         println!(
             "[{}] SUBSCRIBER: Script [{}]: COUNT: [{}]",
@@ -338,7 +341,10 @@ async fn subscribe(
             if new_count < 1 {
                 subscriptions_guard.remove(&script_id);
                 //update
-                let _: () = red_connection.srem(shared::SUBS, &script_id).unwrap();
+                if let Ok(mut connection) = red_client.get_connection(){
+                    let _: () = connection.srem(shared::SUBS, &script_id).unwrap_or_default();
+                }
+
             } else {
                 subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
             }
@@ -487,12 +493,13 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
-    let mut red_connection;
 
+    //reset subs on master start
     loop {
-        if let Ok(connection) = red_client.get_connection() {
-            red_connection = connection;
-            break;
+        if let Ok(mut connection) = red_client.get_connection() {
+            if let Ok(()) = connection.del(shared::SUBS) {
+                break;
+            }
         }
         eprintln!(
             "[{}] MASTER: Could not connect to redis. Trying again in 3 seconds.",
@@ -500,14 +507,7 @@ async fn main() -> Result<(), std::io::Error> {
         );
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
-    //reset subs on master start
-    loop {
-        if let Ok(()) = red_connection.del(shared::SUBS) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_secs(3));
-    }
-
+    
     //setup redis channel
     let pubsub_subscriptions = subscriptions.clone();
     let pubsub_client = red_client.clone();
@@ -617,10 +617,10 @@ async fn main() -> Result<(), std::io::Error> {
                     }
                 }
                 if success {
-                    println!(
-                        "[{}] MASTER: RECOVERY THREAD: Update!",
-                        shared::get_date_and_time()
-                    );
+                    // println!(
+                    //     "[{}] MASTER: RECOVERY THREAD: Update!",
+                    //     shared::get_date_and_time()
+                    // );
                 }else {
                     break;
                 }

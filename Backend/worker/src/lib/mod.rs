@@ -35,14 +35,25 @@ pub async fn start_test(
         content: None,
     };
     let red_client = red_client.clone();
-    let mut red_connection = red_client.get_connection().unwrap();
+    let mut red_connection;
+    if let Ok(connection) = red_client.get_connection(){
+        red_connection = connection;
+    } else {
+        response.error = Some("Could not connect to database");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    
     //check if project is locked
-    let locked_projects: std::collections::HashSet<String> =
+    let locked_projects: std::collections::HashSet<String>;
         if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-            set
+            locked_projects = set;
         } else {
-            HashSet::new()
+            response.error = Some("Could not connect to database");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
         };
+
     if locked_projects.contains(project_id) {
         //TODO! run in scheduler
         response.error = Some("Project is currently locked");
@@ -107,13 +118,20 @@ pub async fn start_test(
     //let workers_command = format!("--workers {}", workers);
 
     //lock before running
-    let _: () = red_connection
-        .sadd(shared::LOCKED_PROJECTS, &project_id)
-        .unwrap();
+    if red_connection
+        .sadd::<_,_,()>(shared::LOCKED_PROJECTS, &project_id)
+        .is_err(){
+            //delete test dir
+            std::fs::remove_dir_all(&test_dir)?;
+            response.error = Some("Could not lock project");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
 
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
     if !locust_file.exists() {
+        std::fs::remove_dir_all(&test_dir)?;
         response.error = Some("Script was deleted!");
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
@@ -201,7 +219,7 @@ pub async fn start_test(
     // save id in redis
     let _: () = red_connection
         .sadd(shared::RUNNING_TESTS, &task_id)
-        .unwrap();
+        .unwrap_or_default();
 
     running_tests_guard.insert(task_id, cmd);
 
@@ -230,11 +248,12 @@ pub async fn start_test(
             "main_channel",
             serde_json::to_string(&redis_message).unwrap(),
         )
-        .unwrap();
+        .unwrap_or_default();
+
     //unlock //TODO! what happens on error?
     let _: () = red_connection
         .srem(shared::LOCKED_PROJECTS, &project_id)
-        .unwrap();
+        .unwrap_or_default();
     //run the garbage collector
     if !currently_running_tests.load(Ordering::SeqCst) {
         currently_running_tests.store(true, Ordering::SeqCst); //TODO! hmm

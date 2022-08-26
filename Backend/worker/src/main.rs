@@ -290,10 +290,10 @@ async fn main() -> Result<(), std::io::Error> {
                         break;
                     }
                 }
-                println!(
-                    "[{}] WORKER: RECOVERY THREAD: Update!",
-                    shared::get_date_and_time()
-                );
+                // println!(
+                //     "[{}] WORKER: RECOVERY THREAD: Update!",
+                //     shared::get_date_and_time()
+                // );
             }
         }
     });
