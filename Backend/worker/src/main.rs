@@ -8,11 +8,14 @@ use poem::{
     web::{Data, Json, Path},
     EndpointExt, Route, Server,
 };
+use redis::Commands;
 use std::{
     collections::HashMap,
     process::Child,
     sync::{atomic::AtomicBool, Arc},
+    time::Duration,
 };
+use tokio::time::sleep;
 mod lib;
 use shared::models;
 //use models::websocket::WebSocketMessage;
@@ -231,35 +234,69 @@ async fn main() -> Result<(), std::io::Error> {
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
 
-    let mut red_connection;
+    lib::register(&red_client, &worker_name);
 
-    loop{
-        if let Ok(connection) = red_client.get_connection(){
-            red_connection = connection;
-            break;
-        }
-        println!(
-            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
-            shared::get_date_and_time()
-        );
-        std::thread::sleep(std::time::Duration::from_secs(3));
-    }
     //remove running tests that belong to this worker
-    lib::remove_all_running_tests(&mut red_connection, &worker_name)
+    lib::remove_all_running_tests(&red_client, &worker_name)
         .await
         .unwrap();
 
-    println!(
-        "[{}] WORKER: Registering worker",
-        shared::get_date_and_time()
-    );
-
-    lib::register(&mut red_connection, &worker_name);
-
     tracing_subscriber::fmt::init();
 
-    //TODO! run recovery thread
-    
+    //run recovery thread
+    let recovery_running_tests = running_tests.clone();
+    let recovery_red_client = red_client.clone();
+    let recovery_worker_name = worker_name.clone();
+    tokio::spawn(async move {
+        loop {
+            let mut red_connection;
+            loop {
+                if let Ok(connection) = recovery_red_client.get_connection() {
+                    red_connection = connection;
+                    println!(
+                        "[{}] MASTER: RECOVERY THREAD: Connected!",
+                        shared::get_date_and_time()
+                    );
+                    break;
+                }
+                eprintln!(
+                "[{}] WORKER: RECOVERY THREAD: Could not connect to redis. Trying again in 3 seconds.",
+                shared::get_date_and_time()
+            );
+                sleep(Duration::from_secs(3)).await;
+            }
+            loop {
+                sleep(Duration::from_secs(10)).await;
+                if let Err(e) = red_connection
+                    .sadd::<_, _, ()>(shared::REGISTERED_WORKERS, &recovery_worker_name)
+                {
+                    eprintln!(
+                        "[{}] WORKER: RECOVERY THREAD: Disconnected! {}",
+                        shared::get_date_and_time(),
+                        e
+                    );
+                    break;
+                }
+                let running_tests_guard = recovery_running_tests.read();
+                for test in running_tests_guard.keys() {
+                    if let Err(e) =
+                        red_connection.sadd::<_, _, ()>(shared::RUNNING_TESTS, &test)
+                    {
+                        eprintln!(
+                            "[{}] WORKER: RECOVERY THREAD: Disconnected! {}",
+                            shared::get_date_and_time(),
+                            e
+                        );
+                        break;
+                    }
+                }
+                println!(
+                    "[{}] WORKER: RECOVERY THREAD: Update!",
+                    shared::get_date_and_time()
+                );
+            }
+        }
+    });
     let app = Route::new()
         .at("/health", get(health))
         .at("/start_test/:project_id/:script_id", post(start_test))

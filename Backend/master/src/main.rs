@@ -207,7 +207,6 @@ async fn ws(
                 "[{}] INFORMATION THREAD: Running!",
                 shared::get_date_and_time()
             );
-            let mut red_connection = red_client.get_connection().unwrap();
             tokio::spawn(async move {
                 loop {
                     let connected_clients_count = tokio_connected_clients.load(Ordering::SeqCst);
@@ -227,13 +226,12 @@ async fn ws(
                             .map(|(k, _)| k.to_owned())
                             .collect::<Vec<_>>();
                     }
-
-                    let running_tests_count: u32 =
-                        if let Ok(count) = red_connection.scard(shared::RUNNING_TESTS) {
-                            count
-                        } else {
-                            0
-                        };
+                    let mut running_tests_count: u32 = 0;
+                    if let Ok(mut connection) = red_client.get_connection(){
+                        if let Ok(count) = connection.scard(shared::RUNNING_TESTS) {
+                            running_tests_count = count;
+                        } 
+                    }
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: shared::INFORMATION,
                         event: models::websocket::information::Event {
@@ -251,18 +249,6 @@ async fn ws(
                             shared::get_date_and_time()
                         );
                     }
-
-                    // {
-                    //     let subscriptions_guard = subscriptions.read();
-                    //     for (script_id, (_, sender)) in subscriptions_guard.iter() {
-                    //         if let Ok(event) = red_connection.get(script_id) {
-                    //             if sender.send(event).is_err() {
-                    //                 println!("INFORMATION THREAD: No clients are connected!");
-                    //             }
-                    //         }
-                    //     }
-                    // }
-
                     sleep(Duration::from_secs(2)).await;
                 }
             });
@@ -390,8 +376,7 @@ async fn stop_script(
 }
 
 #[handler]
-async fn delete_worker(
-) -> String {
+async fn delete_worker() -> String {
     //remove from redis
     "Ok".to_string()
 }
@@ -502,24 +487,22 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
-    
     let mut red_connection;
 
-    loop{
-        if let Ok(connection) = red_client.get_connection(){
+    loop {
+        if let Ok(connection) = red_client.get_connection() {
             red_connection = connection;
             break;
         }
-        println!(
+        eprintln!(
             "[{}] MASTER: Could not connect to redis. Trying again in 3 seconds.",
             shared::get_date_and_time()
         );
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
-    
     //reset subs on master start
-    loop{
-        if let Ok(()) = red_connection.del(shared::SUBS){
+    loop {
+        if let Ok(()) = red_connection.del(shared::SUBS) {
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(3));
@@ -527,34 +510,69 @@ async fn main() -> Result<(), std::io::Error> {
 
     //setup redis channel
     let pubsub_subscriptions = subscriptions.clone();
+    let pubsub_client = red_client.clone();
     thread::spawn(move || {
-        let mut pubsub = red_connection.as_pubsub();
-        pubsub.subscribe("main_channel").unwrap();
         loop {
-            let msg = pubsub.get_message().unwrap();
-            let payload: String = msg.get_payload().unwrap();
-            //println!("channel '{}': {}", msg.get_channel_name(), payload);
-            let redis_message: models::redis::RedisMessage =
-                serde_json::from_str(&payload).unwrap();
-            if redis_message.event_type == shared::UPDATE_TEST_INFO
-                || redis_message.event_type == shared::TEST_STOPPED
-                || redis_message.event_type == shared::TEST_STARTED
-            {
-                let subscriptions_guard = pubsub_subscriptions.read();
-                //println!("{:?}", subscriptions_guard);
-                if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
-                    if sender.1.send(redis_message.message).is_err() {
-                        println!(
-                            "[{}] REDIS CHANNEL THREAD: No clients are connected!",
-                            shared::get_date_and_time()
-                        );
-                    };
-                } else {
+            let mut red_connection;
+            loop {
+                if let Ok(connection) = pubsub_client.get_connection() {
+                    red_connection = connection;
                     println!(
-                        "[{}] REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
-                        shared::get_date_and_time(),
-                        redis_message.id
+                        "[{}] MASTER: PUBSUB THREAD: Connected!",
+                        shared::get_date_and_time()
                     );
+                    break;
+                }
+                eprintln!(
+                    "[{}] MASTER: PUBSUB THREAD: Could not connect to redis. Trying again in 3 seconds.",
+                    shared::get_date_and_time()
+                );
+                std::thread::sleep(std::time::Duration::from_secs(3));
+            }
+
+            let mut pubsub = red_connection.as_pubsub();
+            if pubsub.subscribe("main_channel").is_err() {
+                eprintln!(
+                    "[{}] MASTER: PUBSUB THREAD: Disconnected!",
+                    shared::get_date_and_time()
+                );
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                continue;
+            }
+            loop {
+                if let Ok(msg) = pubsub.get_message() {
+                    if let Ok(payload) = msg.get_payload::<String>() {
+                        let redis_message: models::redis::RedisMessage =
+                            serde_json::from_str(&payload).unwrap();
+                        if redis_message.event_type == shared::UPDATE_TEST_INFO
+                            || redis_message.event_type == shared::TEST_STOPPED
+                            || redis_message.event_type == shared::TEST_STARTED
+                        {
+                            let subscriptions_guard = pubsub_subscriptions.read();
+                            //println!("{:?}", subscriptions_guard);
+                            if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
+                                if sender.1.send(redis_message.message).is_err() {
+                                    eprintln!(
+                                        "[{}] REDIS CHANNEL THREAD: No clients are connected!",
+                                        shared::get_date_and_time()
+                                    );
+                                };
+                            } else {
+                                eprintln!(
+                                "[{}] REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
+                                shared::get_date_and_time(),
+                                redis_message.id
+                            );
+                            }
+                        }
+                    }
+                } else {
+                    eprintln!(
+                        "[{}] MASTER: PUBSUB THREAD: Could not get message!",
+                        shared::get_date_and_time()
+                    );
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    break;
                 }
             }
         }
@@ -562,8 +580,54 @@ async fn main() -> Result<(), std::io::Error> {
 
     tracing_subscriber::fmt::init();
 
-    //TODO! run recovery thread
-
+    //run recovery thread
+    let recovery_subscriptions = subscriptions.clone();
+    let recovery_red_client = red_client.clone();
+    tokio::spawn(async move {
+        loop {
+            let mut red_connection;
+            loop {
+                if let Ok(connection) = recovery_red_client.get_connection() {
+                    red_connection = connection;
+                    println!(
+                        "[{}] MASTER: RECOVERY THREAD: Connected!",
+                        shared::get_date_and_time()
+                    );
+                    break;
+                }
+                eprintln!(
+                    "[{}] MASTER: RECOVERY THREAD: Could not connect to redis. Trying again in 3 seconds.",
+                    shared::get_date_and_time()
+                );
+                sleep(Duration::from_secs(3)).await;
+            }
+            loop {
+                let mut success = true;
+                sleep(Duration::from_secs(10)).await;
+                let subscriptions_guard = recovery_subscriptions.read();
+                for sub in subscriptions_guard.keys() {
+                    if let Err(e) = red_connection.sadd::<_, _, ()>(shared::SUBS, &sub) {
+                        eprintln!(
+                            "[{}] MASTER: RECOVERY THREAD: Disconnected! {}",
+                            shared::get_date_and_time(),
+                            e
+                        );
+                        success = false;
+                        break;
+                    }
+                }
+                if success {
+                    println!(
+                        "[{}] MASTER: RECOVERY THREAD: Update!",
+                        shared::get_date_and_time()
+                    );
+                }else {
+                    break;
+                }
+                
+            }
+        }
+    });
     let app = Route::new()
         .at("/health", get(health))
         .at("/upload", post(upload.data(currently_installing_projects)))

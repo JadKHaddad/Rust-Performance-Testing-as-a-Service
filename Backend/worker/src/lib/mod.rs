@@ -34,6 +34,7 @@ pub async fn start_test(
         error: None,
         content: None,
     };
+    let red_client = red_client.clone();
     let mut red_connection = red_client.get_connection().unwrap();
     //check if project is locked
     let locked_projects: std::collections::HashSet<String> =
@@ -259,12 +260,12 @@ pub async fn start_test(
                     }
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
-                    let wanted_scripts: HashSet<String> =
-                        if let Ok(set) = red_connection.smembers(shared::SUBS) {
-                            set
-                        } else {
-                            HashSet::new()
-                        };
+                    let mut wanted_scripts: HashSet<String> = HashSet::new();
+                    if let Ok(mut connection) = red_client.get_connection() {
+                        if let Ok(set) = connection.smembers(shared::SUBS) {
+                            wanted_scripts = set;
+                        }
+                    }
                     for (id, cmd) in tokio_tests_guard.iter_mut() {
                         let (project_id, script_id, test_id) = shared::decode_test_id(id);
                         let global_script_id = shared::get_global_script_id(id);
@@ -284,8 +285,11 @@ pub async fn start_test(
                                     }
                                 }
                                 //remove from redis
-                                let _: () =
-                                    red_connection.srem(shared::RUNNING_TESTS, &id).unwrap();
+                                if let Ok(mut connection) = red_client.get_connection() {
+                                    let _: () = connection
+                                        .srem(shared::RUNNING_TESTS, &id)
+                                        .unwrap_or_default();
+                                }
                             }
                             Ok(None) => {
                                 status = 0; // process is running
@@ -331,33 +335,26 @@ pub async fn start_test(
                     }
                 }
                 //Notify
-                for (script_id, tests_info) in tests_info_map.iter() {
-                    let websocket_message = models::websocket::WebSocketMessage {
-                        event_type: shared::UPDATE_TEST_INFO,
-                        event: models::websocket::tests::TestInfoEvent {
-                            tests_info: tests_info,
-                        },
-                    };
-
-                    let redis_message = models::redis::RedisMessage {
-                        event_type: websocket_message.event_type.to_owned(),
-                        id: script_id.to_owned(),
-                        message: serde_json::to_string(&websocket_message).unwrap(),
-                    };
-                    let _: () = red_connection
-                        .publish(
-                            "main_channel",
-                            serde_json::to_string(&redis_message).unwrap(),
-                        )
-                        .unwrap();
-
-                    // let _: () = red_connection
-                    //     .set(
-                    //         script_id,
-                    //         serde_json::to_string(&websocket_message).unwrap(),
-                    //     )
-                    //     .unwrap();
-                    // let _: () = red_connection.expire(script_id, 5).unwrap();
+                if let Ok(mut connection) = red_client.get_connection() {
+                    for (script_id, tests_info) in tests_info_map.iter() {
+                        let websocket_message = models::websocket::WebSocketMessage {
+                            event_type: shared::UPDATE_TEST_INFO,
+                            event: models::websocket::tests::TestInfoEvent {
+                                tests_info: tests_info,
+                            },
+                        };
+                        let redis_message = models::redis::RedisMessage {
+                            event_type: websocket_message.event_type.to_owned(),
+                            id: script_id.to_owned(),
+                            message: serde_json::to_string(&websocket_message).unwrap(),
+                        };
+                        let _: () = connection
+                            .publish(
+                                "main_channel",
+                                serde_json::to_string(&redis_message).unwrap(),
+                            )
+                            .unwrap_or_default();
+                    }
                 }
                 sleep(Duration::from_secs(2)).await;
             }
@@ -446,80 +443,91 @@ pub async fn delete_test(
     return Ok(serde_json::to_string(&response).unwrap());
 }
 
-pub fn register(red_connection: &mut redis::Connection,
-    worker_ip: &str,
-){
+pub fn register(red_client: &redis::Client, worker_ip: &str) {
+    println!(
+        "[{}] WORKER: Registering worker",
+        shared::get_date_and_time()
+    );
     loop {
-        if let Ok(()) = red_connection.sadd(shared::REGISTERED_WORKERS, &worker_ip) {
-            println!(
-                "[{}] WORKER: Registered!",
-                shared::get_date_and_time(),
-            );
-            break;
+        if let Ok(mut connection) = red_client.get_connection() {
+            if let Ok(()) = connection.sadd(shared::REGISTERED_WORKERS, &worker_ip) {
+                println!("[{}] WORKER: Registered!", shared::get_date_and_time(),);
+                break;
+            }
         }
+        eprintln!(
+            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
+            shared::get_date_and_time()
+        );
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
 
 pub async fn remove_all_running_tests(
-    red_connection: &mut redis::Connection,
+    red_client: &redis::Client,
     worker_ip: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let running_tests: std::collections::HashSet<String>;
     loop {
-        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
-            running_tests = set;
-            break;
+        if let Ok(mut connection) = red_client.get_connection() {
+            if let Ok(set) = connection.smembers(shared::RUNNING_TESTS) {
+                let running_tests: std::collections::HashSet<String> = set;
+                let mut success = true;
+                for test_id in running_tests {
+                    //get tests worked ip
+                    let (project_id, script_id, test_id_d) = shared::decode_test_id(&test_id);
+                    let test_worker_ip = shared::get_worker_ip(project_id, script_id, test_id_d)
+                        .ok_or("Id Error")?;
+                    if test_worker_ip == worker_ip {
+                        //notify master
+                        let websocket_message = models::websocket::WebSocketMessage {
+                            event_type: shared::TEST_STOPPED,
+                            event: models::websocket::tests::TestStoppeddEvent {
+                                id: test_id_d.to_owned(),
+                            },
+                        };
+                        let redis_message = models::redis::RedisMessage {
+                            event_type: websocket_message.event_type.to_owned(),
+                            id: shared::encode_script_id(project_id, script_id),
+                            message: serde_json::to_string(&websocket_message).unwrap(),
+                        };
+                        println!(
+                            "[{}] SENDING REDIS MESSAGE: {:?}",
+                            shared::get_date_and_time(),
+                            redis_message
+                        );
+                        //notify and remove from redis
+                        if connection
+                            .publish::<_, _, bool>(
+                                "main_channel",
+                                serde_json::to_string(&redis_message).unwrap(),
+                            )
+                            .is_err()
+                            || connection
+                                .srem::<_, _, bool>(shared::RUNNING_TESTS, &test_id)
+                                .is_err()
+                        {
+                            success = false;
+                            break;
+                        }
+                        println!(
+                            "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
+                            shared::get_date_and_time(),
+                            test_id
+                        );
+                    }
+                }
+                if success {
+                    break;
+                }
+            }
         }
+        eprintln!(
+            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
+            shared::get_date_and_time()
+        );
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
 
-    for test_id in running_tests {
-        //get tests worked ip
-        let (project_id, script_id, test_id_d) = shared::decode_test_id(&test_id);
-        let test_worker_ip =
-            shared::get_worker_ip(project_id, script_id, test_id_d).ok_or("Id Error")?;
-        if test_worker_ip == worker_ip {
-            //notify master
-            let websocket_message = models::websocket::WebSocketMessage {
-                event_type: shared::TEST_STOPPED,
-                event: models::websocket::tests::TestStoppeddEvent {
-                    id: test_id_d.to_owned(),
-                },
-            };
-            let redis_message = models::redis::RedisMessage {
-                event_type: websocket_message.event_type.to_owned(),
-                id: shared::encode_script_id(project_id, script_id),
-                message: serde_json::to_string(&websocket_message).unwrap(),
-            };
-            println!(
-                "[{}] SENDING REDIS MESSAGE: {:?}",
-                shared::get_date_and_time(),
-                redis_message
-            );
-            loop {
-                if let Ok(()) = red_connection.publish(
-                    "main_channel",
-                    serde_json::to_string(&redis_message).unwrap(),
-                ) {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_secs(3));
-            }
-            //remove from redis
-            loop {
-                if let Ok(()) = red_connection.srem(shared::RUNNING_TESTS, &test_id) {
-                    println!(
-                        "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
-                        shared::get_date_and_time(),
-                        test_id
-                    );
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_secs(3));
-            }
-        }
-    }
     Ok(())
 }
 
