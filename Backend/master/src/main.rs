@@ -138,7 +138,8 @@ async fn ws(
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
     connected_clients: Data<&Arc<AtomicU32>>,
     information_thread_running: Data<&Arc<AtomicBool>>,
-    red_client: Data<&redis::Client>,
+    //red_client: Data<&redis::Client>,
+    red_manager: Data<&shared::Manager>,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
@@ -148,7 +149,7 @@ async fn ws(
     let ws_upgrade_connected_clients = connected_clients.clone();
     let tokio_information_thread_running = information_thread_running.clone();
     let information_thread_running = Arc::clone(&information_thread_running);
-    let red_client = red_client.clone();
+    let mut red_manager = red_manager.clone();
     let installing_tasks = installing_tasks.clone();
     ws.on_upgrade(move |socket| async move {
         let (mut sink, mut stream) = socket.split();
@@ -227,11 +228,11 @@ async fn ws(
                             .collect::<Vec<_>>();
                     }
                     let mut running_tests_count: u32 = 0;
-                    if let Ok(mut connection) = red_client.get_connection(){
-                        if let Ok(count) = connection.scard(shared::RUNNING_TESTS) {
-                            running_tests_count = count;
-                        } 
+
+                    if let Ok(count) = red_manager.scard(shared::RUNNING_TESTS) {
+                        running_tests_count = count;
                     }
+                    
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: shared::INFORMATION,
                         event: models::websocket::information::Event {
@@ -493,7 +494,9 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
-
+    //redis manager
+    let manager = shared::Manager::new(red_client.clone()).await;
+    
     //reset subs on master start
     loop {
         if let Ok(mut connection) = red_client.get_connection() {
@@ -656,7 +659,9 @@ async fn main() -> Result<(), std::io::Error> {
         .with(AddData::new(installing_tasks))
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))
-        .with(AddData::new(red_client));
+        .with(AddData::new(red_client))
+        .with(AddData::new(manager));
+
     Server::new(TcpListener::bind(format!("0.0.0.0:{}", port)))
         .run(app)
         .await

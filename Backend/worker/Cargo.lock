@@ -1129,8 +1129,10 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "csv",
+ "redis",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

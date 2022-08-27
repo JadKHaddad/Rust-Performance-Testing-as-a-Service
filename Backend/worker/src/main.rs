@@ -32,6 +32,7 @@ async fn start_test(
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
     red_client: Data<&redis::Client>,
+    red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
 ) -> String {
     match lib::start_test(
@@ -41,6 +42,7 @@ async fn start_test(
         running_tests,
         currently_running_tests,
         red_client,
+        red_manager,
         ip,
     )
     .await
@@ -233,6 +235,8 @@ async fn main() -> Result<(), std::io::Error> {
     //redis client
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
+    //redis manager
+    let manager = shared::Manager::new(red_client.clone()).await;
 
     lib::register(&red_client, &worker_name);
 
@@ -279,9 +283,7 @@ async fn main() -> Result<(), std::io::Error> {
                 }
                 let running_tests_guard = recovery_running_tests.read();
                 for test in running_tests_guard.keys() {
-                    if let Err(e) =
-                        red_connection.sadd::<_, _, ()>(shared::RUNNING_TESTS, &test)
-                    {
+                    if let Err(e) = red_connection.sadd::<_, _, ()>(shared::RUNNING_TESTS, &test) {
                         eprintln!(
                             "[{}] WORKER: RECOVERY THREAD: Disconnected! {}",
                             shared::get_date_and_time(),
@@ -313,7 +315,8 @@ async fn main() -> Result<(), std::io::Error> {
         .with(AddData::new(worker_name))
         .with(AddData::new(running_tests))
         .with(AddData::new(currently_running_tests))
-        .with(AddData::new(red_client));
+        .with(AddData::new(red_client))
+        .with(AddData::new(manager));
 
     Server::new(TcpListener::bind(format!("0.0.0.0:{}", port)))
         .run(app)

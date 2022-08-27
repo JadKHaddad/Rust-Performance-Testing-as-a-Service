@@ -81,8 +81,7 @@ kubectl rollout restart deployment -n performance-testing worker-2-deployment
 © 2022 Jad K. Haddad
 Licensed under the [MIT License](LICENSE)
 
-## TODO
+## Todo
 * Locust does not stop if host is not valid
 * Locust workers
-* MASTER, WORKER: create for threads one red connection that reconnects on error
 * Other features..

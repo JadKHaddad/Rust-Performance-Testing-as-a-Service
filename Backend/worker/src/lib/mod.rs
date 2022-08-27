@@ -25,6 +25,7 @@ pub async fn start_test(
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
     currently_running_tests: Data<&Arc<AtomicBool>>,
     red_client: Data<&redis::Client>,
+    red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
 ) -> Result<String, Box<dyn Error>> {
     //let workers = req.workers.unwrap_or(1);
@@ -36,23 +37,22 @@ pub async fn start_test(
     };
     let red_client = red_client.clone();
     let mut red_connection;
-    if let Ok(connection) = red_client.get_connection(){
+    if let Ok(connection) = red_client.get_connection() {
         red_connection = connection;
     } else {
         response.error = Some("Could not connect to database");
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
     }
-    
     //check if project is locked
     let locked_projects: std::collections::HashSet<String>;
-        if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-            locked_projects = set;
-        } else {
-            response.error = Some("Could not connect to database");
-            response.success = false;
-            return Ok(serde_json::to_string(&response).unwrap());
-        };
+    if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
+        locked_projects = set;
+    } else {
+        response.error = Some("Could not connect to database");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    };
 
     if locked_projects.contains(project_id) {
         //TODO! run in scheduler
@@ -119,14 +119,15 @@ pub async fn start_test(
 
     //lock before running
     if red_connection
-        .sadd::<_,_,()>(shared::LOCKED_PROJECTS, &project_id)
-        .is_err(){
-            //delete test dir
-            std::fs::remove_dir_all(&test_dir)?;
-            response.error = Some("Could not lock project");
-            response.success = false;
-            return Ok(serde_json::to_string(&response).unwrap());
-        }
+        .sadd::<_, _, ()>(shared::LOCKED_PROJECTS, &project_id)
+        .is_err()
+    {
+        //delete test dir
+        std::fs::remove_dir_all(&test_dir)?;
+        response.error = Some("Could not lock project");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
 
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
@@ -255,6 +256,7 @@ pub async fn start_test(
         .srem(shared::LOCKED_PROJECTS, &project_id)
         .unwrap_or_default();
     //run the garbage collector
+    let mut red_manager = red_manager.clone();
     if !currently_running_tests.load(Ordering::SeqCst) {
         currently_running_tests.store(true, Ordering::SeqCst); //TODO! hmm
         println!(
@@ -280,10 +282,9 @@ pub async fn start_test(
                     let mut to_be_removed: Vec<String> = Vec::new();
                     //collect info if a user is connected
                     let mut wanted_scripts: HashSet<String> = HashSet::new();
-                    if let Ok(mut connection) = red_client.get_connection() {
-                        if let Ok(set) = connection.smembers(shared::SUBS) {
-                            wanted_scripts = set;
-                        }
+
+                    if let Ok(set) = red_manager.smembers(shared::SUBS) {
+                        wanted_scripts = set;
                     }
                     for (id, cmd) in tokio_tests_guard.iter_mut() {
                         let (project_id, script_id, test_id) = shared::decode_test_id(id);
@@ -354,26 +355,24 @@ pub async fn start_test(
                     }
                 }
                 //Notify
-                if let Ok(mut connection) = red_client.get_connection() {
-                    for (script_id, tests_info) in tests_info_map.iter() {
-                        let websocket_message = models::websocket::WebSocketMessage {
-                            event_type: shared::UPDATE_TEST_INFO,
-                            event: models::websocket::tests::TestInfoEvent {
-                                tests_info: tests_info,
-                            },
-                        };
-                        let redis_message = models::redis::RedisMessage {
-                            event_type: websocket_message.event_type.to_owned(),
-                            id: script_id.to_owned(),
-                            message: serde_json::to_string(&websocket_message).unwrap(),
-                        };
-                        let _: () = connection
-                            .publish(
-                                "main_channel",
-                                serde_json::to_string(&redis_message).unwrap(),
-                            )
-                            .unwrap_or_default();
-                    }
+                for (script_id, tests_info) in tests_info_map.iter() {
+                    let websocket_message = models::websocket::WebSocketMessage {
+                        event_type: shared::UPDATE_TEST_INFO,
+                        event: models::websocket::tests::TestInfoEvent {
+                            tests_info: tests_info,
+                        },
+                    };
+                    let redis_message = models::redis::RedisMessage {
+                        event_type: websocket_message.event_type.to_owned(),
+                        id: script_id.to_owned(),
+                        message: serde_json::to_string(&websocket_message).unwrap(),
+                    };
+                    let _: () = red_manager
+                        .publish(
+                            "main_channel",
+                            serde_json::to_string(&redis_message).unwrap(),
+                        )
+                        .unwrap_or_default();
                 }
                 sleep(Duration::from_secs(2)).await;
             }
