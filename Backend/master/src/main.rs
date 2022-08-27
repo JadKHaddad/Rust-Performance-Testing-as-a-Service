@@ -20,8 +20,8 @@ use std::{
     collections::HashMap,
     process::Child,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        Arc,
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex
     },
     thread,
     time::Duration,
@@ -42,7 +42,7 @@ async fn health() -> String {
 async fn upload(
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    currently_installing_projects: Data<&Arc<AtomicBool>>,
+    currently_installing_projects: Data<&Arc<Mutex<bool>>>,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> String {
     match lib::upload(
@@ -137,7 +137,7 @@ async fn ws(
     ws: WebSocket,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
     connected_clients: Data<&Arc<AtomicU32>>,
-    information_thread_running: Data<&Arc<AtomicBool>>,
+    information_thread_running: Data<&Arc<Mutex<bool>>>,
     //red_client: Data<&redis::Client>,
     red_manager: Data<&shared::Manager>,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
@@ -147,7 +147,6 @@ async fn ws(
     let tokio_connected_clients = connected_clients.clone();
     let ws_stream_connected_clients = connected_clients.clone();
     let ws_upgrade_connected_clients = connected_clients.clone();
-    let tokio_information_thread_running = information_thread_running.clone();
     let information_thread_running = Arc::clone(&information_thread_running);
     let mut red_manager = red_manager.clone();
     let installing_tasks = installing_tasks.clone();
@@ -202,17 +201,19 @@ async fn ws(
         });
 
         //run information thread
-        if !information_thread_running.load(Ordering::SeqCst) {
-            information_thread_running.store(true, Ordering::SeqCst); //TODO! hmm
+        let mut information_thread_running_mutex = information_thread_running.lock().unwrap();
+        if !*information_thread_running_mutex {
+            *information_thread_running_mutex = true;
             println!(
                 "[{}] INFORMATION THREAD: Running!",
                 shared::get_date_and_time()
             );
+            let tokio_information_thread_running = information_thread_running.clone();
             tokio::spawn(async move {
                 loop {
                     let connected_clients_count = tokio_connected_clients.load(Ordering::SeqCst);
                     if connected_clients_count < 1 {
-                        tokio_information_thread_running.store(false, Ordering::SeqCst);
+                        *tokio_information_thread_running.lock().unwrap() = false;
                         println!(
                             "[{}] INFORMATION THREAD: Terminating!",
                             shared::get_date_and_time()
@@ -475,11 +476,11 @@ async fn main() -> Result<(), std::io::Error> {
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
         Arc::new(RwLock::new(HashMap::new()));
-    let currently_installing_projects = Arc::new(AtomicBool::new(false));
+    let currently_installing_projects = Arc::new(Mutex::new(false));
 
     //clients
     let connected_clients = Arc::new(AtomicU32::new(0));
-    let information_thread_running = Arc::new(AtomicBool::new(false));
+    let information_thread_running = Arc::new(Mutex::new(false));
     if std::env::var_os("RUST_LOG").is_none() {
         std::env::set_var("RUST_LOG", "poem=debug");
     }

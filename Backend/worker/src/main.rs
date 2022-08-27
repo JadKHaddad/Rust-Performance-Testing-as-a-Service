@@ -12,7 +12,7 @@ use redis::Commands;
 use std::{
     collections::HashMap,
     process::Child,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::sleep;
@@ -30,7 +30,7 @@ async fn start_test(
     Path((project_id, script_id)): Path<(String, String)>,
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    currently_running_tests: Data<&Arc<AtomicBool>>,
+    currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: Data<&redis::Client>,
     red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
@@ -230,7 +230,7 @@ async fn main() -> Result<(), std::io::Error> {
 
     //tests
     let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
-    let currently_running_tests = Arc::new(AtomicBool::new(false));
+    let currently_running_tests = Arc::new(Mutex::new(false));
 
     //redis client
     let red_client =

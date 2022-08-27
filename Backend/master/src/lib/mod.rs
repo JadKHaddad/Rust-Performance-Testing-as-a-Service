@@ -10,10 +10,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     str,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::sync::broadcast::Sender;
@@ -75,7 +72,7 @@ pub async fn upload(
     // must lock
     mut multipart: Multipart,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    currently_installing_projects: Data<&Arc<AtomicBool>>,
+    currently_installing_projects: Data<&Arc<Mutex<bool>>>,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
@@ -191,8 +188,9 @@ pub async fn upload(
     installing_tasks_guard.insert(project_name.to_str().ok_or("Upload Error")?.to_owned(), cmd);
     // run the thread
     let main_sender = main_sender.clone();
-    if !currently_installing_projects.load(Ordering::SeqCst) {
-        currently_installing_projects.store(true, Ordering::SeqCst); //TODO! hmm
+    let mut currently_installing_projects_mutex = currently_installing_projects.lock().unwrap();
+    if !*currently_installing_projects_mutex {
+        *currently_installing_projects_mutex = true;
         println!(
             "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
             shared::get_date_and_time()
@@ -206,7 +204,7 @@ pub async fn upload(
                 {
                     let mut tokio_tasks_guard = tokio_installing_tasks.write();
                     if tokio_tasks_guard.len() < 1 {
-                        tokio_currently_installing_projects.store(false, Ordering::SeqCst);
+                        *tokio_currently_installing_projects.lock().unwrap() = false;
                         println!(
                             "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
                             shared::get_date_and_time()
@@ -526,21 +524,20 @@ pub async fn delete_test(
     };
     //check if test is running
     let running_tests: std::collections::HashSet<String>;
-    if let Ok(mut connection) = red_client.get_connection(){
+    if let Ok(mut connection) = red_client.get_connection() {
         if let Ok(set) = connection.smembers(shared::RUNNING_TESTS) {
             running_tests = set;
         } else {
             response.success = false;
             response.error = Some("Could not connect to database");
-            return Ok(serde_json::to_string(&response).unwrap())
+            return Ok(serde_json::to_string(&response).unwrap());
         };
-    }else{
+    } else {
         response.success = false;
         response.error = Some("Could not connect to database");
-        return Ok(serde_json::to_string(&response).unwrap())
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     if !running_tests.contains(&shared::encode_test_id(&project_id, &script_id, &test_id)) {
-        
         if shared::delete_test(&project_id, &script_id, &test_id).is_err() {
             response.success = false;
             response.error = Some("Could not delete test");
@@ -556,37 +553,43 @@ pub async fn delete_test(
             ip, project_id, script_id, test_id
         ))
         .send()
-        .await{
-            Ok(response) => {
-                {
-                    let script_id = shared::encode_script_id(&project_id, &script_id);
-                    let subscriptions_guard = subscriptions.read();
-                    if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
-                        //create event
-                        let websocket_message = models::websocket::WebSocketMessage {
-                            event_type: shared::TEST_DELETED,
-                            event: models::websocket::tests::TestDeletedEvent { id: test_id },
-                        };
-                        if sender
-                            .send(serde_json::to_string(&websocket_message).unwrap())
-                            .is_err()
-                        {
-                            println!(
-                                "[{}] MASTER: DELETE TEST: No clients are connected!",
-                                shared::get_date_and_time()
-                            );
-                        }
+        .await
+    {
+        Ok(response) => {
+            {
+                let script_id = shared::encode_script_id(&project_id, &script_id);
+                let subscriptions_guard = subscriptions.read();
+                if let Some((_, sender)) = subscriptions_guard.get(&script_id) {
+                    //create event
+                    let websocket_message = models::websocket::WebSocketMessage {
+                        event_type: shared::TEST_DELETED,
+                        event: models::websocket::tests::TestDeletedEvent { id: test_id },
+                    };
+                    if sender
+                        .send(serde_json::to_string(&websocket_message).unwrap())
+                        .is_err()
+                    {
+                        println!(
+                            "[{}] MASTER: DELETE TEST: No clients are connected!",
+                            shared::get_date_and_time()
+                        );
                     }
                 }
-                return Ok(response.text().await.unwrap());
-            },
-            Err(e) => {
-                eprintln!("[{}] MASTER: DELETE TEST: Could not connect to worker [{}],\n{}",shared::get_date_and_time(), ip, e);
-                response.success = false;
-                response.error = Some("Could not connect to worker");
-                Ok(serde_json::to_string(&response).unwrap())
             }
+            return Ok(response.text().await.unwrap());
         }
+        Err(e) => {
+            eprintln!(
+                "[{}] MASTER: DELETE TEST: Could not connect to worker [{}],\n{}",
+                shared::get_date_and_time(),
+                ip,
+                e
+            );
+            response.success = false;
+            response.error = Some("Could not connect to worker");
+            Ok(serde_json::to_string(&response).unwrap())
+        }
+    }
 }
 
 pub async fn stop_script(
@@ -603,19 +606,19 @@ pub async fn stop_script(
     let mut error = String::new();
     let mut contents: HashMap<&str, String> = HashMap::new();
     let workers: std::collections::HashSet<String>;
-    if let Ok(mut connection) = red_client.get_connection(){
+    if let Ok(mut connection) = red_client.get_connection() {
         if let Ok(set) = connection.smembers(shared::REGISTERED_WORKERS) {
             workers = set;
         } else {
             response.success = false;
             response.error = Some("Could not connect to database");
-            return Ok(serde_json::to_string(&response).unwrap())
+            return Ok(serde_json::to_string(&response).unwrap());
         };
-    }else{
+    } else {
         response.success = false;
         response.error = Some("Could not connect to database");
-        return Ok(serde_json::to_string(&response).unwrap())
-    }  
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
     let script_id_enc = shared::encode_script_id(project_id, script_id);
     println!(
         "[{}] MASTER: STOP SCRIPT ATTEMPT: [{}]",
@@ -732,45 +735,45 @@ pub async fn delete_projects(
     let mut contents: HashMap<String, (bool, String)> = HashMap::new();
     let workers: std::collections::HashSet<String>;
     let mut red_connection;
-    if let Ok(connection) = red_client.get_connection(){
+    if let Ok(connection) = red_client.get_connection() {
         red_connection = connection;
-    }else{
+    } else {
         response.success = false;
         response.error = Some("Could not connect to database");
-        return Ok(serde_json::to_string(&response).unwrap())
+        return Ok(serde_json::to_string(&response).unwrap());
     }
     if let Ok(set) = red_connection.smembers(shared::REGISTERED_WORKERS) {
         workers = set;
     } else {
         response.success = false;
         response.error = Some("Could not connect to database");
-        return Ok(serde_json::to_string(&response).unwrap())
+        return Ok(serde_json::to_string(&response).unwrap());
     };
     for project_id in projects_to_be_deleted.project_ids.iter() {
         //if project is allready locked continue
         let locked_projects: std::collections::HashSet<String>;
-            if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-                locked_projects = set;
-            } else {
-                response.success = false;
-                response.error = Some("Could not connect to database");
-                return Ok(serde_json::to_string(&response).unwrap())
-            };
+        if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
+            locked_projects = set;
+        } else {
+            response.success = false;
+            response.error = Some("Could not connect to database");
+            return Ok(serde_json::to_string(&response).unwrap());
+        };
         if locked_projects.contains(project_id) {
             continue;
         }
         //lock project
         if red_connection
-            .sadd::<_,_,()>(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
-            .is_err(){
-                response.success = false;
-                response.error = Some("Could not connect to database");
-                return Ok(serde_json::to_string(&response).unwrap())
-            }
+            .sadd::<_, _, ()>(shared::LOCKED_PROJECTS, &projects_to_be_deleted.project_ids)
+            .is_err()
+        {
+            response.success = false;
+            response.error = Some("Could not connect to database");
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
         //stop project
         let mut stop_project_error = String::new();
-        let stop_response =
-            stop_project(&project_id, &workers, &mut stop_project_error).await;
+        let stop_response = stop_project(&project_id, &workers, &mut stop_project_error).await;
         if stop_response.success {
             //delete project if all tests are stopped
             let mut delete_project_error = String::new();

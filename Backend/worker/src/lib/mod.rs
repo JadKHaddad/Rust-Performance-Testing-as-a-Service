@@ -10,10 +10,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::Path,
     process::{Child, Command, Stdio},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::sleep;
@@ -23,7 +20,7 @@ pub async fn start_test(
     script_id: &str,
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
-    currently_running_tests: Data<&Arc<AtomicBool>>,
+    currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: Data<&redis::Client>,
     red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
@@ -256,15 +253,16 @@ pub async fn start_test(
         .srem(shared::LOCKED_PROJECTS, &project_id)
         .unwrap_or_default();
     //run the garbage collector
-    let mut red_manager = red_manager.clone();
-    if !currently_running_tests.load(Ordering::SeqCst) {
-        currently_running_tests.store(true, Ordering::SeqCst); //TODO! hmm
+    let mut currently_running_tests_mutex = currently_running_tests.lock().unwrap();
+    if !*currently_running_tests_mutex {
+        *currently_running_tests_mutex = true;
         println!(
             "[{}] SCRIPTS GARBAGE COLLECTOR: Running!",
             shared::get_date_and_time()
         );
         let tokio_currently_running_tests = currently_running_tests.clone();
         let tokio_running_tests = Arc::clone(&running_tests);
+        let mut red_manager = red_manager.clone();
         tokio::spawn(async move {
             loop {
                 let mut tests_info_map: HashMap<String, Vec<models::websocket::tests::TestInfo>> =
@@ -272,7 +270,7 @@ pub async fn start_test(
                 {
                     let mut tokio_tests_guard = tokio_running_tests.write();
                     if tokio_tests_guard.len() < 1 {
-                        tokio_currently_running_tests.store(false, Ordering::SeqCst);
+                        *tokio_currently_running_tests.lock().unwrap() = false;
                         println!(
                             "[{}] SCRIPTS GARBAGE COLLECTOR: Terminating!",
                             shared::get_date_and_time()
