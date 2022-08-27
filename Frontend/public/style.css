@@ -1,13 +1,15 @@
 /*main*/
-html,body {
+html,
+body {
     height: 100%;
     width: 100%;
 }
 
-#app{
+#app {
     height: 100%;
     width: 100%;
 }
+
 /*end of main*/
 
 /*helpers*/
@@ -18,6 +20,7 @@ html,body {
 .border-red {
     border: 1px solid rgb(255, 0, 0);
 }
+
 /*end of helpers*/
 
 /*navbar*/
@@ -48,6 +51,7 @@ html,body {
 .flex-content {
     display: flex;
 }
+
 /*end of global*/
 
 .content {
@@ -61,14 +65,14 @@ html,body {
     color: #999;
     text-transform: uppercase;
     transition: .1s ease-in-out;
-    transition-property: color,background-color;
+    transition-property: color, background-color;
 }
 
-.upload-spinner{
+.upload-spinner {
     margin-left: 1rem;
 }
 
-.upload-container{
+.upload-container {
     display: flex;
     align-items: center;
     margin-top: 1rem;
@@ -76,7 +80,7 @@ html,body {
 
 /*checkbox*/
 label.checkbox-label {
-    display: block; 
+    display: block;
     width: 17px;
     height: 17px;
     cursor: pointer;
@@ -85,30 +89,31 @@ label.checkbox-label {
     top: 20px;
 }
 
-input.checkbox-input { 
-    position: absolute; 
-    transform: scale(0); 
+input.checkbox-input {
+    position: absolute;
+    transform: scale(0);
 }
 
-input.checkbox-input:checked ~ .checkbox {
-    transform: rotate(45deg); 
+input.checkbox-input:checked~.checkbox {
+    transform: rotate(45deg);
     width: 10px;
     border-color: #1e87f0;
     border-top-color: transparent;
     border-left-color: transparent;
 }
 
-.checkbox:hover{
+.checkbox:hover {
     border: 1px solid #999;
 }
 
 .checkbox {
-    display: block; 
-    width: inherit; 
-    height: inherit; 
+    display: block;
+    width: inherit;
+    height: inherit;
     border: 1px solid #e5e5e5;
-    transition: all 0.375s; 
+    transition: all 0.375s;
 }
+
 /*end of checkbox*/
 
 /*test*/
@@ -120,8 +125,59 @@ input.checkbox-input:checked ~ .checkbox {
     overflow: hidden;
     max-width: 5ch;
 }
+
 /*end of test*/
 
 .uk-card-title {
     margin-top: 20px;
 }
+
+/*logo animation*/
+#vue-container {
+    position: fixed;
+    z-index: 1031;
+    right: 20px;
+    bottom: 15px;
+    animation-delay: 3s;
+}
+
+.vue-logo img {
+    width: 30px;
+}
+
+.animate-bottom {
+    position: relative;
+    animation: animatebottom 1s
+}
+
+@keyframes animatebottom {
+    from {
+        bottom: -300px;
+        opacity: 0
+    }
+
+    to {
+        bottom: 0;
+        opacity: 1
+    }
+}
+
+.animate-bottom-out {
+    animation-name: animatebottomout;
+    animation-duration: 1500ms;
+    animation-fill-mode: forwards;
+}
+
+@keyframes animatebottomout {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        display: none;
+        opacity: 0;
+        bottom: -300px;
+    }
+}
+
+/*end of logo animation*/
