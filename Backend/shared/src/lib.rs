@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
+use tokio::sync::broadcast;
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -268,6 +269,7 @@ pub struct Manager {
     client: redis::Client,
     connection: Arc<Mutex<redis::Connection>>,
     reconnecting: Arc<Mutex<bool>>,
+    tx: tokio::sync::broadcast::Sender<bool>,
 }
 
 /// The Manager acts as connector to the redis server. The Creation of the
@@ -286,10 +288,12 @@ impl Manager {
             println!("[{}] REDIS MANAGER: Reconnecting!", get_date_and_time());
             sleep(Duration::from_secs(3)).await;
         }
+        let (tx, _) = broadcast::channel::<bool>(100);
         Manager {
             connection: Arc::new(Mutex::new(connection)),
             client: client,
             reconnecting: Arc::new(Mutex::new(false)),
+            tx: tx,
         }
     }
 
@@ -302,8 +306,13 @@ impl Manager {
         let connection = self.connection.clone();
         let client = self.client.clone();
         let reconnecting = self.reconnecting.clone();
+        let mut rx = self.tx.subscribe();
         tokio::spawn(async move {
             loop {
+                if rx.try_recv().is_ok(){
+                    println!("[{}] REDIS MANAGER: Reconnection thread terminated!", get_date_and_time());
+                    break;
+                }
                 println!("[{}] REDIS MANAGER: Reconnecting!", get_date_and_time());
                 if let Ok(mut x) = connection.lock() {
                     if let Ok(connection) = client.get_connection() {
@@ -317,6 +326,14 @@ impl Manager {
             let mut reconnecting = reconnecting.lock().unwrap();
             *reconnecting = false;
         });
+    }
+}
+
+impl Drop for Manager {
+    fn drop(&mut self) {
+        if self.tx.send(true).is_ok() {
+            println!("[{}] REDIS MANAGER: Terminaiting Reconnection thread!", get_date_and_time());
+        }
     }
 }
 
