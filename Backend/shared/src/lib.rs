@@ -121,6 +121,15 @@ pub fn get_log_file_relative_path(project_id: &str, script_id: &str, test_id: &s
         .join("log.log")
 }
 
+pub fn get_log_file_relative_path_for_worker(project_id: &str, script_id: &str, test_id: &str, worker_id: u32) -> PathBuf {
+    Path::new("../..")
+        .join(RESULTS_DIR)
+        .join(project_id)
+        .join(script_id)
+        .join(test_id)
+        .join(&format!("worker_{}_log.log", worker_id))
+}
+
 pub fn get_csv_file_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     get_a_test_results_dir(project_id, script_id, test_id).join("results_stats.csv")
 }

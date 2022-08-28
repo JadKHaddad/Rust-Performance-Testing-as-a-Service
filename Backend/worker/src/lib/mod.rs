@@ -112,6 +112,16 @@ pub async fn start_test(
         "--csv {}",
         csv_file_relative_path.to_str().ok_or("Run Error")?
     );
+    let workers = if let Some(req_workers) = req.workers {
+        if req_workers < 1{
+            0
+        }
+        else{
+            req_workers
+        }
+    } else {
+        0
+    };
     //let workers_command = format!("--workers {}", workers);
 
     //lock before running
@@ -173,9 +183,47 @@ pub async fn start_test(
             .stderr(Stdio::inherit())
             .spawn()?
     } else {
+
         let can_locust_location_linux =
             canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
-        Command::new("bash")
+        if workers > 0 {
+            let mut workers_command = String::new();
+            for i in 0..workers {
+                let log_file_relative_path_for_worker = shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i);
+                workers_command.push_str(&format!(
+                    "{} -f {} --logfile {} --worker --master-port=5005 &", 
+                    can_locust_location_linux.to_str().ok_or("Run Error")?,
+                    can_locust_file.to_str().ok_or("Run Error")?,
+                    log_file_relative_path_for_worker.to_str().ok_or("Run Error")?
+                ));
+            }
+            let master_command = format!(
+                "{} -f {} --headless {} {} {} {} {} {} --master --master-bind-port=5005 --expect-workers={} &",
+                can_locust_location_linux.to_str().ok_or("Run Error")?,
+                can_locust_file.to_str().ok_or("Run Error")?,
+                users_command,
+                spawn_rate_command,
+                time_command,
+                host_command,
+                log_command,
+                csv_command,
+                workers
+            );
+            Command::new("bash")
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&[
+                "-c",
+                &format!(
+                    "{} {}",
+                    master_command, workers_command
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?
+
+        }else{
+            Command::new("bash")
             .current_dir(shared::get_a_project_dir(&project_id))
             .args(&[
                 "-c",
@@ -194,6 +242,8 @@ pub async fn start_test(
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .spawn()?
+        }
+        
     };
 
     let task_id = shared::encode_test_id(&project_id, &script_id, &id);
