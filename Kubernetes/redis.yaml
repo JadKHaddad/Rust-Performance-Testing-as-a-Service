@@ -12,6 +12,8 @@ spec:
       app: redis #this label
   template:
     metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
       labels:
         app: redis #this label
     spec:

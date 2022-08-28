@@ -1,0 +1,8 @@
+microk8s enable community
+
+microk8s enable istio
+
+kubectl label namespace performance-testing istio-injection=enabled
+# kubectl label namespace performance-testing istio-injection-
+
+kubectl -n performance-testing rollout restart deploy
