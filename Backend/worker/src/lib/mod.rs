@@ -6,7 +6,7 @@ use redis::Commands;
 use std::error::Error;
 use std::fs::canonicalize;
 use std::io::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
+
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -22,9 +22,11 @@ pub async fn start_test(
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
-    red_client: Data<&redis::Client>,
+    red_client: redis::Client,
     red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
+    id: String,
+    task_id: String,
 ) -> Result<String, Box<dyn Error>> {
     //let workers = req.workers.unwrap_or(1);
     let mut response = models::http::Response {
@@ -67,12 +69,6 @@ pub async fn start_test(
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
     }
-
-    let id = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_micros()
-        .to_string();
 
     //create test dir
     let test_dir = shared::get_a_test_results_dir(project_id, script_id, &id);
@@ -149,6 +145,7 @@ pub async fn start_test(
         return Ok(serde_json::to_string(&response).unwrap());
     }
     //run
+
     let cmd = if cfg!(target_os = "windows") {
         let mut args = Vec::new();
         args.push("-f");
@@ -243,6 +240,7 @@ pub async fn start_test(
                     .stderr(Stdio::inherit())
                     .spawn()?,
                 children,
+                task_id.clone(),
             )
         } else {
             task::Task::NormalTask(
@@ -252,6 +250,7 @@ pub async fn start_test(
                     .stdout(Stdio::inherit())
                     .stderr(Stdio::inherit())
                     .spawn()?,
+                task_id.clone(),
             )
         }
     } else {
@@ -277,10 +276,9 @@ pub async fn start_test(
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
                 .spawn()?,
+            task_id.clone(),
         )
     };
-
-    let task_id = shared::encode_test_id(&project_id, &script_id, &id);
     //save test info
 
     let test_info = shared::models::http::TestInfo {

@@ -17,6 +17,7 @@ use std::{
 use tokio::time::sleep;
 mod lib;
 use shared::models;
+use std::time::{SystemTime, UNIX_EPOCH};
 //use models::websocket::WebSocketMessage;
 
 #[handler]
@@ -34,20 +35,34 @@ async fn start_test(
     red_manager: Data<&shared::Manager>,
     ip: Data<&String>,
 ) -> String {
+    let id = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_micros()
+        .to_string();
+    let task_id = shared::encode_test_id(&project_id, &script_id, &id);
     match lib::start_test(
         &project_id,
         &script_id,
         req,
         running_tests,
         currently_running_tests,
-        red_client,
+        red_client.clone(),
         red_manager,
         ip,
+        id,
+        task_id.clone(),
     )
     .await
     {
         Ok(response) => response,
         Err(err) => {
+            // try unlock on error
+            if let Ok(mut connection) = red_client.get_connection() {
+                let _: () = connection
+                    .sadd(shared::RUNNING_TESTS, &task_id)
+                    .unwrap_or_default();
+            }
             // Server error
             return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
                 .unwrap();
@@ -229,8 +244,8 @@ async fn main() -> Result<(), std::io::Error> {
 
     //tests
     //let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
-    let running_tests: Arc<RwLock<HashMap<String, lib::task::Task>>> = Arc::new(RwLock::new(HashMap::new()));
-
+    let running_tests: Arc<RwLock<HashMap<String, lib::task::Task>>> =
+        Arc::new(RwLock::new(HashMap::new()));
 
     let currently_running_tests = Arc::new(Mutex::new(false));
 
