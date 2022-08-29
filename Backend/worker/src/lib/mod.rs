@@ -202,7 +202,7 @@ pub async fn start_test(
             let mut children = Vec::with_capacity(workers as usize);
             for i in 0..workers {
                 let log_file_relative_path_for_worker =
-                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i);
+                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i+1);
                 let mut worker_args = Vec::new();
                 worker_args.push("-f");
                 worker_args.push(can_locust_file.to_str().ok_or("Run Error")?);
@@ -254,33 +254,95 @@ pub async fn start_test(
             )
         }
     } else {
+        //linux
         let can_locust_location_linux =
             canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
-        task::Task::NormalTask(
-            Command::new("bash")
-                .current_dir(shared::get_a_project_dir(&project_id))
-                .args(&[
-                    "-c",
-                    &format!(
-                        "{} -f {} --headless {} {} {} {} {} {}",
-                        can_locust_location_linux.to_str().ok_or("Run Error")?,
-                        can_locust_file.to_str().ok_or("Run Error")?,
-                        users_command,
-                        spawn_rate_command,
-                        time_command,
-                        host_command,
-                        log_command,
-                        csv_command,
-                    ),
-                ])
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit())
-                .spawn()?,
-            task_id.clone(),
-        )
+            let command = format!(
+                "{} -f {} --headless {} {} {} {} {} {}",
+                can_locust_location_linux.to_str().ok_or("Run Error")?,
+                can_locust_file.to_str().ok_or("Run Error")?,
+                users_command,
+                spawn_rate_command,
+                time_command,
+                host_command,
+                log_command,
+                csv_command,
+            );
+        if workers > 0 {
+            let port;
+            if let Ok(port_) = shared::get_a_free_port() {
+                port = port_;
+            } else {
+                //unlock
+                let _: () = red_connection
+                    .srem(shared::LOCKED_PROJECTS, &project_id)
+                    .unwrap_or_default();
+                //delete test dir
+                std::fs::remove_dir_all(&test_dir)?;
+                response.error = Some("Could not get a free port");
+                response.success = false;
+                return Ok(serde_json::to_string(&response).unwrap());
+            }
+            println!(
+                "[{}] WORKER: Starting master on port [{}] with [{}] workers",
+                shared::get_date_and_time(),
+                port,
+                workers
+            );
+            let mut children = Vec::with_capacity(workers as usize);
+            for i in 0..workers {
+                let log_file_relative_path_for_worker =
+                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i+1);
+                
+                    children.push(
+                    Command::new("bash")
+                    .current_dir(shared::get_a_project_dir(&project_id))
+                    .args(&[
+                        "-c",
+                        &format!(
+                            "{} -f {} --logfile {} --worker --master-port={}",
+                            can_locust_location_linux.to_str().ok_or("Run Error")?,
+                            can_locust_file.to_str().ok_or("Run Error")?,
+                            log_file_relative_path_for_worker.to_str()
+                            .ok_or("Run Error")?,
+                            port
+                        ),
+                    ])
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .spawn()?,
+                );
+            }
+            
+            task::Task::MasterTask(
+                Command::new("bash")
+                    .current_dir(shared::get_a_project_dir(&project_id))
+                    .args(&[
+                        "-c",
+                        &format!("{} --master --master-bind-port={} --expect-workers {}", command, port, workers),
+                    ])
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .spawn()?,
+                children,
+                task_id.clone(),
+            )
+        }else{
+            task::Task::NormalTask(
+                Command::new("bash")
+                    .current_dir(shared::get_a_project_dir(&project_id))
+                    .args(&[
+                        "-c",
+                        &command,
+                    ])
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .spawn()?,
+                task_id.clone(),
+            )
+        }
     };
     //save test info
-
     let test_info = shared::models::http::TestInfo {
         project_id: Some(project_id.to_string()),
         script_id: Some(script_id.to_string()),
@@ -379,6 +441,7 @@ pub async fn start_test(
                                 match exit_status.code() {
                                     Some(code) => {
                                         println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
+                                        cmd.kill_children();
                                     }
                                     None => {
                                         println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!",shared::get_date_and_time(), id);
