@@ -11,7 +11,6 @@ use poem::{
 use redis::Commands;
 use std::{
     collections::HashMap,
-    process::Child,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -29,7 +28,7 @@ async fn health() -> String {
 async fn start_test(
     Path((project_id, script_id)): Path<(String, String)>,
     mut req: Json<models::http::TestInfo>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: Data<&redis::Client>,
     red_manager: Data<&shared::Manager>,
@@ -59,7 +58,7 @@ async fn start_test(
 #[handler]
 async fn stop_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> String {
     let task_id = shared::encode_test_id(&project_id, &script_id, &test_id);
@@ -76,7 +75,7 @@ async fn stop_test(
 #[handler]
 async fn delete_test(
     Path((project_id, script_id, test_id)): Path<(String, String, String)>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> String {
     match lib::delete_test(
@@ -99,7 +98,7 @@ async fn delete_test(
 #[handler]
 async fn stop_script(
     Path((project_id, script_id)): Path<(String, String)>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
 ) -> String {
     let script_id = shared::encode_script_id(&project_id, &script_id);
     match lib::stop_prefix(&script_id, running_tests).await {
@@ -115,7 +114,7 @@ async fn stop_script(
 #[handler]
 async fn stop_project(
     Path(project_id): Path<String>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
 ) -> String {
     match lib::stop_prefix(&project_id, running_tests).await {
         Ok(response) => response,
@@ -229,7 +228,10 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     //tests
-    let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
+    //let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
+    let running_tests: Arc<RwLock<HashMap<String, lib::task::Task>>> = Arc::new(RwLock::new(HashMap::new()));
+
+
     let currently_running_tests = Arc::new(Mutex::new(false));
 
     //redis client

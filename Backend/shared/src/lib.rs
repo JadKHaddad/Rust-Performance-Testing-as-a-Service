@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration};
 use tokio::sync::broadcast;
+use port_scanner::local_port_available;
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -33,6 +34,20 @@ pub const TEST_DELETED: &str = "TEST_DELETED";
 pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
+
+pub fn get_a_free_port() -> Result<u16, String>{
+    let mut port= 5000;
+    loop {
+        port += 1;
+        if local_port_available(port) {
+            return Ok(port);
+        }
+        if port > 50000 {
+            return Err("No free port found!".to_owned());
+        }
+        
+    }
+}
 
 pub fn get_date_and_time<'a>() -> chrono::format::DelayedFormat<chrono::format::StrftimeItems<'a>> {
     let now: DateTime<Utc> = Utc::now();

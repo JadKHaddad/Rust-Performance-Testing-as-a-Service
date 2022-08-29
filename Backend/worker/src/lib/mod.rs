@@ -1,4 +1,5 @@
 use crate::models;
+pub mod task;
 use parking_lot::RwLock;
 use poem::web::{Data, Json};
 use redis::Commands;
@@ -9,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -19,7 +20,7 @@ pub async fn start_test(
     project_id: &str,
     script_id: &str,
     mut req: Json<models::http::TestInfo>,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: Data<&redis::Client>,
     red_manager: Data<&shared::Manager>,
@@ -113,16 +114,14 @@ pub async fn start_test(
         csv_file_relative_path.to_str().ok_or("Run Error")?
     );
     let workers = if let Some(req_workers) = req.workers {
-        if req_workers < 1{
+        if req_workers < 1 {
             0
-        }
-        else{
+        } else {
             req_workers
         }
     } else {
         0
     };
-    //let workers_command = format!("--workers {}", workers);
 
     //lock before running
     if red_connection
@@ -139,6 +138,11 @@ pub async fn start_test(
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
     if !locust_file.exists() {
+        //unlock
+        let _: () = red_connection
+            .srem(shared::LOCKED_PROJECTS, &project_id)
+            .unwrap_or_default();
+        //delete test dir
         std::fs::remove_dir_all(&test_dir)?;
         response.error = Some("Script was deleted!");
         response.success = false;
@@ -176,74 +180,104 @@ pub async fn start_test(
             args.push(host_command_splitted.next().unwrap());
             args.push(host_command_splitted.next().unwrap());
         }
-        Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
-            .current_dir(shared::get_a_project_dir(&project_id))
-            .args(&args)
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()?
-    } else {
 
-        let can_locust_location_linux =
-            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
         if workers > 0 {
-            let mut workers_command = String::new();
-            for i in 0..workers {
-                let log_file_relative_path_for_worker = shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i);
-                workers_command.push_str(&format!(
-                    "{} -f {} --logfile {} --worker --master-port=5005 &", 
-                    can_locust_location_linux.to_str().ok_or("Run Error")?,
-                    can_locust_file.to_str().ok_or("Run Error")?,
-                    log_file_relative_path_for_worker.to_str().ok_or("Run Error")?
-                ));
+            let port;
+            if let Ok(port_) = shared::get_a_free_port() {
+                port = port_;
+            } else {
+                //unlock
+                let _: () = red_connection
+                    .srem(shared::LOCKED_PROJECTS, &project_id)
+                    .unwrap_or_default();
+                //delete test dir
+                std::fs::remove_dir_all(&test_dir)?;
+                response.error = Some("Could not get a free port");
+                response.success = false;
+                return Ok(serde_json::to_string(&response).unwrap());
             }
-            let master_command = format!(
-                "{} -f {} --headless {} {} {} {} {} {} --master --master-bind-port=5005 --expect-workers={} &",
-                can_locust_location_linux.to_str().ok_or("Run Error")?,
-                can_locust_file.to_str().ok_or("Run Error")?,
-                users_command,
-                spawn_rate_command,
-                time_command,
-                host_command,
-                log_command,
-                csv_command,
+            println!(
+                "[{}] WORKER: Starting master on port [{}] with [{}] workers",
+                shared::get_date_and_time(),
+                port,
                 workers
             );
-            Command::new("bash")
-            .current_dir(shared::get_a_project_dir(&project_id))
-            .args(&[
-                "-c",
-                &format!(
-                    "{} {}",
-                    master_command, workers_command
-                ),
-            ])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()?
+            let mut children = Vec::with_capacity(workers as usize);
+            for i in 0..workers {
+                let log_file_relative_path_for_worker =
+                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i);
+                let mut worker_args = Vec::new();
+                worker_args.push("-f");
+                worker_args.push(can_locust_file.to_str().ok_or("Run Error")?);
+                worker_args.push("--logfile");
+                worker_args.push(
+                    log_file_relative_path_for_worker
+                        .to_str()
+                        .ok_or("Run Error")?,
+                );
+                worker_args.push("--worker");
+                let port_command = format!("--master-port={}", port);
+                worker_args.push(&port_command);
 
-        }else{
-            Command::new("bash")
-            .current_dir(shared::get_a_project_dir(&project_id))
-            .args(&[
-                "-c",
-                &format!(
-                    "{} -f {} --headless {} {} {} {} {} {}",
-                    can_locust_location_linux.to_str().ok_or("Run Error")?,
-                    can_locust_file.to_str().ok_or("Run Error")?,
-                    users_command,
-                    spawn_rate_command,
-                    time_command,
-                    host_command,
-                    log_command,
-                    csv_command,
-                ),
-            ])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .spawn()?
+                children.push(
+                    Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+                        .current_dir(shared::get_a_project_dir(&project_id))
+                        .args(&worker_args)
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .spawn()?,
+                );
+            }
+            args.push("--master");
+            let port_command = format!("--master-bind-port={}", port);
+            args.push(&port_command);
+            args.push("--expect-workers");
+            let workers_str = workers.to_string();
+            args.push(&workers_str);
+
+            task::Task::MasterTask(
+                Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+                    .current_dir(shared::get_a_project_dir(&project_id))
+                    .args(&args)
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .spawn()?,
+                children,
+            )
+        } else {
+            task::Task::NormalTask(
+                Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+                    .current_dir(shared::get_a_project_dir(&project_id))
+                    .args(&args)
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .spawn()?,
+            )
         }
-        
+    } else {
+        let can_locust_location_linux =
+            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
+        task::Task::NormalTask(
+            Command::new("bash")
+                .current_dir(shared::get_a_project_dir(&project_id))
+                .args(&[
+                    "-c",
+                    &format!(
+                        "{} -f {} --headless {} {} {} {} {} {}",
+                        can_locust_location_linux.to_str().ok_or("Run Error")?,
+                        can_locust_file.to_str().ok_or("Run Error")?,
+                        users_command,
+                        spawn_rate_command,
+                        time_command,
+                        host_command,
+                        log_command,
+                        csv_command,
+                    ),
+                ])
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .spawn()?,
+        )
     };
 
     let task_id = shared::encode_test_id(&project_id, &script_id, &id);
@@ -437,7 +471,7 @@ pub async fn start_test(
 
 pub async fn stop_test(
     task_id: &str,
-    running_tests: &Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: &Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
@@ -484,7 +518,7 @@ pub async fn delete_test(
     project_id: &str,
     script_id: &str,
     test_id: &str,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     /*red_client: Data<&redis::Client>,*/
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
@@ -599,7 +633,7 @@ pub async fn remove_all_running_tests(
 
 pub async fn stop_prefix(
     prefix: &str,
-    running_tests: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
 ) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<HashMap<String, bool>> {
         success: true,
