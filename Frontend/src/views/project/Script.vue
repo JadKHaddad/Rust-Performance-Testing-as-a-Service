@@ -94,6 +94,7 @@
       @stop_me="stop(test.id)"
       @delete_me="del(test.id)"
       @restart_me="restart(test.info)"
+      @download_me="download(test.id)"
     />
   </div>
 </template>
@@ -259,6 +260,17 @@ export default {
     restart(test_info) {
       this.start(test_info);
       return false;
+    },
+    download(test_id) {
+      fetch(`/api/master/download_test/${this.pid}/${this.id}/${test_id}`, {
+        method: "GET",
+      })
+        .then((response) => response.blob())
+        .then((blob) => {
+          var objectUrl = URL.createObjectURL(blob);
+          window.location.href = objectUrl;
+        })
+        .catch(() => {});
     },
     stop_all() {
       fetch(`/api/master/stop_script/${this.pid}/${this.id}`, {

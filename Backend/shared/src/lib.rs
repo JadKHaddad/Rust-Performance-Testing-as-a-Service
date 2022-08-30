@@ -11,7 +11,7 @@ use tokio::sync::broadcast;
 use tokio::time::{sleep, Duration};
 
 pub const DATA_DIR: &str = "data";
-pub const DOWNLOADS_DIR: &str = "downloads";
+//pub const DOWNLOADS_DIR: &str = "downloads";
 pub const PROJECTS_DIR: &str = "projects";
 pub const TEMP_DIR: &str = "temp";
 pub const ENVIRONMENTS_DIR: &str = "environments";
@@ -34,6 +34,7 @@ pub const TEST_DELETED: &str = "TEST_DELETED";
 pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
+pub mod zip;
 
 pub fn get_a_free_port() -> Result<u16, String> {
     let mut port = 5000;
@@ -103,6 +104,10 @@ pub fn get_a_script_results_dir(project_id: &str, script_id: &str) -> PathBuf {
 
 pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     get_a_script_results_dir(project_id, script_id).join(test_id)
+}
+
+pub fn get_zip_file(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_script_results_dir(project_id, script_id).join(format!("{}.zip", test_id))
 }
 
 pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
@@ -269,10 +274,12 @@ pub fn delete_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //get test folder and delete it
     let test_dir = get_a_test_results_dir(&project_id, &script_id, &test_id);
+    let zip_file = get_zip_file(&project_id, &script_id, &test_id);
     //sometimes on windows the folder is not deleted but info is deleted so lets back it up
     let info_file = get_info_file_path(&project_id, &script_id, &test_id);
     let test_info = std::fs::read_to_string(&info_file)?;
 
+    std::fs::remove_file(&zip_file)?;
     match std::fs::remove_dir_all(&test_dir) {
         Ok(_) => {
             println!(

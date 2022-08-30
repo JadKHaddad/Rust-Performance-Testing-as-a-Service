@@ -137,6 +137,20 @@ async fn delete_test(
 }
 
 #[handler]
+async fn download_test(
+    req: poem::web::StaticFileRequest,
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+) -> poem::error::Result<impl IntoResponse> {
+    let test_dir = shared::get_a_test_results_dir(&project_id, &script_id, &test_id);
+    let zip_file = shared::get_zip_file(&project_id, &script_id, &test_id);
+    let zip_file_str = zip_file.to_str().unwrap();
+    if !zip_file.exists() {
+        shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
+    }
+    Ok(req.create_response(&zip_file_str, true)?)
+}
+
+#[handler]
 async fn ws(
     ws: WebSocket,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
@@ -658,6 +672,10 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
         .at("/delete_projects", post(delete_projects))
+        .at(
+            "/download_test/:project_id/:script_id/:test_id",
+            get(download_test),
+        )
         // .nest(
         //     "/download",
         //     StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),

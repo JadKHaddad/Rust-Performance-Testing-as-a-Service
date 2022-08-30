@@ -3,7 +3,7 @@
     <nav class="uk-navbar-container uk-margin" uk-navbar>
       <div class="uk-navbar-left">
         <ul class="uk-navbar-nav">
-          <li><a href="#">Home</a></li>
+          <li><router-link :to="{ name: 'Home' }">Home</router-link></li>
           <li><a href="#">Control</a></li>
           <li><a href="#">Live</a></li>
         </ul>
@@ -39,7 +39,7 @@
       </div>
     </nav>
     <div class="content">
-      <router-view :newProject="newProject" :deletedProject="deletedProject"/>
+      <router-view :newProject="newProject" :deletedProject="deletedProject" />
     </div>
   </div>
 </template>
@@ -111,7 +111,11 @@ export default {
             if (project.status === 2) {
               const error = project.error;
               //notify
-              this.notification(`Error installing project: [${project.id}]: ${error}`, "danger", 0);
+              this.notification(
+                `Error installing project: [${project.id}]: ${error}`,
+                "danger",
+                0
+              );
               return;
             }
           }
@@ -133,7 +137,7 @@ export default {
   },
   created() {
     this.connenctWebsocket();
-  }
+  },
 };
 </script>
 

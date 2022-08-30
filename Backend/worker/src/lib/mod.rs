@@ -202,7 +202,12 @@ pub async fn start_test(
             let mut children = Vec::with_capacity(workers as usize);
             for i in 0..workers {
                 let log_file_relative_path_for_worker =
-                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i+1);
+                    shared::get_log_file_relative_path_for_worker(
+                        project_id,
+                        script_id,
+                        &id,
+                        i + 1,
+                    );
                 let mut worker_args = Vec::new();
                 worker_args.push("-f");
                 worker_args.push(can_locust_file.to_str().ok_or("Run Error")?);
@@ -257,17 +262,17 @@ pub async fn start_test(
         //linux
         let can_locust_location_linux =
             canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
-            let command = format!(
-                "{} -f {} --headless {} {} {} {} {} {}",
-                can_locust_location_linux.to_str().ok_or("Run Error")?,
-                can_locust_file.to_str().ok_or("Run Error")?,
-                users_command,
-                spawn_rate_command,
-                time_command,
-                host_command,
-                log_command,
-                csv_command,
-            );
+        let command = format!(
+            "{} -f {} --headless {} {} {} {} {} {}",
+            can_locust_location_linux.to_str().ok_or("Run Error")?,
+            can_locust_file.to_str().ok_or("Run Error")?,
+            users_command,
+            spawn_rate_command,
+            time_command,
+            host_command,
+            log_command,
+            csv_command,
+        );
         if workers > 0 {
             let port;
             if let Ok(port_) = shared::get_a_free_port() {
@@ -292,34 +297,42 @@ pub async fn start_test(
             let mut children = Vec::with_capacity(workers as usize);
             for i in 0..workers {
                 let log_file_relative_path_for_worker =
-                    shared::get_log_file_relative_path_for_worker(project_id, script_id, &id, i+1);
-                
-                    children.push(
+                    shared::get_log_file_relative_path_for_worker(
+                        project_id,
+                        script_id,
+                        &id,
+                        i + 1,
+                    );
+
+                children.push(
                     Command::new("bash")
-                    .current_dir(shared::get_a_project_dir(&project_id))
-                    .args(&[
-                        "-c",
-                        &format!(
-                            "{} -f {} --logfile {} --worker --master-port={}",
-                            can_locust_location_linux.to_str().ok_or("Run Error")?,
-                            can_locust_file.to_str().ok_or("Run Error")?,
-                            log_file_relative_path_for_worker.to_str()
-                            .ok_or("Run Error")?,
-                            port
-                        ),
-                    ])
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
-                    .spawn()?,
+                        .current_dir(shared::get_a_project_dir(&project_id))
+                        .args(&[
+                            "-c",
+                            &format!(
+                                "{} -f {} --logfile {} --worker --master-port={}",
+                                can_locust_location_linux.to_str().ok_or("Run Error")?,
+                                can_locust_file.to_str().ok_or("Run Error")?,
+                                log_file_relative_path_for_worker
+                                    .to_str()
+                                    .ok_or("Run Error")?,
+                                port
+                            ),
+                        ])
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .spawn()?,
                 );
             }
-            
             task::Task::MasterTask(
                 Command::new("bash")
                     .current_dir(shared::get_a_project_dir(&project_id))
                     .args(&[
                         "-c",
-                        &format!("{} --master --master-bind-port={} --expect-workers {}", command, port, workers),
+                        &format!(
+                            "{} --master --master-bind-port={} --expect-workers {}",
+                            command, port, workers
+                        ),
                     ])
                     .stdout(Stdio::inherit())
                     .stderr(Stdio::inherit())
@@ -327,14 +340,11 @@ pub async fn start_test(
                 children,
                 task_id.clone(),
             )
-        }else{
+        } else {
             task::Task::NormalTask(
                 Command::new("bash")
                     .current_dir(shared::get_a_project_dir(&project_id))
-                    .args(&[
-                        "-c",
-                        &command,
-                    ])
+                    .args(&["-c", &command])
                     .stdout(Stdio::inherit())
                     .stderr(Stdio::inherit())
                     .spawn()?,

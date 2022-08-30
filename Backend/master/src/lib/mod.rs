@@ -439,7 +439,11 @@ pub async fn tests(
             }
         };
     for test_dir in script_dir {
-        let test_id = test_dir?
+        let test_dir = test_dir?;
+        if test_dir.metadata()?.is_file() {
+            continue;
+        }
+        let test_id = test_dir
             .file_name()
             .to_str()
             .ok_or("Parse Error")?
