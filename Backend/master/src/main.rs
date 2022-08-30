@@ -3,8 +3,9 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
 use poem::{
-    endpoint::StaticFilesEndpoint,
-    get, handler,
+    //endpoint::StaticFilesEndpoint,
+    get,
+    handler,
     listener::TcpListener,
     middleware::AddData,
     post,
@@ -12,7 +13,10 @@ use poem::{
         websocket::{Message, WebSocket},
         Data, Json, Multipart, Path,
     },
-    EndpointExt, IntoResponse, Route, Server,
+    EndpointExt,
+    IntoResponse,
+    Route,
+    Server,
 };
 use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -21,7 +25,7 @@ use std::{
     process::Child,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Mutex
+        Arc, Mutex,
     },
     thread,
     time::Duration,
@@ -233,7 +237,6 @@ async fn ws(
                     if let Ok(count) = red_manager.scard(shared::RUNNING_TESTS) {
                         running_tests_count = count;
                     }
-                    
                     let websocket_message = models::websocket::WebSocketMessage {
                         event_type: shared::INFORMATION,
                         event: models::websocket::information::Event {
@@ -297,10 +300,11 @@ async fn subscribe(
 
             subscriptions_guard.insert(script_id.clone(), (1, sender));
             //save in redis
-            if let Ok(mut connection) = red_client.get_connection(){
-                let _: () = connection.sadd(shared::SUBS, &script_id).unwrap_or_default();
+            if let Ok(mut connection) = red_client.get_connection() {
+                let _: () = connection
+                    .sadd(shared::SUBS, &script_id)
+                    .unwrap_or_default();
             }
-            
         }
         println!(
             "[{}] SUBSCRIBER: Script [{}]: COUNT: [{}]",
@@ -343,10 +347,11 @@ async fn subscribe(
             if new_count < 1 {
                 subscriptions_guard.remove(&script_id);
                 //update
-                if let Ok(mut connection) = red_client.get_connection(){
-                    let _: () = connection.srem(shared::SUBS, &script_id).unwrap_or_default();
+                if let Ok(mut connection) = red_client.get_connection() {
+                    let _: () = connection
+                        .srem(shared::SUBS, &script_id)
+                        .unwrap_or_default();
                 }
-
             } else {
                 subscriptions_guard.get_mut(&script_id).unwrap().0 = new_count;
             }
@@ -469,9 +474,12 @@ async fn main() -> Result<(), std::io::Error> {
     );
 
     //create download directory
-    std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
+    //std::fs::create_dir_all(shared::get_downloads_dir()).unwrap();
     //workers
     //let workers: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));
+
+    //remove temp folder on startup
+    std::fs::remove_dir_all(shared::get_temp_dir()).unwrap_or_default();
 
     //installing tasks
     let installing_tasks: Arc<RwLock<HashMap<String, Child>>> =
@@ -497,7 +505,6 @@ async fn main() -> Result<(), std::io::Error> {
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
     //redis manager
     let manager = shared::Manager::new(red_client.clone()).await;
-    
     //reset subs on master start
     loop {
         if let Ok(mut connection) = red_client.get_connection() {
@@ -511,7 +518,6 @@ async fn main() -> Result<(), std::io::Error> {
         );
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
-    
     //setup redis channel
     let pubsub_subscriptions = subscriptions.clone();
     let pubsub_client = red_client.clone();
@@ -625,10 +631,9 @@ async fn main() -> Result<(), std::io::Error> {
                     //     "[{}] MASTER: RECOVERY THREAD: Update!",
                     //     shared::get_date_and_time()
                     // );
-                }else {
+                } else {
                     break;
                 }
-                
             }
         }
     });
@@ -653,10 +658,10 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
         .at("/delete_projects", post(delete_projects))
-        .nest(
-            "/download",
-            StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
-        )
+        // .nest(
+        //     "/download",
+        //     StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
+        // )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))

@@ -1,14 +1,14 @@
 use chrono::{DateTime, Utc};
 use csv::Reader;
+use port_scanner::local_port_available;
 use redis::cmd;
 use redis::RedisResult;
 use redis::Value;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tokio::time::{sleep, Duration};
 use tokio::sync::broadcast;
-use port_scanner::local_port_available;
+use tokio::time::{sleep, Duration};
 
 pub const DATA_DIR: &str = "data";
 pub const DOWNLOADS_DIR: &str = "downloads";
@@ -35,8 +35,8 @@ pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
 
-pub fn get_a_free_port() -> Result<u16, String>{
-    let mut port= 5000;
+pub fn get_a_free_port() -> Result<u16, String> {
+    let mut port = 5000;
     loop {
         port += 1;
         if local_port_available(port) {
@@ -45,7 +45,6 @@ pub fn get_a_free_port() -> Result<u16, String>{
         if port > 50000 {
             return Err("No free port found!".to_owned());
         }
-        
     }
 }
 
@@ -62,20 +61,20 @@ pub fn get_temp_dir() -> PathBuf {
     get_data_dir().join(TEMP_DIR)
 }
 
-pub fn get_downloads_dir() -> PathBuf {
-    get_data_dir().join(DOWNLOADS_DIR)
-}
-
-pub fn get_projects_dir() -> PathBuf {
-    get_data_dir().join(PROJECTS_DIR)
-}
-
 pub fn get_environments_dir() -> PathBuf {
     get_data_dir().join(ENVIRONMENTS_DIR)
 }
 
-pub fn get_results_dir() -> PathBuf {
-    get_data_dir().join(RESULTS_DIR)
+// pub fn get_downloads_dir() -> PathBuf {
+//     get_data_dir().join(DOWNLOADS_DIR)
+// }
+
+// pub fn get_results_dir() -> PathBuf {
+//     get_data_dir().join(RESULTS_DIR)
+// }
+
+pub fn get_projects_dir() -> PathBuf {
+    get_data_dir().join(PROJECTS_DIR)
 }
 
 pub fn get_a_project_dir(id: &str) -> PathBuf {
@@ -95,7 +94,7 @@ pub fn get_a_locust_dir(id: &str) -> PathBuf {
 }
 
 pub fn get_a_project_results_dir(id: &str) -> PathBuf {
-    get_results_dir().join(id)
+    get_a_project_dir(id).join(RESULTS_DIR)
 }
 
 pub fn get_a_script_results_dir(project_id: &str, script_id: &str) -> PathBuf {
@@ -129,17 +128,24 @@ pub fn decode_test_id(test_id: &str) -> (&str, &str, &str) {
 
 pub fn get_log_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     Path::new("../..")
-        .join(RESULTS_DIR)
+        .join(PROJECTS_DIR)
         .join(project_id)
+        .join(RESULTS_DIR)
         .join(script_id)
         .join(test_id)
         .join("log.log")
 }
 
-pub fn get_log_file_relative_path_for_worker(project_id: &str, script_id: &str, test_id: &str, worker_id: u32) -> PathBuf {
+pub fn get_log_file_relative_path_for_worker(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+    worker_id: u32,
+) -> PathBuf {
     Path::new("../..")
-        .join(RESULTS_DIR)
+        .join(PROJECTS_DIR)
         .join(project_id)
+        .join(RESULTS_DIR)
         .join(script_id)
         .join(test_id)
         .join(&format!("worker_{}_log.log", worker_id))
@@ -155,8 +161,9 @@ pub fn get_csv_history_file_path(project_id: &str, script_id: &str, test_id: &st
 
 pub fn get_csv_file_relative_path(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
     Path::new("../..")
-        .join(RESULTS_DIR)
+        .join(PROJECTS_DIR)
         .join(project_id)
+        .join(RESULTS_DIR)
         .join(script_id)
         .join(test_id)
         .join("results")
@@ -298,7 +305,7 @@ pub struct Manager {
 
 /// The Manager acts as connector to the redis server. The Creation of the
 /// Manager is blocking until a connection is established.
-/// The Manager will automatically - non-blocking - reconnect on all query 
+/// The Manager will automatically - non-blocking - reconnect on all query
 /// failures. Be sure to use a valid query. Tokio compatible.
 impl Manager {
     pub async fn new(client: redis::Client) -> Manager {
@@ -333,8 +340,11 @@ impl Manager {
         let mut rx = self.tx.subscribe();
         tokio::spawn(async move {
             loop {
-                if rx.try_recv().is_ok(){
-                    println!("[{}] REDIS MANAGER: Reconnection thread terminated!", get_date_and_time());
+                if rx.try_recv().is_ok() {
+                    println!(
+                        "[{}] REDIS MANAGER: Reconnection thread terminated!",
+                        get_date_and_time()
+                    );
                     break;
                 }
                 println!("[{}] REDIS MANAGER: Reconnecting!", get_date_and_time());
@@ -356,7 +366,10 @@ impl Manager {
 impl Drop for Manager {
     fn drop(&mut self) {
         if self.tx.send(true).is_ok() {
-            println!("[{}] REDIS MANAGER: Terminaiting Reconnection thread!", get_date_and_time());
+            println!(
+                "[{}] REDIS MANAGER: Terminaiting Reconnection thread!",
+                get_date_and_time()
+            );
         }
     }
 }

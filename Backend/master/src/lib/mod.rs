@@ -836,25 +836,25 @@ fn delete_project<'a>(
     let env_dir = shared::get_an_environment_dir(project_id);
     let results_dir = shared::get_a_project_results_dir(project_id);
     if results_dir.exists() {
-        match std::fs::remove_dir_all(&results_dir) {
-            Ok(_) => {
-                println!(
-                    "[{}] MASTER: DELETE PROJECT [{}]: results directory deleted!",
-                    shared::get_date_and_time(),
-                    project_id,
-                );
-            }
-            Err(e) => {
-                eprintln!(
-                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete results directory: {}\n",
-                    shared::get_date_and_time(),
-                    project_id,
-                    e
-                );
-                error.push_str("Could not delete results directory\n");
-                response.success = false;
-            }
-        }
+        // match std::fs::remove_dir_all(&results_dir) {
+        //     Ok(_) => {
+        //         println!(
+        //             "[{}] MASTER: DELETE PROJECT [{}]: results directory deleted!",
+        //             shared::get_date_and_time(),
+        //             project_id,
+        //         );
+        //     }
+        //     Err(e) => {
+        //         eprintln!(
+        //             "[{}] MASTER: DELETE PROJECT [{}]: Could not delete results directory: {}\n",
+        //             shared::get_date_and_time(),
+        //             project_id,
+        //             e
+        //         );
+        //         error.push_str("Could not delete results directory\n");
+        //         response.success = false;
+        //     }
+        // }
     }
     if env_dir.exists() {
         match std::fs::remove_dir_all(&env_dir) {
