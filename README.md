@@ -83,5 +83,5 @@ Licensed under the [MIT License](LICENSE)
 
 ## Todo
 * Locust does not stop if host is not valid
-* Locust workers
+* Stop test before download, or create new zip on every request
 * Other features..
