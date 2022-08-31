@@ -3,7 +3,7 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use parking_lot::RwLock;
 use poem::{
-    //endpoint::StaticFilesEndpoint,
+    endpoint::StaticFilesEndpoint,
     get,
     handler,
     listener::TcpListener,
@@ -144,9 +144,10 @@ async fn download_test(
     let test_dir = shared::get_a_test_results_dir(&project_id, &script_id, &test_id);
     let zip_file = shared::get_zip_file(&project_id, &script_id, &test_id);
     let zip_file_str = zip_file.to_str().unwrap();
-    if !zip_file.exists() {
-        shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
-    }
+    // if !zip_file.exists() {
+    //     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
+    // }
+    shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     Ok(req.create_response(&zip_file_str, true)?)
 }
 
@@ -676,10 +677,12 @@ async fn main() -> Result<(), std::io::Error> {
             "/download_test/:project_id/:script_id/:test_id",
             get(download_test),
         )
-        // .nest(
-        //     "/download",
-        //     StaticFilesEndpoint::new(shared::get_downloads_dir()).show_files_listing(),
-        // )
+        .nest(
+            "/explore",
+            StaticFilesEndpoint::new(shared::get_data_dir())
+                .show_files_listing()
+                .prefer_utf8(true),
+        )
         .with(AddData::new(installing_tasks))
         .with(AddData::new(subscriptions))
         .with(AddData::new(main_sender))

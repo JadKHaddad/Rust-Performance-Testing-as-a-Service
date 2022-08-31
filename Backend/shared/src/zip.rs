@@ -22,7 +22,8 @@ pub fn zip_folder(src_dir: &str, dst_file: &str) -> Result<(), Box<dyn std::erro
     let walkdir = WalkDir::new(src_dir.to_string());
     let it = walkdir.into_iter();
 
-    zip_dir(&mut it.filter_map(|e| e.ok()), src_dir, file)?;
+    let exceptions = vec![path];
+    zip_dir(&mut it.filter_map(|e| e.ok()), src_dir, file, exceptions)?;
 
     Ok(())
 }
@@ -31,6 +32,7 @@ fn zip_dir<T>(
     it: &mut dyn Iterator<Item = DirEntry>,
     prefix: &str,
     writer: T,
+    exceptions: Vec<&Path>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
     T: Write + Seek,
@@ -44,7 +46,9 @@ where
     for entry in it {
         let path = entry.path();
         let name = path.strip_prefix(Path::new(prefix))?;
-
+        if exceptions.contains(&path) {
+            continue;
+        }
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
         if path.is_file() {

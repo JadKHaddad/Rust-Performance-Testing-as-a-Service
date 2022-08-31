@@ -107,7 +107,7 @@ pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) 
 }
 
 pub fn get_zip_file(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
-    get_a_script_results_dir(project_id, script_id).join(format!("{}.zip", test_id))
+    get_a_script_results_dir(project_id, script_id).join(test_id).join("results.zip")
 }
 
 pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
@@ -274,12 +274,15 @@ pub fn delete_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //get test folder and delete it
     let test_dir = get_a_test_results_dir(&project_id, &script_id, &test_id);
-    let zip_file = get_zip_file(&project_id, &script_id, &test_id);
+    
     //sometimes on windows the folder is not deleted but info is deleted so lets back it up
     let info_file = get_info_file_path(&project_id, &script_id, &test_id);
     let test_info = std::fs::read_to_string(&info_file)?;
 
-    std::fs::remove_file(&zip_file)?;
+    // zip is contained
+    // let zip_file = get_zip_file(&project_id, &script_id, &test_id);
+    // std::fs::remove_file(&zip_file)?;
+
     match std::fs::remove_dir_all(&test_dir) {
         Ok(_) => {
             println!(
