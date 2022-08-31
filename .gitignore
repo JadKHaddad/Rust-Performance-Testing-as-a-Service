@@ -3,10 +3,3 @@
 **/node_modules
 **/debug-builds
 *.bkp
-
-# Just to use rustanalyzer on linux
-
-/target
-/src
-/Cargo.lock
-/Cargo.toml

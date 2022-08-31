@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "Backend/master",
+    "Backend/worker",
+    "Backend/shared"
+]
