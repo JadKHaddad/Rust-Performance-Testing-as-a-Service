@@ -1,11 +1,9 @@
 extern crate redis;
-use futures_util::SinkExt;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use parking_lot::RwLock;
 use poem::{
     endpoint::StaticFilesEndpoint,
-    get,
-    handler,
+    get, handler,
     listener::TcpListener,
     middleware::AddData,
     post,
@@ -13,10 +11,7 @@ use poem::{
         websocket::{Message, WebSocket},
         Data, Json, Multipart, Path,
     },
-    EndpointExt,
-    IntoResponse,
-    Route,
-    Server,
+    EndpointExt, IntoResponse, Route, Server,
 };
 use redis::Commands;
 use std::time::{SystemTime, UNIX_EPOCH};
