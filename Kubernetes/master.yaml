@@ -32,7 +32,7 @@ spec:
               name: configmap
               key: redis_host
         volumeMounts:
-        - mountPath: "/home/Backend/data"
+        - mountPath: "/home/Backend/Performance-Testing-Data"
           name: task-pv-storage
 ---
 apiVersion: v1

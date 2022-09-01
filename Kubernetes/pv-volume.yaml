@@ -11,4 +11,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/kubernetes/performance-testing/data"
+    path: "/kubernetes/performance-testing/Performance-Testing-Data"
