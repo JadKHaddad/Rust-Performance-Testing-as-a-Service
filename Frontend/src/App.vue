@@ -6,7 +6,7 @@
           <li><router-link :to="{ name: 'Home' }">Home</router-link></li>
           <li><a href="#">Control</a></li>
           <li><a href="#">Live</a></li>
-          <!---<li><a href="/api/master/explore" target="_blank">Exlpore</a></li>--->
+          <li><a href="/explore" target="_blank">Exlpore</a></li>
         </ul>
       </div>
       <div class="uk-navbar-right">

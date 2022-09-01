@@ -1,5 +1,6 @@
 **/target
 **/data
+**/Performance-Testing-Data
 **/node_modules
 **/debug-builds
 *.bkp

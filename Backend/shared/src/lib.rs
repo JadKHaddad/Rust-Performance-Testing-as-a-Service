@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tokio::time::{sleep, Duration};
 
-pub const DATA_DIR: &str = "data";
+pub const DATA_DIR: &str = "Performance-Testing-Data";
 //pub const DOWNLOADS_DIR: &str = "downloads";
 pub const PROJECTS_DIR: &str = "projects";
 pub const TEMP_DIR: &str = "temp";

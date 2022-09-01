@@ -1,7 +1,5 @@
 from locust import HttpUser, task, between
 
-print("started")
-
 
 class User(HttpUser):
     wait_time = between(1, 5)

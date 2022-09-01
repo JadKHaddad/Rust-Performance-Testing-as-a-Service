@@ -65,6 +65,7 @@ pub struct ResultHistory {
     #[serde(rename(deserialize = "Total Max Response Time"))]
     total_max_response_time: String,
 }
+
 pub mod redis {
     use serde::{Deserialize, Serialize};
     #[derive(Debug, Deserialize, Serialize)]

@@ -688,11 +688,3 @@ async fn main() -> Result<(), std::io::Error> {
         .run(app)
         .await
 }
-
-//TODO! what happens if redis dies?
-
-// #[handler]
-// async fn single_download(req: poem::web::StaticFileRequest) -> poem::error::Result<impl IntoResponse> {
-//     println!("sup");
-//      Ok(req.create_response("path/to/file", true)?)
-// }

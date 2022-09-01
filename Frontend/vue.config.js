@@ -18,6 +18,12 @@ module.exports = {
         pathRewrite: {
           '^/api/worker': ''
         }
+      },
+      '/explore': {
+        target: 'http://localhost:3000/explore',
+        pathRewrite: {
+          '^/explore': ''
+        }
       }
     }
   }
