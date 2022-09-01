@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use csv::Reader;
 use port_scanner::local_port_available;
 use redis::cmd;
@@ -35,6 +35,7 @@ pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
 pub mod zip;
+pub mod plot;
 
 pub fn get_a_free_port() -> Result<u16, String> {
     let mut port = 5000;
@@ -107,7 +108,9 @@ pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) 
 }
 
 pub fn get_zip_file(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
-    get_a_script_results_dir(project_id, script_id).join(test_id).join("results.zip")
+    get_a_script_results_dir(project_id, script_id)
+        .join(test_id)
+        .join("results.zip")
 }
 
 pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
@@ -245,6 +248,58 @@ pub fn get_results_history(
     return Some(results);
 }
 
+pub fn get_parsed_results_history(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str,
+) -> Option<Vec<models::ParsedResultHistory>> {
+    let csv_file = get_csv_history_file_path(project_id, script_id, &test_id);
+    let mut rdr = match Reader::from_path(csv_file) {
+        Ok(rdr) => rdr,
+        Err(_) => return None,
+    };
+    let mut results = Vec::new();
+    for result in rdr.deserialize() {
+        let row: models::ResultHistory = match result {
+            Ok(record) => record,
+            Err(_) => return None,
+        };
+
+        if let Ok(parsed_timestamp) = row.timestamp.parse::<i64>() {
+            let naive = NaiveDateTime::from_timestamp(parsed_timestamp, 0);
+            let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+
+            let total_median_response_time = row
+                .total_median_response_time
+                .parse::<f32>()
+                .unwrap_or_default();
+            let total_average_response_time = row
+                .total_average_response_time
+                .parse::<f32>()
+                .unwrap_or_default();
+            let total_min_response_time = row
+                .total_min_response_time
+                .parse::<f32>()
+                .unwrap_or_default();
+            let total_max_response_time = row
+                .total_max_response_time
+                .parse::<f32>()
+                .unwrap_or_default();
+
+            results.push(models::ParsedResultHistory {
+                datetime: datetime,
+                total_median_response_time: total_median_response_time,
+                total_average_response_time: total_average_response_time,
+                total_min_response_time: total_min_response_time,
+                total_max_response_time: total_max_response_time,
+            });
+        } else {
+            return None;
+        }
+    }
+    return Some(results);
+}
+
 pub fn get_last_result_history(
     project_id: &str,
     script_id: &str,
@@ -274,7 +329,7 @@ pub fn delete_test(
 ) -> Result<(), Box<dyn std::error::Error>> {
     //get test folder and delete it
     let test_dir = get_a_test_results_dir(&project_id, &script_id, &test_id);
-    
+
     //sometimes on windows the folder is not deleted but info is deleted so lets back it up
     let info_file = get_info_file_path(&project_id, &script_id, &test_id);
     let test_info = std::fs::read_to_string(&info_file)?;

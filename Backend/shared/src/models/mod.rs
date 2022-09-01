@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+
 #[derive(Debug, Serialize)]
 pub struct Test {
     pub id: String,
@@ -51,19 +53,26 @@ pub struct ResultRow {
 pub struct ResultHistory {
     #[serde(rename(serialize = "timestamp"))]
     #[serde(rename(deserialize = "Timestamp"))]
-    timestamp: String,
+    pub timestamp: String,
     #[serde(rename(serialize = "total_median_response_time"))]
     #[serde(rename(deserialize = "Total Median Response Time"))]
-    total_median_response_time: String,
+    pub total_median_response_time: String,
     #[serde(rename(serialize = "total_average_response_time"))]
     #[serde(rename(deserialize = "Total Average Response Time"))]
-    total_average_response_time: String,
+    pub total_average_response_time: String,
     #[serde(rename(serialize = "total_min_response_time"))]
     #[serde(rename(deserialize = "Total Min Response Time"))]
-    total_min_response_time: String,
+    pub total_min_response_time: String,
     #[serde(rename(serialize = "total_max_response_time"))]
     #[serde(rename(deserialize = "Total Max Response Time"))]
-    total_max_response_time: String,
+    pub total_max_response_time: String,
+}
+pub struct ParsedResultHistory {
+    pub datetime: DateTime<Utc>,
+    pub total_median_response_time: f32,
+    pub total_average_response_time: f32,
+    pub total_min_response_time: f32,
+    pub total_max_response_time: f32,
 }
 
 pub mod redis {
