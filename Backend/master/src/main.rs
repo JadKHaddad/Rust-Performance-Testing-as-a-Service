@@ -420,6 +420,20 @@ async fn delete_projects(
     }
 }
 
+#[handler]
+async fn check_script(
+    Path((project_id, script_id)): Path<(String, String)>,
+) -> String {
+    match lib::check_script(&project_id, &script_id) {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -667,6 +681,7 @@ async fn main() -> Result<(), std::io::Error> {
             post(delete_test),
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
+        .at("/check_script/:project_id/:script_id", post(check_script))
         .at("/delete_projects", post(delete_projects))
         .at(
             "/download_test/:project_id/:script_id/:test_id",

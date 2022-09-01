@@ -1,84 +1,39 @@
 <template>
   <div>
-    <button
-      class="uk-button uk-button-default uk-margin-small-right"
-      type="button"
-      uk-toggle="target: #start-modal"
-    >
+    <button class="uk-button uk-button-default uk-margin-small-right" type="button" uk-toggle="target: #start-modal">
       Start
     </button>
-    <button
-      class="uk-button uk-button-default uk-margin-small-right"
-      type="button"
-      @click="stop_all"
-    >
+    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="stop_all">
       Stop All
+    </button>
+    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="check_script">
+      Check
     </button>
 
     <div id="start-modal" uk-modal ref="start-modal">
       <div class="uk-modal-dialog uk-modal-body">
         <form>
           <div class="uk-margin">
-            <input
-              class="uk-input"
-              type="text"
-              placeholder="Users"
-              v-model="users"
-            />
+            <input class="uk-input" type="text" placeholder="Users" v-model="users" />
           </div>
           <div class="uk-margin">
-            <input
-              class="uk-input"
-              type="text"
-              placeholder="Spawn rate"
-              v-model="spawnRate"
-            />
+            <input class="uk-input" type="text" placeholder="Spawn rate" v-model="spawnRate" />
           </div>
           <div class="uk-margin">
-            <input
-              class="uk-input"
-              type="text"
-              placeholder="Workers"
-              v-model="workers"
-            />
+            <input class="uk-input" type="text" placeholder="Workers" v-model="workers" />
           </div>
           <div class="uk-margin">
-            <label class="uk-form-label" for="host"
-              >This will overwrite all hosts in your file</label
-            >
-            <input
-              id="host"
-              class="uk-input"
-              type="text"
-              placeholder="Host"
-              v-model="host"
-            />
+            <label class="uk-form-label" for="host">This will overwrite all hosts in your file</label>
+            <input id="host" class="uk-input" type="text" placeholder="Host" v-model="host" />
           </div>
           <div class="uk-margin">
-            <label class="uk-form-label" for="time"
-              >If time is not set, the test will not stop automatically</label
-            >
-            <input
-              id="time"
-              class="uk-input"
-              type="text"
-              placeholder="Time is seconds"
-              v-model="time"
-            />
+            <label class="uk-form-label" for="time">If time is not set, the test will not stop automatically</label>
+            <input id="time" class="uk-input" type="text" placeholder="Time is seconds" v-model="time" />
           </div>
           <div class="uk-margin">
-            <input
-              class="uk-input"
-              type="text"
-              placeholder="Description"
-              v-model="description"
-            />
+            <input class="uk-input" type="text" placeholder="Description" v-model="description" />
           </div>
-          <button
-            class="uk-button uk-button-default uk-margin-small-right"
-            type="button"
-            @click="start_from_modal"
-          >
+          <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="start_from_modal">
             Start
           </button>
         </form>
@@ -87,15 +42,8 @@
 
     <h3>Project: {{ pid }} | Script: {{ id }}</h3>
 
-    <Test
-      v-for="test in reversedTests"
-      :key="test.id"
-      :test="test"
-      @stop_me="stop(test.id)"
-      @delete_me="del(test.id)"
-      @restart_me="restart(test.info)"
-      @download_me="download(test.id)"
-    />
+    <Test v-for="test in reversedTests" :key="test.id" :test="test" @stop_me="stop(test.id)" @delete_me="del(test.id)"
+      @restart_me="restart(test.info)" @download_me="download(test.id)" />
   </div>
 </template>
 
@@ -139,8 +87,8 @@ export default {
       this.ws = new WebSocket(
         `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
       );
-      this.ws.onopen = () => {};
-      this.ws.onclose = () => {};
+      this.ws.onopen = () => { };
+      this.ws.onclose = () => { };
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         const event_type = data.event_type;
@@ -212,7 +160,7 @@ export default {
             );
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     start_from_modal() {
       const test_info = {
@@ -241,7 +189,7 @@ export default {
             console.log(data.error);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     del(test_id) {
       fetch(`/api/master/delete_test/${this.pid}/${this.id}/${test_id}`, {
@@ -255,7 +203,7 @@ export default {
             console.log(data.error);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     restart(test_info) {
       this.start(test_info);
@@ -270,7 +218,7 @@ export default {
           var objectUrl = URL.createObjectURL(blob);
           window.location.href = objectUrl;
         })
-        .catch(() => {});
+        .catch(() => { });
     },
     stop_all() {
       fetch(`/api/master/stop_script/${this.pid}/${this.id}`, {
@@ -283,9 +231,24 @@ export default {
             console.log(data.error);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
       return false;
     },
+    check_script() {
+      fetch(`/api/master/check_script/${this.pid}/${this.id}`, {
+        method: "POST",
+      })
+        .then((data) => data.json())
+        .then((data) => {
+          if (data.success) {
+            console.log(data);
+          } else {
+            console.log(data.error);
+          }
+        })
+        .catch(() => { });
+      return false;
+    }
   },
   created() {
     this.connenctWebsocket();

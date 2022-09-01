@@ -6,6 +6,7 @@ use std::error::Error;
 use std::io::Write;
 use std::{
     collections::{HashMap, HashSet},
+    fs::canonicalize,
     io::Read,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -906,4 +907,62 @@ fn delete_project<'a>(
         response.error = Some(error);
     }
     return response;
+}
+
+pub fn check_script<'a>(
+    project_id: &'a str,
+    script_id: &'a str,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Test check",
+        error: None,
+        content: None,
+    };
+    let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
+
+    if !locust_file.exists() {
+        response.error = Some("Script not found");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+
+    let env_dir = shared::get_an_environment_dir(&project_id);
+    let can_locust_file = canonicalize(&locust_file).unwrap(); //absolute path for commands current dir
+
+    if cfg!(target_os = "windows") {
+        let args = vec![
+            "-f",
+            can_locust_file.to_str().ok_or("Run Error")?,
+            "--headless",
+            "--users",
+            "1",
+            "--spawn-rate",
+            "1",
+            "--run-time",
+            "3s",
+            "--host",
+            "http://localhost:6000",
+        ];
+        let mut cmd = Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&args)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        
+        cmd.wait()?;
+
+        //locust prints everything to stderr :)
+        let mut content_string = String::new();
+        if let Some(stderr) = cmd.stderr.take() {
+            let err = child_stream_to_vec(stderr);
+            if let Ok(error_string) = str::from_utf8(&err) {
+                content_string.push_str(error_string);
+            }
+        }
+
+        response.content = Some(content_string);
+    }
+    return Ok(serde_json::to_string(&response).unwrap());
 }
