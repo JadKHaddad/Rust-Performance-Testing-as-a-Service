@@ -8,7 +8,17 @@
 
 # proxy and other configurations must be defined in the main proxy server or k8s ingress
 
-FROM nginx:alpine
+FROM node:16.17.0-alpine3.15 as builder
 
-COPY Frontend/dist /usr/share/nginx/html
+COPY Frontend home/Frontend/
+
+WORKDIR /home/Frontend/
+
+RUN npm install
+RUN npm run build
+
+FROM nginx:alpine as runner
+
+COPY --from=builder /home/Frontend/dist /usr/share/nginx/html
+
 COPY Dockerfiles/frontend-nginx.conf /etc/nginx/conf.d/default.conf
