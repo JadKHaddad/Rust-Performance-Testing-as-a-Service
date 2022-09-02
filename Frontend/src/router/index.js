@@ -20,7 +20,7 @@ const routes = [
     props: true
   },
   {
-    path: '/check/:script',
+    path: '/check/:pid/:id',
     name: 'Check',
     component: () => import('../views/Check.vue'),
     props: true

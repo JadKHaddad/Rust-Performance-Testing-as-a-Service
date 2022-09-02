@@ -1,0 +1,3 @@
+
+sudo apt-get install libfontconfig libfontconfig1-dev
+# for plotters on linux

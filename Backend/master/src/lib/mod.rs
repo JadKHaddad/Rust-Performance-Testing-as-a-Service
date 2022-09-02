@@ -909,10 +909,7 @@ fn delete_project<'a>(
     return response;
 }
 
-pub fn check_script<'a>(
-    project_id: &'a str,
-    script_id: &'a str,
-) -> Result<String, Box<dyn Error>> {
+pub fn check_script<'a>(project_id: &'a str, script_id: &'a str) -> Result<String, Box<dyn Error>> {
     let mut response = models::http::Response::<String> {
         success: true,
         message: "Test check",
@@ -930,7 +927,7 @@ pub fn check_script<'a>(
     let env_dir = shared::get_an_environment_dir(&project_id);
     let can_locust_file = canonicalize(&locust_file).unwrap(); //absolute path for commands current dir
 
-    if cfg!(target_os = "windows") {
+    let mut cmd = if cfg!(target_os = "windows") {
         let args = vec![
             "-f",
             can_locust_file.to_str().ok_or("Run Error")?,
@@ -944,25 +941,44 @@ pub fn check_script<'a>(
             "--host",
             "http://localhost:6000",
         ];
-        let mut cmd = Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+        Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
             .current_dir(shared::get_a_project_dir(&project_id))
             .args(&args)
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
-            .spawn()?;
-        
-        cmd.wait()?;
+            .spawn()?
+    } else {
+        //linux
+        let can_locust_location_linux =
+            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
+        let command = format!(
+            "{} -f {} --headless --users 1 --spawn-rate 1 --run-time 3s --host http://localhost:6000",
+            can_locust_location_linux.to_str().ok_or("Run Error")?,
+            can_locust_file.to_str().ok_or("Run Error")?,
+        );
+        Command::new("bash")
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&[
+                "-c",
+                &command,
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?
+    };
 
-        //locust prints everything to stderr :)
-        let mut content_string = String::new();
-        if let Some(stderr) = cmd.stderr.take() {
-            let err = child_stream_to_vec(stderr);
-            if let Ok(error_string) = str::from_utf8(&err) {
-                content_string.push_str(error_string);
-            }
+    cmd.wait()?;
+
+    //locust prints everything to stderr :)
+    let mut content_string = String::new();
+    if let Some(stderr) = cmd.stderr.take() {
+        let err = child_stream_to_vec(stderr);
+        if let Ok(error_string) = str::from_utf8(&err) {
+            content_string.push_str(error_string);
         }
-
-        response.content = Some(content_string);
     }
+
+    response.content = Some(content_string);
+
     return Ok(serde_json::to_string(&response).unwrap());
 }

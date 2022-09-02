@@ -235,19 +235,7 @@ export default {
       return false;
     },
     check_script() {
-      fetch(`/api/master/check_script/${this.pid}/${this.id}`, {
-        method: "POST",
-      })
-        .then((data) => data.json())
-        .then((data) => {
-          if (data.success) {
-            console.log(data);
-          } else {
-            console.log(data.error);
-          }
-        })
-        .catch(() => { });
-      return false;
+      this.$router.push({ name: 'Check', params: { pid: this.pid, id: this.id } })
     }
   },
   created() {
