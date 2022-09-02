@@ -139,9 +139,13 @@ async fn download_test(
     let test_dir = shared::get_a_test_results_dir(&project_id, &script_id, &test_id);
     let zip_file = shared::get_zip_file(&project_id, &script_id, &test_id);
     let zip_file_str = zip_file.to_str().unwrap();
+    let plot_file = shared::get_plot_file(&project_id, &script_id, &test_id);
+    let plot_file_str = plot_file.to_str().unwrap();
     // if !zip_file.exists() {
     //     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     // }
+    //TODO!: stop the test before downloading
+    shared::plot::plot(&project_id, &script_id, &test_id, &plot_file_str).unwrap();
     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     Ok(req.create_response(&zip_file_str, true)?)
 }

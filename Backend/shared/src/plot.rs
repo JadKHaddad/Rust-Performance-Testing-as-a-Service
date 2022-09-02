@@ -12,10 +12,10 @@ pub fn plot(
 
     //let root_area = root_area.titled("Image Title", ("sans-serif", 60))?;
 
-    let res = crate::get_parsed_results_history(project_id, script_id, test_id).ok_or("..")?;
-    let start_datetime = res.iter().next().ok_or("..")?.datetime;
-    let end_datetime = res.iter().last().ok_or("..")?.datetime;
-    let max_max_response_time = res.iter().last().ok_or("..")?.total_max_response_time;
+    let res = crate::get_parsed_results_history(project_id, script_id, test_id).ok_or("Plot Error")?;
+    let start_datetime = res.iter().next().ok_or("Plot Error")?.datetime;
+    let end_datetime = res.iter().last().ok_or("Plot Error")?.datetime;
+    let max_max_response_time = res.iter().last().ok_or("Plot Error")?.total_max_response_time;
     let x_range =
         (start_datetime..end_datetime).with_key_points(vec![start_datetime, end_datetime]);
     let y_range = 0.0..max_max_response_time;

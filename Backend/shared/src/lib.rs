@@ -113,6 +113,12 @@ pub fn get_zip_file(project_id: &str, script_id: &str, test_id: &str) -> PathBuf
         .join("results.zip")
 }
 
+pub fn get_plot_file(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
+    get_a_script_results_dir(project_id, script_id)
+        .join(test_id)
+        .join("results.png")
+}
+
 pub fn encode_script_id(project_id: &str, script_id: &str) -> String {
     format!("{}]$[{}", project_id, script_id)
 }
