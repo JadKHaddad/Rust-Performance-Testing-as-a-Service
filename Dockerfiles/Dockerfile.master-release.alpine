@@ -1,0 +1,26 @@
+# docker build -t master-release-alpine:latest -f Dockerfiles/Dockerfile.master-release.alpine --progress=plain .
+# docker tag master-release-alpine:latest localhost:32000/master-release-alpine:latest
+
+# docker build -t localhost:32000/master-release-alpine:latest -f Dockerfiles/Dockerfile.master-release-alpine .
+# docker push localhost:32000/master-release-alpine:latest
+
+# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data master-release-alpine:latest 3000 host.docker.internal
+
+FROM builder-alpine:latest AS builder
+
+COPY Backend home/Backend/
+
+WORKDIR /home/Backend/master/
+
+RUN /root/.cargo/bin/cargo build --release
+
+
+FROM runner:latest AS runner
+
+COPY --from=builder /home/Backend/master/target/release/master /home/Backend/master/target/release/master
+
+WORKDIR /home/Backend/master/
+
+EXPOSE 3000
+
+ENTRYPOINT [ "/home/Backend/master/target/release/master" ]
