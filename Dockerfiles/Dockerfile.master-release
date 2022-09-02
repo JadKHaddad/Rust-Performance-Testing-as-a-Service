@@ -1,4 +1,4 @@
-# docker build -t master-release:latest -f Dockerfiles/Dockerfile.master-release .
+# docker build -t master-release:latest -f Dockerfiles/Dockerfile.master-release --progress=plain .
 # docker tag master-release:latest localhost:32000/master-release:latest
 
 # docker build -t localhost:32000/master-release:latest -f Dockerfiles/Dockerfile.master-release .
