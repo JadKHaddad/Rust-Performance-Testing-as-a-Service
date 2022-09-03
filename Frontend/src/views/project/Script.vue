@@ -1,13 +1,13 @@
 <template>
   <div>
-    <button class="uk-button uk-button-default uk-margin-small-right" type="button" uk-toggle="target: #start-modal">
+    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" uk-toggle="target: #start-modal">
       Start
     </button>
-    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="stop_all">
-      Stop All
-    </button>
-    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="check_script">
+    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="check_script">
       Check
+    </button>
+    <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="stop_all">
+      Stop All
     </button>
 
     <div id="start-modal" uk-modal ref="start-modal">

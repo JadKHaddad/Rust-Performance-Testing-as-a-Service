@@ -1,6 +1,7 @@
 <template>
   <div>
     <h3>Check: {{ pid }} | Script: {{ id }}</h3>
+    <div v-if="loading" uk-spinner></div>
     {{ content }}
   </div>
 </template>
@@ -12,14 +13,17 @@ export default {
   data() {
     return {
       content: null,
+      loading: false
     };
   },
   created() {
+    this.loading = true;
     fetch(`/api/master/check_script/${this.pid}/${this.id}`, {
       method: "POST",
     })
       .then((data) => data.json())
       .then((data) => {
+        this.loading = false;
         if (data.success) {
           this.content = data.content;
         } else {
@@ -32,7 +36,7 @@ export default {
           );
         }
       })
-      .catch(() => { });
+      .catch(() => { this.loading = false; });
   },
 };
 </script>

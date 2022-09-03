@@ -1,10 +1,10 @@
 <template>
   <div class="test-container">
     <div class="uk-overflow-auto">
-      <button type="button" @click="stop_me()">Stop</button>
-      <button type="button" @click="delete_me()">Delete</button>
-      <button type="button" @click="restart_me()">Restart</button>
-      <button type="button" @click="download_me()">Download</button>
+      <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="stop_me()">Stop</button>
+      <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="delete_me()">Delete</button>
+      <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="restart_me()">Restart</button>
+      <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="download_me()">Download</button>
       <table
         class="uk-table uk-table-small uk-table-striped uk-table-responsive"
       >

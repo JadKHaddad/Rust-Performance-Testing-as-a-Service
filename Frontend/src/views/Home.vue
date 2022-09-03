@@ -1,10 +1,10 @@
 <template>
   <div>
-    <button class="uk-button uk-button-default uk-margin-small-right" type="button" uk-toggle="target: #upload-modal"
+    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" uk-toggle="target: #upload-modal"
       @click="uploadMessage = ''">
       Upload
     </button>
-    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="deleteProjects">
+    <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="deleteProjects">
       Delete
     </button>
 
@@ -18,7 +18,7 @@
                 <input type="file" webkitdirectory mozdirectory ref="files" />
                 <input class="uk-input uk-form-width-medium" type="text" placeholder="Select project" disabled />
               </div>
-              <button type="button" class="uk-button uk-button-default" @click="upload">
+              <button type="button" class="uk-button uk-button-primary" @click="upload">
                 Upload
               </button>
               <div v-if="uploading" uk-spinner class="upload-spinner"></div>

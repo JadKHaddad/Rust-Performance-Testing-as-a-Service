@@ -181,3 +181,9 @@ input.checkbox-input:checked~.checkbox {
 }
 
 /*end of logo animation*/
+
+/*spinner*/
+.uk-spinner {
+    color: #39f;
+}
+/*end of spinner*/
