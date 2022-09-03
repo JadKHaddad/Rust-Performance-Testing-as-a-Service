@@ -4,7 +4,7 @@
 # docker build -t localhost:32000/master-release:latest -f Dockerfiles/Dockerfile.master-release .
 # docker push localhost:32000/master-release:latest
 
-# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/data:/home/Backend/data master-release:latest 3000 host.docker.internal
+# docker run --name master --rm -it -p 3000:3000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/Performance-Testing-Data:/home/Backend/Performance-Testing-Data master-release:latest 3000 host.docker.internal
 
 FROM builder:latest AS builder
 

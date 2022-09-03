@@ -154,7 +154,7 @@ pub async fn upload(
     //install
     let cmd = if cfg!(target_os = "windows") {
         let pip_location_windows = Path::new(&env_dir).join("Scripts").join("pip3");
-        Command::new("cmd")
+        if let Ok(cmd_) = Command::new("cmd")
             .args(&[
                 "/c",
                 &format!(
@@ -166,10 +166,17 @@ pub async fn upload(
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
-            .spawn()?
+            .spawn(){
+                cmd_
+            }else{
+                std::fs::remove_dir_all(project_temp_dir)?;
+                response.error = Some("System Error");
+                response.success = false;
+                return Ok(serde_json::to_string(&response).unwrap());
+            }
     } else {
         let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
-        Command::new("bash")
+        if let Ok(cmd_) = Command::new("bash")
             .args(&[
                 "-c",
                 &format!(
@@ -181,7 +188,14 @@ pub async fn upload(
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
-            .spawn()?
+            .spawn(){
+                cmd_
+            }else{
+                std::fs::remove_dir_all(project_temp_dir)?;
+                response.error = Some("System Error");
+                response.success = false;
+                return Ok(serde_json::to_string(&response).unwrap());
+            }
     };
     let mut installing_tasks_guard = installing_tasks.write();
     let project_name = project_temp_dir.file_name().ok_or("Upload Error")?;

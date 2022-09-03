@@ -1,4 +1,4 @@
-# docker build -t builder-alpine:latest -f Dockerfiles/Dockerfile.builder.alpine --progress=plain .
+# docker build -t builder-alpine:latest -f Dockerfiles/Alpine/Dockerfile.builder.alpine --progress=plain .
 
 FROM alpine:3.16.2
 

@@ -1,0 +1,27 @@
+# docker build -t worker-release-alpine:latest -f Dockerfiles/Alpine/Dockerfile.worker-release.alpine .
+# docker tag worker-release-alpine:latest localhost:32000/worker-release-alpine:latest
+
+# docker build -t localhost:32000/worker-release-alpine:latest -f Dockerfiles/Alpine/Dockerfile.worker-release-alpine .
+# docker push localhost:32000/worker-release-alpine:latest
+
+# docker run --name worker --rm -it -p 5000:5000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/Performance-Testing-Data:/home/Backend/Performance-Testing-Data worker-release-alpine:latest 5000 host.docker.internal:5000 host.docker.internal:3000 host.docker.internal
+# docker run --name worker_2 --rm -it -p 5001:5000/tcp --add-host=host.docker.internal:host-gateway -v ${PWD}/Performance-Testing-Data:/home/Backend/Performance-Testing-Data worker-release-alpine:latest 5000 host.docker.internal:5001 host.docker.internal:3000 host.docker.internal
+
+FROM builder-alpine:latest AS builder
+
+COPY Backend home/Backend/
+
+WORKDIR /home/Backend/worker/
+
+RUN /root/.cargo/bin/cargo build --release
+
+
+FROM runner-alpine:latest AS runner
+
+COPY --from=builder /home/Backend/worker/target/release/worker /home/Backend/worker/target/release/worker
+
+WORKDIR /home/Backend/worker/
+
+EXPOSE 5000
+
+ENTRYPOINT [ "/home/Backend/worker/target/release/worker" ]
