@@ -111,12 +111,14 @@ pub async fn upload(
             check = false;
             continue;
         }
-        let full_file_name = shared::get_temp_dir().join(file_name);
-        let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
-        std::fs::create_dir_all(full_file_name_prefix)?;
-        let mut file = std::fs::File::create(full_file_name)?;
-        if let Ok(bytes) = field.bytes().await {
-            file.write(&bytes)?;
+        if !exists{
+            let full_file_name = shared::get_temp_dir().join(file_name);
+            let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
+            std::fs::create_dir_all(full_file_name_prefix)?;
+            let mut file = std::fs::File::create(full_file_name)?;
+            if let Ok(bytes) = field.bytes().await {
+                file.write(&bytes)?;
+            }
         }
         check = false;
     }

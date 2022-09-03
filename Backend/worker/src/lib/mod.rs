@@ -144,8 +144,8 @@ pub async fn start_test(
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
     }
+    
     //run
-
     let cmd = if cfg!(target_os = "windows") {
         let mut args = Vec::new();
         args.push("-f");
@@ -406,6 +406,7 @@ pub async fn start_test(
     let _: () = red_connection
         .srem(shared::LOCKED_PROJECTS, &project_id)
         .unwrap_or_default();
+    
     //run the garbage collector
     let mut currently_running_tests_mutex = currently_running_tests.lock().unwrap();
     if !*currently_running_tests_mutex {

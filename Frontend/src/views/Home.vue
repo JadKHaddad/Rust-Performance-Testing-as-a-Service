@@ -1,18 +1,10 @@
 <template>
   <div>
-    <button
-      class="uk-button uk-button-default uk-margin-small-right"
-      type="button"
-      uk-toggle="target: #upload-modal"
-      @click="uploadMessage = ''"
-    >
+    <button class="uk-button uk-button-default uk-margin-small-right" type="button" uk-toggle="target: #upload-modal"
+      @click="uploadMessage = ''">
       Upload
     </button>
-    <button
-      class="uk-button uk-button-default uk-margin-small-right"
-      type="button"
-      @click="deleteProjects"
-    >
+    <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="deleteProjects">
       Delete
     </button>
 
@@ -24,22 +16,14 @@
             <div class="upload-container">
               <div uk-form-custom="target: true">
                 <input type="file" webkitdirectory mozdirectory ref="files" />
-                <input
-                  class="uk-input uk-form-width-medium"
-                  type="text"
-                  placeholder="Select project"
-                  disabled
-                />
+                <input class="uk-input uk-form-width-medium" type="text" placeholder="Select project" disabled />
               </div>
-              <button
-                type="button"
-                class="uk-button uk-button-default"
-                @click="upload"
-              >
+              <button type="button" class="uk-button uk-button-default" @click="upload">
                 Upload
               </button>
               <div v-if="uploading" uk-spinner class="upload-spinner"></div>
             </div>
+            <progress v-if="uploading" max="100" :value="percentCompleted"> </progress>
             <h5>{{ uploadMessage }}</h5>
           </div>
         </form>
@@ -48,38 +32,25 @@
 
     <h1>Projects</h1>
     <ul class="uk-list">
-      <li
-        v-for="project in projects"
-        :key="project.id"
-        v-motion
-        :initial="{
-          opacity: 0,
-          x: 50,
-        }"
-        :enter="{
-          opacity: 1,
-          x: 0,
-        }"
-      >
+      <li v-for="project in projects" :key="project.id" v-motion :initial="{
+        opacity: 0,
+        x: 50,
+      }" :enter="{
+  opacity: 1,
+  x: 0,
+}">
         <div class="uk-card uk-card-default uk-card-body">
           <label class="checkbox-label">
-            <input
-              type="checkbox"
-              class="checkbox-input"
-              :value="project.id"
-              v-model="projectsToBeDeleted"
-            />
+            <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted" />
             <span class="checkbox"> </span>
           </label>
           <h3 class="uk-card-title">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
             <li v-for="script in project.scripts" :key="script">
-              <router-link
-                :to="{
-                  name: 'Script',
-                  params: { pid: project.id, id: script },
-                }"
-              >
+              <router-link :to="{
+                name: 'Script',
+                params: { pid: project.id, id: script },
+              }">
                 {{ script }}
               </router-link>
             </li>
@@ -112,6 +83,7 @@ export default {
       projects: [],
       uploadMessage: "",
       projectsToBeDeleted: [],
+      percentCompleted: 0,
     };
   },
   methods: {
@@ -140,39 +112,23 @@ export default {
       }
       this.uploading = true;
 
-      // axios
-      //   .request({
-      //     method: "post",
-      //     url: "/api/upload",
-      //     data: data,
-      //     onUploadProgress: (progressEvent) => {
-      //       this.percentCompleted = Math.round(
-      //         (progressEvent.loaded * 100) / progressEvent.total
-      //       );
-      //     },
-      //   })
-      //   .then((response) => {
-      //     this.uploading = false;
-      //     const data = response.data;
-      //     this.uploadResponse = data;
-      //     console.log(data);
-      //     if (data.success) {
-      //     } else {
-      //     }
-      //   })
-      //   .catch(() => {
-      //     this.uploading = false;
-      //     console.log("Connection error");
-      //   });
-
-      fetch("/api/master/upload", {
-        method: "POST",
-        body: data,
-      })
-        .then((data) => data.json())
-        .then((data) => {
-          console.log(data);
+      axios
+        .request({
+          method: "post",
+          url: "/api/master/upload",
+          data: data,
+          onUploadProgress: (progressEvent) => {
+            this.percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log(this.percentCompleted);
+          },
+        })
+        .then((response) => {
           this.uploading = false;
+          const data = response.data;
+          this.uploadResponse = data;
+          this.percentCompleted = 0;
           if (data.success) {
             this.hideUploadModal();
           } else {
@@ -181,8 +137,29 @@ export default {
         })
         .catch(() => {
           this.uploading = false;
+          this.percentCompleted = 0;
           this.hideUploadModal();
         });
+
+      // fetch("/api/master/upload", {
+      //   method: "POST",
+      //   body: data,
+      // })
+      //   .then((data) => data.json())
+      //   .then((data) => {
+      //     console.log(data);
+      //     this.uploading = false;
+      //     if (data.success) {
+      //       this.hideUploadModal();
+      //     } else {
+      //       this.uploadMessage = data.error;
+      //     }
+      //   })
+      //   .catch(() => {
+      //     this.uploading = false;
+      //     this.hideUploadModal();
+      //   });
+
       return false;
     },
     deleteProjects() {
