@@ -16,7 +16,9 @@ spec:
         app: master #this label
     spec:
       securityContext:
-        fsGroup: 101
+        runAsUser: 0 #101
+        runAsGroup: 0 #101
+        fsGroup: 0 #101
       volumes:
       - name: task-pv-storage
         persistentVolumeClaim:
@@ -25,6 +27,7 @@ spec:
       - name: master
         image: localhost:32000/master-release:latest
         imagePullPolicy: "Always"
+        
         ports:
         - containerPort: 3000
         env:
@@ -36,6 +39,8 @@ spec:
         volumeMounts:
         - mountPath: "/home/app/Backend/Performance-Testing-Data"
           name: task-pv-storage
+        securityContext:
+          allowPrivilegeEscalation: false
 
 ---
 apiVersion: v1

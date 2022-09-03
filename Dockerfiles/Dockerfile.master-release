@@ -19,8 +19,6 @@ FROM runner:latest AS runner
 
 COPY --from=builder /home/Backend/master/target/release/master /home/app/Backend/master/target/release/master
 
-USER root
-RUN chown -R app /home/app
 USER app
 
 WORKDIR /home/app/Backend/master/

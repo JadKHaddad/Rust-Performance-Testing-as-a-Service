@@ -5,7 +5,7 @@ FROM debian:10-slim
 RUN apt update
 
 RUN addgroup --system app && adduser app --system --ingroup app
-RUN chown app /home/app
+RUN chown -R app /home/app
 
 RUN apt install -y libssl-dev python3 python3-pip libfontconfig libfontconfig1-dev
 

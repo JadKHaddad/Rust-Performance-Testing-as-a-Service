@@ -16,6 +16,10 @@ spec:
         app: worker-1 #this label
         label: worker
     spec:
+      securityContext:
+        runAsUser: 0 #101
+        runAsGroup: 0 #101
+        fsGroup: 0 #101
       volumes:
       - name: task-pv-storage
         persistentVolumeClaim:

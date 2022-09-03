@@ -20,8 +20,6 @@ FROM runner:latest AS runner
 
 COPY --from=builder /home/Backend/worker/target/release/worker /home/app/Backend/worker/target/release/worker
 
-USER root
-RUN chown -R app /home/app
 USER app
 
 WORKDIR /home/app/Backend/worker/
