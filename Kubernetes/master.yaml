@@ -15,6 +15,8 @@ spec:
       labels:
         app: master #this label
     spec:
+      securityContext:
+        fsGroup: 101
       volumes:
       - name: task-pv-storage
         persistentVolumeClaim:
@@ -32,8 +34,9 @@ spec:
               name: configmap
               key: redis_host
         volumeMounts:
-        - mountPath: "/home/Backend/Performance-Testing-Data"
+        - mountPath: "/home/app/Backend/Performance-Testing-Data"
           name: task-pv-storage
+
 ---
 apiVersion: v1
 kind: Service

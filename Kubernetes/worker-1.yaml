@@ -40,7 +40,7 @@ spec:
         - name: WORKER_NAME
           value: worker-1-service:5000
         volumeMounts:
-        - mountPath: "/home/Backend/Performance-Testing-Data"
+        - mountPath: "/home/app/Backend/Performance-Testing-Data"
           name: task-pv-storage
 ---
 apiVersion: v1

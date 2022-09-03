@@ -18,10 +18,14 @@ RUN /root/.cargo/bin/cargo build --release
 
 FROM runner:latest AS runner
 
-COPY --from=builder /home/Backend/worker/target/release/worker /home/Backend/worker/target/release/worker
+COPY --from=builder /home/Backend/worker/target/release/worker /home/app/Backend/worker/target/release/worker
 
-WORKDIR /home/Backend/worker/
+USER root
+RUN chown -R app /home/app
+USER app
+
+WORKDIR /home/app/Backend/worker/
 
 EXPOSE 5000
 
-ENTRYPOINT [ "/home/Backend/worker/target/release/worker" ]
+ENTRYPOINT [ "/home/app/Backend/worker/target/release/worker" ]
