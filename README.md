@@ -73,7 +73,7 @@ kubectl rollout restart deployment -n performance-testing worker-2-deployment
 ```
 * ```Master``` and ```Worker``` images are built to run as non root users
 * Local persistant volumes do not support mounting a directory with non root permissions
-* If you wish to use another persistant volume type, please make sure to edit the ```securityContext``` configurations in ```Kubernetes/master.yaml```, ```Kubernetes/worker-<worerk_num>.yaml``` and ```Kubernetes/WorkerCreator/template.yaml``` to:
+* If you wish to use another persistant volume type, please make sure to edit the ```securityContext``` configurations in ```Kubernetes/master.yaml```, ```Kubernetes/worker-<worerk_num>.yaml``` and ```Kubernetes/WorkerCreator/template.yaml```
 ```yaml
 ...
 spec:
