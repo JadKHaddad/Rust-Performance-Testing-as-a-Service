@@ -187,3 +187,16 @@ input.checkbox-input:checked~.checkbox {
     color: #39f;
 }
 /*end of spinner*/
+
+/*check*/
+.check-content{
+    white-space: pre-line;
+    text-align: left;
+}
+/*end of check*/
+
+/*notifications*/
+.uk-notification-message {
+    font-size: inherit;
+}
+/*end of notifications*/

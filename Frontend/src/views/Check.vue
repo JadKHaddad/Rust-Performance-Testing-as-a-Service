@@ -2,7 +2,7 @@
   <div>
     <h3>Check: {{ pid }} | Script: {{ id }}</h3>
     <div v-if="loading" uk-spinner></div>
-    {{ content }}
+    <div class="check-content">{{ content }}</div>
   </div>
 </template>
 
@@ -26,6 +26,7 @@ export default {
         this.loading = false;
         if (data.success) {
           this.content = data.content;
+          console.log(data);
         } else {
           console.log(data.error);
           //notify
