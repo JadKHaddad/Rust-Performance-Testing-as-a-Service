@@ -19,7 +19,7 @@
           <li>
             <div class="uk-navbar-item">
               <label class="switch">
-                <input type="checkbox" v-model="darkTheme">
+                <input type="checkbox" v-model="darkTheme" @change="themeChanged">
                 <span class="slider round"></span>
               </label>
               <!--
@@ -58,7 +58,7 @@
       </div>
     </nav>
     <div class="content">
-      <router-view :newProject="newProject" :deletedProject="deletedProject" />
+      <router-view :newProject="newProject" :deletedProject="deletedProject" :darkTheme="darkTheme"/>
     </div>
   </div>
 
@@ -80,6 +80,9 @@ export default {
     };
   },
   methods: {
+    themeChanged(){
+      localStorage.setItem("darkTheme", this.darkTheme);
+    },
     notification(text, status, timeout) {
       UIkit.notification(text, {
         status: status,
@@ -157,8 +160,9 @@ export default {
     },
   },
   created() {
+    this.darkTheme = JSON.parse(localStorage.getItem("darkTheme"));
     this.connenctWebsocket();
-  },
+  }
 };
 </script>
 

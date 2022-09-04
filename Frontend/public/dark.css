@@ -6,6 +6,19 @@
     background: #1e1e1e;
 }
 
+.dark .uk-card-body{
+    background-color: #1e1e1e;
+}
+
+.dark.uk-modal-body{
+    background-color: #1e1e1e;
+}
+
+.dark .uk-input:disabled, .dark .uk-input{
+    background-color: #1e1e1e;
+    border-color: #999;
+}
+
 .dark .text, .dark .uk-navbar-nav>li>a , .dark .uk-navbar-item {
     color: #fff;
 }

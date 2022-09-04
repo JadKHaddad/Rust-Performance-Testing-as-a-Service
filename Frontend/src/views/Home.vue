@@ -8,11 +8,13 @@
       Delete
     </button>
 
-    <div id="upload-modal" uk-modal ref="upload-modal">
-      <div class="uk-modal-dialog uk-modal-body">
+    <div id="upload-modal" uk-modal ref="upload-modal" >
+      <div class="uk-modal-dialog uk-modal-body" :class="{
+      dark: darkTheme,
+    }">
         <form>
           <div class="uk-margin" uk-margin>
-            <h2>Upload a new project</h2>
+            <h2 class="text" >Upload a new project</h2>
             <div class="upload-container">
               <div uk-form-custom="target: true">
                 <input type="file" webkitdirectory mozdirectory ref="files" />
@@ -44,7 +46,7 @@
             <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted" />
             <span class="checkbox"> </span>
           </label>
-          <h3 class="uk-card-title">{{ project.id }}</h3>
+          <h3 class="uk-card-title text">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
             <li v-for="script in project.scripts" :key="script">
               <router-link :to="{
@@ -66,7 +68,7 @@
 <script>
 export default {
   name: "Home",
-  props: ["newProject", "deletedProject"],
+  props: ["newProject", "deletedProject", "darkTheme"],
   watch: {
     newProject: function () {
       this.projects.push(this.newProject);

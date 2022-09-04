@@ -11,7 +11,9 @@
     </button>
 
     <div id="start-modal" uk-modal ref="start-modal">
-      <div class="uk-modal-dialog uk-modal-body">
+      <div class="uk-modal-dialog uk-modal-body" :class="{
+      dark: darkTheme,
+    }">
         <form>
           <div class="uk-margin">
             <input class="uk-input" type="text" placeholder="Users" v-model="users" />
@@ -23,24 +25,24 @@
             <input class="uk-input" type="text" placeholder="Workers" v-model="workers" />
           </div>
           <div class="uk-margin">
-            <label class="uk-form-label" for="host">This will overwrite all hosts in your file</label>
+            <label class="uk-form-label text" for="host">This will overwrite all hosts in your file</label>
             <input id="host" class="uk-input" type="text" placeholder="Host" v-model="host" />
           </div>
           <div class="uk-margin">
-            <label class="uk-form-label" for="time">If time is not set, the test will not stop automatically</label>
+            <label class="uk-form-label text" for="time">If time is not set, the test will not stop automatically</label>
             <input id="time" class="uk-input" type="text" placeholder="Time is seconds" v-model="time" />
           </div>
           <div class="uk-margin">
             <input class="uk-input" type="text" placeholder="Description" v-model="description" />
           </div>
-          <button class="uk-button uk-button-default uk-margin-small-right" type="button" @click="start_from_modal">
+          <button class="uk-button uk-button-primary uk-margin-small-right" type="button" @click="start_from_modal">
             Start
           </button>
         </form>
       </div>
     </div>
 
-    <h3>Project: {{ pid }} | Script: {{ id }}</h3>
+    <h3 class="text" >Project: {{ pid }} | Script: {{ id }}</h3>
 
     <Test v-for="test in reversedTests" :key="test.id" :test="test" @stop_me="stop(test.id)" @delete_me="del(test.id)"
       @restart_me="restart(test.info)" @download_me="download(test.id)" />
@@ -54,7 +56,7 @@ export default {
   components: {
     Test,
   },
-  props: ["pid", "id", "deletedProject"],
+  props: ["pid", "id", "deletedProject", "darkTheme"],
   watch: {
     deletedProject: function () {
       if (this.pid == this.deletedProject.id) {

@@ -1,8 +1,8 @@
 <template>
   <div>
-    <h3>Check: {{ pid }} | Script: {{ id }}</h3>
+    <h3 class="text">Check: {{ pid }} | Script: {{ id }}</h3>
     <div v-if="loading" uk-spinner></div>
-    <div class="check-content">{{ content }}</div>
+    <div class="check-content text">{{ content }}</div>
   </div>
 </template>
 
