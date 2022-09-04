@@ -1,0 +1,15 @@
+.wrapper.dark{
+    background-color: #1e1e1e;
+}
+
+.dark .uk-navbar-container:not(.uk-navbar-transparent) {
+    background: #1e1e1e;
+}
+
+.dark .text, .dark .uk-navbar-nav>li>a , .dark .uk-navbar-item {
+    color: #fff;
+}
+
+.dark .uk-navbar-nav>li>a:hover {
+    color: #1e87f0;
+}

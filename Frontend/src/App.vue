@@ -1,9 +1,13 @@
 <template>
-  <div>
+  <div id="wrapper" class="wrapper" :class="{
+    dark: darkTheme,
+  }">
     <nav class="uk-navbar-container uk-margin" uk-navbar>
       <div class="uk-navbar-left">
         <ul class="uk-navbar-nav">
-          <li><router-link :to="{ name: 'Home' }">Home</router-link></li>
+          <li>
+            <router-link :to="{ name: 'Home' }">Home</router-link>
+          </li>
           <li><a href="#">Control</a></li>
           <li><a href="#">Live</a></li>
           <li><a href="/explore" target="_blank">Exlpore</a></li>
@@ -11,6 +15,20 @@
       </div>
       <div class="uk-navbar-right">
         <ul class="uk-navbar-nav">
+
+          <li>
+            <div class="uk-navbar-item">
+              <label class="switch">
+                <input type="checkbox" v-model="darkTheme">
+                <span class="slider round"></span>
+              </label>
+              <!--
+              <div class="moon-container">
+                <img src="../public/fav/half-moon.png" alt="moon">
+              </div>
+              -->
+            </div>
+          </li>
           <li>
             <div class="uk-navbar-item">
               <span uk-icon="users"></span>
@@ -43,6 +61,7 @@
       <router-view :newProject="newProject" :deletedProject="deletedProject" />
     </div>
   </div>
+
 </template>
 
 <script>
@@ -57,6 +76,7 @@ export default {
       showInstallingProjects: false,
       newProject: null,
       deletedProject: null,
+      darkTheme: false
     };
   },
   methods: {

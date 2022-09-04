@@ -23,22 +23,22 @@
               </button>
               <div v-if="uploading" uk-spinner class="upload-spinner"></div>
             </div>
-            <progress v-if="uploading" max="100" :value="percentCompleted"> </progress>
+            <progress class="uk-progress" v-if="uploading" max="100" :value="percentCompleted"> </progress>
             <h5>{{ uploadMessage }}</h5>
           </div>
         </form>
       </div>
     </div>
 
-    <h1>Projects</h1>
+    <h1 class="text">Projects</h1>
     <ul class="uk-list">
       <li v-for="project in projects" :key="project.id" v-motion :initial="{
         opacity: 0,
         x: 50,
       }" :enter="{
-  opacity: 1,
-  x: 0,
-}">
+        opacity: 1,
+        x: 0,
+      }">
         <div class="uk-card uk-card-default uk-card-body">
           <label class="checkbox-label">
             <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted" />
