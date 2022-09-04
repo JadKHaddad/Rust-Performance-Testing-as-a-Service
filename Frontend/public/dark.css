@@ -1,5 +1,9 @@
 .wrapper.dark{
-    background-color: #1e1e1e;
+    background-color: #2a2a2a;
+}
+
+.dark .content{
+    background-color: #2a2a2a;
 }
 
 .dark .uk-navbar-container:not(.uk-navbar-transparent) {

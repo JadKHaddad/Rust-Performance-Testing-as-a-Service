@@ -44,7 +44,7 @@
 
     <h3 class="text" >Project: {{ pid }} | Script: {{ id }}</h3>
 
-    <Test v-for="test in reversedTests" :key="test.id" :test="test" @stop_me="stop(test.id)" @delete_me="del(test.id)"
+    <Test v-for="test in reversedTests" :key="test.id" :test="test" :darkTheme="darkTheme" @stop_me="stop(test.id)" @delete_me="del(test.id)"
       @restart_me="restart(test.info)" @download_me="download(test.id)" />
   </div>
 </template>

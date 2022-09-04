@@ -10,12 +10,12 @@
       >
         <thead>
           <tr>
-            <th>{{ test.id }}</th>
-            <th>{{ test.info.users }}</th>
-            <th>{{ test.info.spawn_rate }}</th>
-            <th>{{ test.info.workers }}</th>
-            <th>{{ test.info.host }}</th>
-            <th>{{ test.info.time }}</th>
+            <th class="text">{{ test.id }}</th>
+            <th class="text">{{ test.info.users }}</th>
+            <th class="text">{{ test.info.spawn_rate }}</th>
+            <th class="text">{{ test.info.workers }}</th>
+            <th class="text">{{ test.info.host }}</th>
+            <th class="text">{{ test.info.time }}</th>
             <th></th>
             <th></th>
             <th></th>
@@ -72,8 +72,12 @@
 <script>
 export default {
   name: "Test",
-  props: ["test"],
+  props: ["test", "darkTheme"],
   watch: {
+    darkTheme: function (newVal, oldVal) {
+      this.chart.options.theme = newVal ? "dark1" : "light1";
+      this.chart.render();
+    },
     test: {
       handler(newVal) {
         const lastHistory = newVal.last_history;
@@ -175,11 +179,13 @@ export default {
           });
         }
       }
+      var theme = "light1";
+      if (this.darkTheme) theme = "dark1";
       this.chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
         animationEnabled: true,
         zoomEnabled: true,
         //exportEnabled: true,
-        //theme: "dark2",
+        theme: theme,
         axisX: {
           gridThickness: 0,
           lineThickness: 1,
