@@ -238,9 +238,10 @@ async fn main() -> Result<(), std::io::Error> {
         shared::get_date_and_time(), port, worker_name, master_ip, redis_host, redis_port
     );
 
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "poem=debug");
-    }
+    // set poem on debug
+    // if std::env::var_os("RUST_LOG").is_none() {
+    //     std::env::set_var("RUST_LOG", "poem=debug");
+    // }
 
     //tests
     //let running_tests: Arc<RwLock<HashMap<String, Child>>> = Arc::new(RwLock::new(HashMap::new()));
