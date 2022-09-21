@@ -34,8 +34,8 @@ pub const TEST_DELETED: &str = "TEST_DELETED";
 pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
 pub mod models;
-pub mod zip;
 pub mod plot;
+pub mod zip;
 
 pub fn get_a_free_port() -> Result<u16, String> {
     let mut port = 5000;
@@ -101,6 +101,10 @@ pub fn get_a_project_results_dir(id: &str) -> PathBuf {
 
 pub fn get_a_script_results_dir(project_id: &str, script_id: &str) -> PathBuf {
     get_a_project_results_dir(project_id).join(script_id)
+}
+
+pub fn get_config_file(project_id: &str, script_id: &str) -> PathBuf {
+    get_a_locust_dir(project_id).join(format!("{}.json", script_id))
 }
 
 pub fn get_a_test_results_dir(project_id: &str, script_id: &str, test_id: &str) -> PathBuf {
@@ -206,6 +210,20 @@ pub fn get_results(
         results.push(row);
     }
     return Some(results);
+}
+
+pub fn get_config(project_id: &str, script_id: &str) -> Option<models::TestConfig> {
+    let config_file = get_config_file(project_id, script_id);
+    println!("{:?}", config_file);
+    let json_string = match std::fs::read_to_string(config_file) {
+        Ok(res) => res,
+        Err(_) => return None,
+    };
+    if let Ok(config) = serde_json::from_str(&json_string) {
+        return Some(config);
+    } else {
+        return None;
+    };
 }
 
 pub fn get_info(

@@ -273,3 +273,7 @@ input.checkbox-input:checked~.checkbox {
     border-radius: 50%;
   }
 /*end of slider*/
+
+.uk-table tbody tr {
+    transition: background-color 0s ease-in;
+}

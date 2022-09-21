@@ -376,7 +376,8 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
         let mut scripts = Vec::new();
         for script_file in locust_dir {
             let script_file = script_file?;
-            if script_file.metadata()?.is_dir() {
+            let metadata = script_file.metadata()?;
+            if metadata.is_dir() {
                 continue;
             }
             let script_name = script_file
@@ -384,6 +385,12 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
                 .to_str()
                 .ok_or("Parse Error")?
                 .to_owned();
+            let extension = Path::new(&script_name).extension();
+            if let Some(extension) = extension {
+                if extension != "py" {
+                    continue
+                }
+            }
             scripts.push(script_name);
         }
         content.projects.push(models::http::projects::Project {
@@ -411,7 +418,8 @@ pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>
 
     for script_file in locust_dir {
         let script_file = script_file?;
-        if script_file.metadata()?.is_dir() {
+        let metadata = script_file.metadata()?;
+        if metadata.is_dir() {
             continue;
         }
         let script_name = script_file
@@ -419,6 +427,12 @@ pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>
             .to_str()
             .ok_or("Parse Error")?
             .to_owned();
+        let extension = Path::new(&script_name).extension();
+            if let Some(extension) = extension {
+                if extension != "py" {
+                    continue
+                }
+            }
         content.scripts.push(script_name);
     }
 

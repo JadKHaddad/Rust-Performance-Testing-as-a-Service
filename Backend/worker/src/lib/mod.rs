@@ -274,6 +274,12 @@ pub async fn start_test(
             csv_command,
         );
         if workers > 0 {
+            let mut enable_worker_id = false;
+            let config = shared::get_config(&project_id, &script_id);
+            if let Some(config) = config {
+                enable_worker_id = config.enable_worker_id;
+            }
+
             let port;
             if let Ok(port_) = shared::get_a_free_port() {
                 port = port_;
@@ -296,6 +302,12 @@ pub async fn start_test(
             );
             let mut children = Vec::with_capacity(workers as usize);
             for i in 0..workers {
+                let worker_id_flag = if enable_worker_id {
+                    format!("--worker-id={}", i+1)
+                }else{
+                    String::new()
+                };
+
                 let log_file_relative_path_for_worker =
                     shared::get_log_file_relative_path_for_worker(
                         project_id,
@@ -303,20 +315,20 @@ pub async fn start_test(
                         &id,
                         i + 1,
                     );
-
                 children.push(
                     Command::new("bash")
                         .current_dir(shared::get_a_project_dir(&project_id))
                         .args(&[
                             "-c",
                             &format!(
-                                "{} -f {} --logfile {} --worker --master-port={}",
+                                "{} -f {} --logfile {} --worker --master-port={} {}",
                                 can_locust_location_linux.to_str().ok_or("Run Error")?,
                                 can_locust_file.to_str().ok_or("Run Error")?,
                                 log_file_relative_path_for_worker
                                     .to_str()
                                     .ok_or("Run Error")?,
-                                port
+                                port,
+                                worker_id_flag
                             ),
                         ])
                         .stdout(Stdio::inherit())
