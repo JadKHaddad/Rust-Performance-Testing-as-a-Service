@@ -30,3 +30,10 @@
 .dark .uk-navbar-nav>li>a:hover {
     color: #1e87f0;
 }
+
+.dark .row:nth-child(odd) {
+    background-color:#1e1e1e;
+}
+
+
+

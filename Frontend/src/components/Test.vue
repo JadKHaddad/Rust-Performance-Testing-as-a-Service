@@ -25,32 +25,32 @@
         </thead>
         <thead>
           <tr>
-            <th>Type</th>
-            <th>Name</th>
-            <th>Requests</th>
-            <th>Failures</th>
-            <th>Med Res Time</th>
-            <th>Avg Res Time</th>
-            <th>Min Res Time</th>
-            <th>Max Res Time</th>
-            <th>Avg Content Size</th>
-            <th>Requests/s</th>
-            <th>Failures/s</th>
+            <th class="text">Type</th>
+            <th class="text">Name</th>
+            <th class="text">Requests</th>
+            <th class="text">Failures</th>
+            <th class="text">Med Res Time</th>
+            <th class="text">Avg Res Time</th>
+            <th class="text">Min Res Time</th>
+            <th class="text">Max Res Time</th>
+            <th class="text">Avg Content Size</th>
+            <th class="text">Requests/s</th>
+            <th class="text">Failures/s</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="result in test.results" :key="result">
-            <td>{{ result.type }}</td>
-            <td>{{ result.name }}</td>
-            <td>{{ result.request_count }}</td>
-            <td>{{ result.failure_count }}</td>
-            <td>{{ result.median_response_time.slice(0, 6) }}</td>
-            <td>{{ result.avarage_response_time.slice(0, 6) }}</td>
-            <td>{{ result.min_response_time.slice(0, 6) }}</td>
-            <td>{{ result.max_response_time.slice(0, 6) }}</td>
-            <td>{{ result.avarage_content_size.slice(0, 6) }}</td>
-            <td>{{ result.requests_per_second.slice(0, 6) }}</td>
-            <td>{{ result.failures_per_seconde.slice(0, 6) }}</td>
+          <tr class="row" v-for="result in test.results" :key="result">
+            <td class="text">{{ result.type }}</td>
+            <td class="text">{{ result.name }}</td>
+            <td class="text">{{ result.request_count }}</td>
+            <td class="text">{{ result.failure_count }}</td>
+            <td class="text">{{ result.median_response_time.slice(0, 6) }}</td>
+            <td class="text">{{ result.avarage_response_time.slice(0, 6) }}</td>
+            <td class="text">{{ result.min_response_time.slice(0, 6) }}</td>
+            <td class="text">{{ result.max_response_time.slice(0, 6) }}</td>
+            <td class="text">{{ result.avarage_content_size.slice(0, 6) }}</td>
+            <td class="text">{{ result.requests_per_second.slice(0, 6) }}</td>
+            <td class="text">{{ result.failures_per_seconde.slice(0, 6) }}</td>
           </tr>
         </tbody>
       </table>

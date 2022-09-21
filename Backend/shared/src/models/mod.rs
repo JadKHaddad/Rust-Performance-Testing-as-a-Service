@@ -13,6 +13,13 @@ pub struct Test {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct TestConfig {
+    #[serde(rename(serialize = "enable-worker-id"))]
+    #[serde(rename(deserialize = "enable-worker-id"))]
+    pub enable_worker_id: bool
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ResultRow {
     #[serde(rename(serialize = "type"))]
     #[serde(rename(deserialize = "Type"))]
