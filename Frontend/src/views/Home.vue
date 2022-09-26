@@ -1,13 +1,18 @@
 <template>
   <div>
-    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" uk-toggle="target: #upload-modal"
-      @click="uploadMessage = ''">
-      Upload
-    </button>
-    <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="deleteProjects">
-      Delete
-    </button>
-
+    <div  class="uk-grid-small uk-child-width-1-2@s uk-flex-center uk-text-center" uk-grid>
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" uk-toggle="target: #upload-modal"
+          @click="uploadMessage = ''">
+          Upload
+        </button>
+      </div>
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-danger" type="button" @click="deleteProjects">
+          Delete
+        </button>
+      </div>
+    </div>
     <div id="upload-modal" uk-modal ref="upload-modal" >
       <div class="uk-modal-dialog uk-modal-body" :class="{
       dark: darkTheme,
@@ -33,7 +38,36 @@
     </div>
 
     <h1 class="text">Projects</h1>
-    <ul class="uk-list">
+    <div class="uk-grid uk-flex-center uk-text-center" uk-grid>
+    <div v-for="project in projects" :key="project.id" v-motion :initial="{
+        opacity: 0,
+        x: 50,
+      }" :enter="{
+        opacity: 1,
+        x: 0,
+      }">
+        <div class="uk-card uk-card-default uk-width-auto@m uk-card-body">
+          <label class="checkbox-label">
+            <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted" />
+            <span class="checkbox"> </span>
+          </label>
+          <h3 class="uk-card-title text">{{ project.id }}</h3>
+          <ul class="uk-list uk-list-divider script-list">
+            <li v-for="script in project.scripts" :key="script">
+              <router-link :to="{
+                name: 'Script',
+                params: { pid: project.id, id: script },
+              }">
+                {{ script }}
+              </router-link>
+            </li>
+          </ul>
+        </div>
+      </div>
+    
+    
+</div>
+    <!-- <ul class="uk-list">
       <li v-for="project in projects" :key="project.id" v-motion :initial="{
         opacity: 0,
         x: 50,
@@ -59,7 +93,7 @@
           </ul>
         </div>
       </li>
-    </ul>
+    </ul> -->
     <br />
     <br />
   </div>

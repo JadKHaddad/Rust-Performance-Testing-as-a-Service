@@ -27,6 +27,7 @@
     color: #fff;
 }
 
+/*Test table*/
 .dark .uk-navbar-nav>li>a:hover {
     color: #1e87f0;
 }
@@ -34,6 +35,15 @@
 .dark .row:nth-child(odd) {
     background-color:#1e1e1e;
 }
+/*End of Test table*/
 
+/*Tooltips*/
+.dark .uk-navbar-dropdown {
+    background-color:#1e1e1e;
+    color: #fff;
+}
 
-
+/*Notifications*/
+.dark .uk-notification-message{
+    background-color:#1e1e1e;
+}

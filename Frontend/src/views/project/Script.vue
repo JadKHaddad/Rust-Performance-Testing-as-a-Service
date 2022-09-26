@@ -1,15 +1,22 @@
 <template>
   <div>
-    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" uk-toggle="target: #start-modal">
-      Start
-    </button>
-    <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="check_script">
-      Check
-    </button>
-    <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="stop_all">
-      Stop All
-    </button>
-
+    <div  class="uk-grid-small uk-child-width-1-3@s uk-flex-center uk-text-center" uk-grid>
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" uk-toggle="target: #start-modal">
+          Start
+        </button>
+      </div>	
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" @click="check_script">
+          Check
+        </button>
+      </div>
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-danger" type="button" @click="stop_all">
+          Stop All
+        </button>
+      </div>
+      </div>
     <div id="start-modal" uk-modal ref="start-modal">
       <div class="uk-modal-dialog uk-modal-body" :class="{
       dark: darkTheme,

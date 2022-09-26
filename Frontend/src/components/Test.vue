@@ -1,10 +1,20 @@
 <template>
   <div class="test-container">
     <div class="uk-overflow-auto">
-      <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="stop_me()">Stop</button>
-      <button class="uk-button uk-margin-small-right uk-button-danger" type="button" @click="delete_me()">Delete</button>
-      <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="restart_me()">Restart</button>
-      <button class="uk-button uk-margin-small-right uk-button-primary" type="button" @click="download_me()">Download</button>
+      <div  class="uk-grid-small uk-child-width-1-4@s uk-text-center" uk-grid>
+        <div class="uk-width-auto@m">
+          <button class="uk-button uk-button-danger" type="button" @click="stop_me()">Stop</button>
+        </div>
+        <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-danger" type="button" @click="delete_me()">Delete</button>
+      </div>
+        <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" @click="restart_me()">Restart</button>
+      </div>
+        <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" @click="download_me()">Download</button>
+      </div>
+      </div>
       <table
         class="uk-table uk-table-small uk-table-striped uk-table-responsive"
       >

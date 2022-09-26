@@ -9,7 +9,13 @@
             <router-link :to="{ name: 'Home' }">Home</router-link>
           </li>
           <li><a href="#">Control</a></li>
+          <div class="uk-navbar-dropdown">
+            not implemented!
+          </div>
           <li><a href="#">Live</a></li>
+          <div class="uk-navbar-dropdown">
+            not implemented!
+          </div>
           <li><a href="/explore" target="_blank">Exlpore</a></li>
         </ul>
       </div>
@@ -58,13 +64,14 @@
       </div>
     </nav>
     <div class="content">
-      <router-view :newProject="newProject" :deletedProject="deletedProject" :darkTheme="darkTheme"/>
+      <router-view :newProject="newProject" :deletedProject="deletedProject" :darkTheme="darkTheme" />
     </div>
   </div>
 
 </template>
 
 <script>
+
 export default {
   name: "App",
   data() {
@@ -80,8 +87,24 @@ export default {
     };
   },
   methods: {
-    themeChanged(){
+    themeChanged() {
       localStorage.setItem("darkTheme", this.darkTheme);
+      this.handleDarkTheme()
+    },
+    handleDarkTheme() {
+      if (this.darkTheme) {
+        this.setBodyDark();
+      } else {
+        this.removeBodyDark();
+      }
+    },
+    setBodyDark() {
+      const body = document.body
+      body.classList.add('dark')
+    },
+    removeBodyDark() {
+      const body = document.body
+      body.classList.remove('dark')
     },
     notification(text, status, timeout) {
       UIkit.notification(text, {
@@ -92,8 +115,8 @@ export default {
     },
     connenctWebsocket() {
       this.ws = new WebSocket(`ws://${location.host}/api/master/ws`);
-      this.ws.onopen = () => {};
-      this.ws.onclose = () => {};
+      this.ws.onopen = () => { };
+      this.ws.onclose = () => { };
       this.ws.onmessage = (event) => {
         console.log(event.data);
         const data = JSON.parse(event.data);
@@ -161,10 +184,13 @@ export default {
   },
   created() {
     this.darkTheme = JSON.parse(localStorage.getItem("darkTheme"));
+    this.handleDarkTheme();
     this.connenctWebsocket();
   }
+
 };
 </script>
 
 <style>
+
 </style>
