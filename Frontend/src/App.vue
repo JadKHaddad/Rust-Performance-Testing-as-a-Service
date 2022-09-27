@@ -114,7 +114,12 @@ export default {
       });
     },
     connenctWebsocket() {
-      this.ws = new WebSocket(`ws://${location.host}/api/master/ws`);
+      var wsProtocol = "ws";
+      if (location.protocol == 'https:'){
+        wsProtocol = "wss";
+      }
+
+      this.ws = new WebSocket(`${wsProtocol}://${location.host}/api/master/ws`);
       this.ws.onopen = () => { };
       this.ws.onclose = () => { };
       this.ws.onmessage = (event) => {
