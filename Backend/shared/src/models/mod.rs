@@ -14,9 +14,15 @@ pub struct Test {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TestConfig {
-    #[serde(rename(serialize = "enable-worker-id"))]
+    #[serde(rename(serialize = "enable_worker_id"))]
     #[serde(rename(deserialize = "enable-worker-id"))]
-    pub enable_worker_id: bool
+    pub enable_worker_id: Option<bool>,
+    pub users: Option<u32>,
+    #[serde(rename(serialize = "spawn_rate"))]
+    #[serde(rename(deserialize = "spawn-rate"))]
+    pub spawn_rate: Option<u32>,
+    pub workers: Option<u32>,
+    pub host: Option<String>
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -263,6 +269,7 @@ pub mod http {
         #[derive(Debug, Serialize)]
         pub struct Content {
             pub tests: Vec<super::super::Test>,
+            pub config: Option<super::super::TestConfig>
         }
     }
 }

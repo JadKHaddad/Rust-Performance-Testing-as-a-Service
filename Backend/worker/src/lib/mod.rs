@@ -277,7 +277,9 @@ pub async fn start_test(
             let mut enable_worker_id = false;
             let config = shared::get_config(&project_id, &script_id);
             if let Some(config) = config {
-                enable_worker_id = config.enable_worker_id;
+                if let Some(enb) = config.enable_worker_id {
+                    enable_worker_id = enb;
+                } 
             }
 
             let port;

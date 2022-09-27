@@ -253,7 +253,11 @@ export default {
       .then((data) => data.json())
       .then((data) => {
         this.tests = data.content.tests;
-        console.log(this.tests);
+        const config = data.content.config
+        this.users = config.users;
+        this.spawnRate = config.spawn_rate;
+        this.workers = config.workers;
+        this.host = config.host;
       })
       .catch();
   },

@@ -459,7 +459,7 @@ pub async fn tests(
         } else {
             HashSet::new()
         };
-    let mut content = shared::models::http::tests::Content { tests: Vec::new() };
+    let mut content = shared::models::http::tests::Content { tests: Vec::new() , config: shared::get_config(&project_id, &script_id)};
     let script_dir =
         match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
             Ok(dir) => dir,
