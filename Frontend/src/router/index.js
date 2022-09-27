@@ -14,6 +14,12 @@ const routes = [
 
   },
   {
+    path: '/project/:pid',
+    name: 'Project',
+    component: () => import('../views/project/Project.vue'),
+    props: true
+  },
+  {
     path: '/project/:pid/:id',
     name: 'Script',
     component: () => import('../views/project/Script.vue'),
