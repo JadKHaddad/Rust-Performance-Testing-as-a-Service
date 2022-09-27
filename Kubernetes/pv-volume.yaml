@@ -12,3 +12,19 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: "/kubernetes/performance-testing/Performance-Testing-Data"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume-lib
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 6Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/kubernetes/performance-testing/lib"
