@@ -205,140 +205,149 @@ pub async fn upload(
     installing_tasks_guard.insert(project_name.to_str().ok_or("Upload Error")?.to_owned(), cmd);
     // run the thread
     let main_sender = main_sender.clone();
-    let mut currently_installing_projects_mutex = currently_installing_projects.lock().unwrap();
-    if !*currently_installing_projects_mutex {
-        *currently_installing_projects_mutex = true;
-        println!(
-            "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
-            shared::get_date_and_time()
-        );
-        let tokio_currently_installing_projects = currently_installing_projects.clone();
-        let tokio_installing_tasks = Arc::clone(&installing_tasks);
-        tokio::spawn(async move {
-            loop {
-                let mut to_be_deleted: Vec<String> = Vec::new();
-                let mut installing_projects: Vec<models::websocket::projects::Project> = Vec::new();
-                {
-                    let mut tokio_tasks_guard = tokio_installing_tasks.write();
-                    if tokio_tasks_guard.len() < 1 {
-                        *tokio_currently_installing_projects.lock().unwrap() = false;
-                        println!(
-                            "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
-                            shared::get_date_and_time()
-                        );
-                        break;
-                    }
-                    let mut to_be_removed: Vec<String> = Vec::new();
-                    //collect info if a user is connected
-                    for (id, cmd) in tokio_tasks_guard.iter_mut() {
-                        let mut project = models::websocket::projects::Project {
-                            id: id.to_owned(),
-                            status: 0,
-                            error: None,
-                        };
-                        match cmd.try_wait() {
-                            Ok(Some(exit_status)) => {
-                                // process finished
-                                to_be_removed.push(id.to_owned());
-                                project.status = 2;
-                                // delete on fail
-                                match exit_status.code() {
-                                    Some(code) => {
-                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
-                                        if code != 0 {
-                                            if let Some(stderr) = cmd.stderr.take() {
-                                                let err = child_stream_to_vec(stderr);
-                                                if let Ok(error_string) = str::from_utf8(&err) {
-                                                    to_be_deleted.push(id.to_owned());
-                                                    project.error = Some(error_string.to_owned());
-                                                    println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", shared::get_date_and_time(), id, error_string);
+    if let Ok(mut currently_installing_projects_mutex) = currently_installing_projects.lock() {
+        if !*currently_installing_projects_mutex {
+            *currently_installing_projects_mutex = true;
+            println!(
+                "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
+                shared::get_date_and_time()
+            );
+            let tokio_currently_installing_projects = currently_installing_projects.clone();
+            let tokio_installing_tasks = Arc::clone(&installing_tasks);
+            tokio::spawn(async move {
+                loop {
+                    let mut to_be_deleted: Vec<String> = Vec::new();
+                    let mut installing_projects: Vec<models::websocket::projects::Project> = Vec::new();
+                    {
+                        let mut tokio_tasks_guard = tokio_installing_tasks.write();
+                        if tokio_tasks_guard.len() < 1 {
+                            if let Ok(mut lock) = tokio_currently_installing_projects.lock(){
+                                *lock = false;
+                                println!(
+                                    "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
+                                    shared::get_date_and_time()
+                                );
+                            }else{
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: failed to lock", shared::get_date_and_time());
+                            }
+                            break;
+                        }
+                        let mut to_be_removed: Vec<String> = Vec::new();
+                        //collect info if a user is connected
+                        for (id, cmd) in tokio_tasks_guard.iter_mut() {
+                            let mut project = models::websocket::projects::Project {
+                                id: id.to_owned(),
+                                status: 0,
+                                error: None,
+                            };
+                            match cmd.try_wait() {
+                                Ok(Some(exit_status)) => {
+                                    // process finished
+                                    to_be_removed.push(id.to_owned());
+                                    project.status = 2;
+                                    // delete on fail
+                                    match exit_status.code() {
+                                        Some(code) => {
+                                            println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
+                                            if code != 0 {
+                                                if let Some(stderr) = cmd.stderr.take() {
+                                                    let err = child_stream_to_vec(stderr);
+                                                    if let Ok(error_string) = str::from_utf8(&err) {
+                                                        to_be_deleted.push(id.to_owned());
+                                                        project.error = Some(error_string.to_owned());
+                                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", shared::get_date_and_time(), id, error_string);
+                                                    }
                                                 }
-                                            }
-                                        } else {
-                                            project.status = 1; // process finished
-                                                                // move to installed projects
-                                            match move_dir_all(
-                                                shared::get_a_temp_dir(id),
-                                                shared::get_a_project_dir(id),
-                                            ) {
-                                                Ok(_) => {
-                                                    println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", shared::get_date_and_time(), id);
-                                                }
-                                                Err(e) => {
-                                                    eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", shared::get_date_and_time(), id, e);
+                                            } else {
+                                                project.status = 1; // process finished
+                                                                    // move to installed projects
+                                                match move_dir_all(
+                                                    shared::get_a_temp_dir(id),
+                                                    shared::get_a_project_dir(id),
+                                                ) {
+                                                    Ok(_) => {
+                                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", shared::get_date_and_time(), id);
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", shared::get_date_and_time(), id, e);
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
-                                    None => {
-                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated by signal!", shared::get_date_and_time(), id);
+                                        None => {
+                                            println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated by signal!", shared::get_date_and_time(), id);
+                                        }
                                     }
                                 }
+                                Ok(None) => {
+                                    project.status = 0; // process is running
+                                }
+                                Err(e) => {
+                                    eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", shared::get_date_and_time(), id, e);
+                                }
                             }
-                            Ok(None) => {
-                                project.status = 0; // process is running
-                            }
-                            Err(e) => {
-                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", shared::get_date_and_time(), id, e);
-                            }
+                            installing_projects.push(project);
                         }
-                        installing_projects.push(project);
+                        //remove finished
+                        for id in to_be_removed.iter() {
+                            tokio_tasks_guard.remove_entry(id);
+                            println!(
+                                "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] removed!",
+                                shared::get_date_and_time(),
+                                id
+                            );
+                        }
                     }
-                    //remove finished
-                    for id in to_be_removed.iter() {
-                        tokio_tasks_guard.remove_entry(id);
+                    //delete not valid
+                    for id in to_be_deleted.iter() {
+                        match std::fs::remove_dir_all(shared::get_a_temp_dir(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
+                            }
+                        };
+                        match std::fs::remove_dir_all(shared::get_an_environment_dir(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
+                            }
+                        };
                         println!(
-                            "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] removed!",
+                            "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!",
                             shared::get_date_and_time(),
                             id
                         );
                     }
-                }
-                //delete not valid
-                for id in to_be_deleted.iter() {
-                    match std::fs::remove_dir_all(shared::get_a_temp_dir(id)) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
-                        }
+                    // send info
+                    let websocket_message = models::websocket::WebSocketMessage {
+                        event_type: "PROJECTS",
+                        event: models::websocket::projects::Event {
+                            istalling_projects: installing_projects,
+                        },
                     };
-                    match std::fs::remove_dir_all(shared::get_an_environment_dir(id)) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
-                        }
-                    };
-                    println!(
-                        "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!",
-                        shared::get_date_and_time(),
-                        id
-                    );
+    
+                    if main_sender
+                        .send(serde_json::to_string(&websocket_message).unwrap())
+                        .is_err()
+                    {
+                        println!(
+                            "[{}] PROJECTS GARBAGE COLLECTOR: No clients are connected!",
+                            shared::get_date_and_time()
+                        );
+                    }
+                    sleep(Duration::from_secs(3)).await;
                 }
-                // send info
-                let websocket_message = models::websocket::WebSocketMessage {
-                    event_type: "PROJECTS",
-                    event: models::websocket::projects::Event {
-                        istalling_projects: installing_projects,
-                    },
-                };
-
-                if main_sender
-                    .send(serde_json::to_string(&websocket_message).unwrap())
-                    .is_err()
-                {
-                    println!(
-                        "[{}] PROJECTS GARBAGE COLLECTOR: No clients are connected!",
-                        shared::get_date_and_time()
-                    );
-                }
-                sleep(Duration::from_secs(3)).await;
-            }
-        });
-    } else {
-        println!(
-            "[{}] PROJECTS GARBAGE COLLECTOR: Already running!",
-            shared::get_date_and_time()
-        );
+            });
+        } else {
+            println!(
+                "[{}] PROJECTS GARBAGE COLLECTOR: Already running!",
+                shared::get_date_and_time()
+            );
+        }
+    }
+    else{
+        eprintln!("[{}] ERROR: MASTER: Project [{:#?}] failed to lock", shared::get_date_and_time(), project_name);
+        Err("Could not lock. System error")?;
     }
     Ok(serde_json::to_string(&response).unwrap())
 }
