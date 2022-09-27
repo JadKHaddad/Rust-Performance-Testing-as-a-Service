@@ -7,9 +7,9 @@ RUN apt update
 RUN addgroup --system app && adduser app --system --ingroup app
 RUN chown -R app /home/app
 
-# pjsua build: python3-dev gcc g++ make swig
+# pjsua build: git python3-dev gcc g++ make swig
 # poem: libssl-dev
 # plots: libfontconfig libfontconfig1-dev
-RUN apt install -y python3 python3-pip python3-dev gcc g++ make swig libssl-dev libfontconfig libfontconfig1-dev
+RUN apt install -y python3 python3-pip python3-dev git gcc g++ make swig libssl-dev libfontconfig libfontconfig1-dev
 
 RUN pip3 install virtualenv

@@ -98,8 +98,12 @@ export default {
       UIkit.modal(this.$refs["start-modal"]).hide();
     },
     connenctWebsocket() {
+      var wsProtocol = "ws";
+      if (location.protocol == 'https:'){
+        wsProtocol = "wss";
+      }
       this.ws = new WebSocket(
-        `ws://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
+        `${wsProtocol}://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
       );
       this.ws.onopen = () => { };
       this.ws.onclose = () => { };
