@@ -279,3 +279,14 @@ input.checkbox-input:checked~.checkbox {
 .uk-table tbody tr {
     transition: background-color 0s ease-in;
 }
+
+.navigation-h {
+    cursor: pointer; 
+}
+
+.code{
+    text-align: left;
+    padding: 20px;
+    border: none;
+    border-radius: 0;
+}

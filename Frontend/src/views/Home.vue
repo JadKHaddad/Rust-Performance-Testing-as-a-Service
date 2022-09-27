@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div  class="uk-grid-small uk-child-width-1-2@s uk-flex-center uk-text-center" uk-grid>
+    <div class="uk-grid-small uk-child-width-1-2@s uk-flex-center uk-text-center" uk-grid>
       <div class="uk-width-auto@m">
         <button class="uk-button uk-button-primary" type="button" uk-toggle="target: #upload-modal"
           @click="uploadMessage = ''">
@@ -13,13 +13,13 @@
         </button>
       </div>
     </div>
-    <div id="upload-modal" uk-modal ref="upload-modal" >
+    <div id="upload-modal" uk-modal ref="upload-modal">
       <div class="uk-modal-dialog uk-modal-body" :class="{
-      dark: darkTheme,
-    }">
+        dark: darkTheme,
+      }">
         <form>
           <div class="uk-margin" uk-margin>
-            <h2 class="text" >Upload a new project</h2>
+            <h2 class="text">Upload a new project</h2>
             <div class="upload-container">
               <div uk-form-custom="target: true">
                 <input type="file" webkitdirectory mozdirectory ref="files" />
@@ -39,7 +39,7 @@
 
     <h1 class="text">Projects</h1>
     <div class="uk-grid uk-flex-center uk-text-center" uk-grid>
-    <div v-for="project in projects" :key="project.id" v-motion :initial="{
+      <div v-for="project in projects" :key="project.id" v-motion :initial="{
         opacity: 0,
         x: 50,
       }" :enter="{
@@ -51,7 +51,7 @@
             <input type="checkbox" class="checkbox-input" :value="project.id" v-model="projectsToBeDeleted" />
             <span class="checkbox"> </span>
           </label>
-          <h3 class="uk-card-title text">{{ project.id }}</h3>
+          <h3 class="uk-card-title text navigation-h" @click="navigateToProject(project.id)">{{ project.id }}</h3>
           <ul class="uk-list uk-list-divider script-list">
             <li v-for="script in project.scripts" :key="script">
               <router-link :to="{
@@ -64,9 +64,7 @@
           </ul>
         </div>
       </div>
-    
-    
-</div>
+    </div>
     <!-- <ul class="uk-list">
       <li v-for="project in projects" :key="project.id" v-motion :initial="{
         opacity: 0,
@@ -123,12 +121,14 @@ export default {
     };
   },
   methods: {
+    navigateToProject(pid) {
+      this.$router.push({ name: 'Project', params: { pid: pid } });
+    },
     getProjects() {
       fetch("/api/master/projects")
         .then((data) => data.json())
         .then((data) => {
           this.projects = data.content.projects;
-          console.log(data);
         })
         .catch();
     },

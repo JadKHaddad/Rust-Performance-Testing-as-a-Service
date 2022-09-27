@@ -14,6 +14,12 @@ const routes = [
 
   },
   {
+    path: '/project/:pid',
+    name: 'Project',
+    component: () => import('../views/project/Project.vue'),
+    props: true
+  },
+  {
     path: '/project/:pid/:id',
     name: 'Script',
     component: () => import('../views/project/Script.vue'),
@@ -23,6 +29,12 @@ const routes = [
     path: '/check/:pid/:id',
     name: 'Check',
     component: () => import('../views/Check.vue'),
+    props: true
+  },
+  {
+    path: '/preview/:pid/:id',
+    name: 'Preview',
+    component: () => import('../views/Preview.vue'),
     props: true
   },
   //404

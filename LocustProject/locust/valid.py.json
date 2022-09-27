@@ -1,3 +1,7 @@
 {
-    "enable-worker-id": false
+    "enable-worker-id": false,
+    "users": 10,
+    "spawn-rate": 3,
+    "workers": 0,
+    "host": "https://google.com" 
 }
