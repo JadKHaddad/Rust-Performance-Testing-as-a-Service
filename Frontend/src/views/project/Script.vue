@@ -1,11 +1,16 @@
 <template>
   <div>
-    <div  class="uk-grid-small uk-child-width-1-3@s uk-flex-center uk-text-center" uk-grid>
+    <div  class="uk-grid-small uk-child-width-1-4@s uk-flex-center uk-text-center" uk-grid>
       <div class="uk-width-auto@m">
         <button class="uk-button uk-button-primary" type="button" uk-toggle="target: #start-modal">
           Start
         </button>
       </div>	
+      <div class="uk-width-auto@m">
+        <button class="uk-button uk-button-primary" type="button" @click="preview_script">
+          Preview
+        </button>
+      </div>
       <div class="uk-width-auto@m">
         <button class="uk-button uk-button-primary" type="button" @click="check_script">
           Check
@@ -243,6 +248,9 @@ export default {
         .catch(() => { });
       return false;
     },
+    preview_script(){
+      this.$router.push({ name: 'Preview', params: { pid: this.pid, id: this.id } })
+    },
     check_script() {
       this.$router.push({ name: 'Check', params: { pid: this.pid, id: this.id } })
     }
@@ -254,10 +262,13 @@ export default {
       .then((data) => {
         this.tests = data.content.tests;
         const config = data.content.config
-        this.users = config.users;
-        this.spawnRate = config.spawn_rate;
-        this.workers = config.workers;
-        this.host = config.host;
+        if (config){
+          this.users = config.users;
+          this.spawnRate = config.spawn_rate;
+          this.workers = config.workers;
+          this.host = config.host;
+        }
+
       })
       .catch();
   },

@@ -31,6 +31,12 @@ const routes = [
     component: () => import('../views/Check.vue'),
     props: true
   },
+  {
+    path: '/preview/:pid/:id',
+    name: 'Preview',
+    component: () => import('../views/Preview.vue'),
+    props: true
+  },
   //404
   {
     path: '/:catchAll(.*)',

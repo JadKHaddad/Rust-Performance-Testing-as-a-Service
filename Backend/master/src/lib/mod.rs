@@ -1021,3 +1021,14 @@ pub fn check_script<'a>(project_id: &'a str, script_id: &'a str) -> Result<Strin
 
     return Ok(serde_json::to_string(&response).unwrap());
 }
+
+pub fn preview_script(project_id: &str, script_id: &str) -> Result<String, Box<dyn Error>> {
+    let script_content =  shared::read_script_content(project_id, script_id);
+    let response = models::http::Response::<String> {
+        success: true,
+        message: "Test preview",
+        error: None,
+        content: script_content,
+    };
+    return Ok(serde_json::to_string(&response).unwrap());
+}

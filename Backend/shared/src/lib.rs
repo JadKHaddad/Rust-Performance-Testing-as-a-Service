@@ -103,6 +103,10 @@ pub fn get_a_script_results_dir(project_id: &str, script_id: &str) -> PathBuf {
     get_a_project_results_dir(project_id).join(script_id)
 }
 
+pub fn get_script_file(project_id: &str, script_id: &str) -> PathBuf {
+    get_a_locust_dir(project_id).join(script_id)
+}
+
 pub fn get_config_file(project_id: &str, script_id: &str) -> PathBuf {
     get_a_locust_dir(project_id).join(format!("{}.json", script_id))
 }
@@ -214,7 +218,6 @@ pub fn get_results(
 
 pub fn get_config(project_id: &str, script_id: &str) -> Option<models::TestConfig> {
     let config_file = get_config_file(project_id, script_id);
-    println!("{:?}", config_file);
     let json_string = match std::fs::read_to_string(config_file) {
         Ok(res) => res,
         Err(_) => return None,
@@ -223,6 +226,14 @@ pub fn get_config(project_id: &str, script_id: &str) -> Option<models::TestConfi
         return Some(config);
     } else {
         return None;
+    };
+}
+
+pub fn read_script_content(project_id: &str, script_id: &str) -> Option<String> {
+    let file = get_script_file(project_id, script_id);
+    match std::fs::read_to_string(file) {
+        Ok(res) => return Some(res),
+        Err(_) => return None,
     };
 }
 
