@@ -23,9 +23,6 @@ spec:
       - name: task-pv-storage
         persistentVolumeClaim:
           claimName: pv-claim
-      - name: task-pv-storage-lib
-        persistentVolumeClaim:
-          claimName: pv-claim-lib
       containers:
       - name: master
         image: localhost:32000/master-release:latest
@@ -42,8 +39,6 @@ spec:
         volumeMounts:
         - mountPath: "/home/app/Backend/Performance-Testing-Data"
           name: task-pv-storage
-        - mountPath: "/usr/local/lib"
-          name: task-pv-storage-lib
         securityContext:
           allowPrivilegeEscalation: false
 
