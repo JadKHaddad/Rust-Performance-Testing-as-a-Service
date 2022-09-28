@@ -6,18 +6,18 @@ networks:
     name: network
 
 services:
-  builder:
-    container_name: builder
-    image: builder
-    build:
-      context: ../
-      dockerfile: ./Dockerfiles/Dockerfile.builder
-  runner:
-    container_name: runner
-    image: runner
-    build:
-      context: ../
-      dockerfile: ./Dockerfiles/Dockerfile.runner
+  # builder:
+  #   container_name: builder
+  #   image: builder
+  #   build:
+  #     context: ../
+  #     dockerfile: ./Dockerfiles/Dockerfile.builder
+  # runner:
+  #   container_name: runner
+  #   image: runner
+  #   build:
+  #     context: ../
+  #     dockerfile: ./Dockerfiles/Dockerfile.runner
   redis:
     container_name: redis
     image: redis:latest
@@ -40,8 +40,8 @@ services:
     networks: 
       - network
     restart: on-failure
-  worker:
-    container_name: worker
+  worker-1:
+    container_name: worker_1
     build:
       context: ../
       dockerfile: ./Dockerfiles/Dockerfile.worker-release
@@ -50,11 +50,29 @@ services:
     environment:
       - REDIS_HOST=redis
       - MASTER_IP=master:3000
-      - WORKER_NAME=worker:5000
+      - WORKER_NAME=worker_1:5000
     volumes:
       - ./Performance-Testing-Data:/home/app/Backend/Performance-Testing-Data
     ports:
-      - "5000:5000"
+      - "5001:5000"
+    networks: 
+      - network
+    restart: on-failure
+  worker-2:
+    container_name: worker_2
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.worker-release
+    user: root
+    image: localhost:32000/worker-release
+    environment:
+      - REDIS_HOST=redis
+      - MASTER_IP=master:3000
+      - WORKER_NAME=worker_2:5000
+    volumes:
+      - ./Performance-Testing-Data:/home/app/Backend/Performance-Testing-Data
+    ports:
+      - "5002:5000"
     networks: 
       - network
     restart: on-failure
@@ -66,6 +84,28 @@ services:
     image: localhost:32000/frontend
     ports:
       - "7000:80"
+    networks: 
+      - network
+    restart: on-failure
+  loadbalancer:
+    container_name: loadbalancer
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.loadbalancer
+    image: localhost:32000/loadbalancer
+    ports:
+      - "5000:80"
+    networks: 
+      - network
+    restart: on-failure
+  entrypoint:
+    container_name: entrypoint
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.entrypoint
+    image: localhost:32000/entrypoint
+    ports:
+      - "8000:80"
     networks: 
       - network
     restart: on-failure

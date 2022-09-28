@@ -101,12 +101,12 @@ spec:
 ## Architecture
 ![architecture](https://github.com/JadKHaddad/Rust-Performance-Testing-as-a-Service/blob/main/Assets/architecture.png?raw=true)
 
-## Run with Docker-Compose (one worker)
+## Run with Docker-Compose
 
 ```sh
 docker-compose -f Dockerfiles/Docker-compose.yaml up
 ```
-* Use nginx configurations in ```Dockerfiles/Docker-compose-nginx.conf``` to configure the reverse proxy
+* Entrypoint is ```host:8000```
 
 ## Contributors
 * Jad K. Haddad <jadkhaddad@gmail.com>
