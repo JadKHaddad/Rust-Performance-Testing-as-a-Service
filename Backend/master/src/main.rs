@@ -145,7 +145,19 @@ async fn download_test(
     //     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     // }
     //TODO!: stop the test before downloading
-    shared::plot::plot(&project_id, &script_id, &test_id, &plot_file_str).unwrap();
+    match shared::plot::plot(&project_id, &script_id, &test_id, &plot_file_str) {
+        Err(_) => {
+            let test_id = shared::encode_test_id(&project_id, &script_id, &test_id);
+            eprintln!(
+                "[{}] MASTER: PLOTTER: [{}] could not find results!",
+                shared::get_date_and_time(),
+                test_id
+            );
+        },
+        _ => {
+
+        }
+    }
     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     Ok(req.create_response(&zip_file_str, true)?)
 }

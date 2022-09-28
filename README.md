@@ -14,19 +14,28 @@ microk8s enable dns registry ingress metallb
 * Build the helper images
 ```sh
 docker build -t builder:latest -f Dockerfiles/Dockerfile.builder .
+```
+```sh
 docker build -t runner:latest -f Dockerfiles/Dockerfile.runner .
 ```
-* Build the images and push them to the local registry
+* Build the images
 ```sh
 docker build -t localhost:32000/master-release:latest -f Dockerfiles/Dockerfile.master-release .
-docker push localhost:32000/master-release:latest
 ```
 ```sh
 docker build -t localhost:32000/worker-release:latest -f Dockerfiles/Dockerfile.worker-release .
-docker push localhost:32000/worker-release:latest
 ```
 ```sh
 docker build -t localhost:32000/frontend:latest -f Dockerfiles/Dockerfile.frontend .
+```
+* Or use docker compose to build the images
+```sh
+docker-compose -f Dockerfiles/Docker-compose.yaml build
+```
+* Push the images to the local registry
+```sh
+docker push localhost:32000/master-release:latest
+docker push localhost:32000/worker-release:latest
 docker push localhost:32000/frontend:latest
 ```
 * Create the namespace
@@ -91,6 +100,13 @@ spec:
 
 ## Architecture
 ![architecture](https://github.com/JadKHaddad/Rust-Performance-Testing-as-a-Service/blob/main/Assets/architecture.png?raw=true)
+
+## Run with Docker-Compose (one worker)
+
+```sh
+docker-compose -f Dockerfiles/Docker-compose.yaml up
+```
+* Use nginx configurations in ```Dockerfiles/Docker-compose-nginx.conf``` to configure the reverse proxy
 
 ## Contributors
 * Jad K. Haddad <jadkhaddad@gmail.com>
