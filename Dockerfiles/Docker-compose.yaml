@@ -6,13 +6,30 @@ networks:
     name: network
 
 services:
+  builder:
+    container_name: builder
+    image: builder
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.builder
+  runner:
+    container_name: runner
+    image: runner
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.runner
   redis:
     container_name: redis
     image: redis:latest
     networks: 
       - network
+    restart: on-failure
   master:
     container_name: master
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.master-release
+    user: root
     image: localhost:32000/master-release
     environment:
       - REDIS_HOST=redis
@@ -22,8 +39,13 @@ services:
       - "3000:3000"
     networks: 
       - network
+    restart: on-failure
   worker:
     container_name: worker
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.worker-release
+    user: root
     image: localhost:32000/worker-release
     environment:
       - REDIS_HOST=redis
@@ -35,10 +57,15 @@ services:
       - "5000:5000"
     networks: 
       - network
+    restart: on-failure
   frontend:
     container_name: frontend
+    build:
+      context: ../
+      dockerfile: ./Dockerfiles/Dockerfile.frontend
     image: localhost:32000/frontend
     ports:
       - "7000:80"
     networks: 
       - network
+    restart: on-failure
