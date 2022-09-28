@@ -13,6 +13,16 @@ RUN chown -R app /home/app
 RUN apt install -y python3 python3-pip python3-dev git gcc g++ make swig libssl-dev libfontconfig libfontconfig1-dev
 
 # install pjsip
+WORKDIR /home
+RUN git clone https://github.com/JadKHaddad/THE-PJPROJECT.git --depth 1 THE-PJPROJECT
+
+WORKDIR /home/THE-PJPROJECT/pjproject
+
+RUN ./configure --enable-shared
+RUN make dep
+RUN make
+RUN make install
+
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 RUN pip3 install virtualenv
