@@ -23,7 +23,7 @@ pub async fn start_test(
     running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: redis::Client,
-    red_manager: Data<&shared::Manager>,
+    red_manager: Data<&shared::manager::Manager>,
     ip: Data<&String>,
     id: String,
     task_id: String,

@@ -461,7 +461,14 @@ pub async fn tests(
         error: None,
         content: None,
     };
-    let mut red_connection = red_client.get_connection().unwrap();
+    let mut red_connection;
+    if let Ok(connection) = red_client.get_connection() {
+        red_connection = connection;
+    } else {
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
     let running_tests: HashSet<String> =
         if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
             set
@@ -473,7 +480,8 @@ pub async fn tests(
         match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
             Ok(dir) => dir,
             Err(_) => {
-                response.content = Some(content);
+                response.success = false;
+                response.error = Some("Could not read a directory");
                 let response = serde_json::to_string(&response).unwrap();
                 return Ok(response);
             }
@@ -501,6 +509,54 @@ pub async fn tests(
         let history = shared::get_results_history(project_id, script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id,
+            project_id: project_id.to_owned(),
+            script_id: script_id.to_owned(),
+            status: status,
+            results: results,
+            history: history,
+            info: info,
+        });
+    }
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
+pub async fn all_running_tests(
+    red_client: Data<&redis::Client>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Tests",
+        error: None,
+        content: None,
+    };
+    let mut red_connection;
+    if let Ok(connection) = red_client.get_connection() {
+        red_connection = connection;
+    } else {
+        response.success = false;
+        response.error = Some("Could not connect to database");
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    let running_tests: HashSet<String> =
+        if let Ok(set) = red_connection.smembers(shared::RUNNING_TESTS) {
+            set
+        } else {
+            HashSet::new()
+        };
+    let mut content = shared::models::http::tests::Content { tests: Vec::new() , config: None};
+    for running_test in running_tests {
+        let (project_id, script_id, test_id) = shared::decode_test_id(&running_test);
+        //get results
+        let results = shared::get_results(&project_id, &script_id, &test_id);
+        let status = 0;
+        //get info
+        let info = shared::get_info(&project_id, &script_id, &test_id);
+        //get history
+        let history = shared::get_results_history(&project_id, &script_id, &test_id);
+        content.tests.push(shared::models::Test {
+            id: test_id.to_owned(),
             project_id: project_id.to_owned(),
             script_id: script_id.to_owned(),
             status: status,

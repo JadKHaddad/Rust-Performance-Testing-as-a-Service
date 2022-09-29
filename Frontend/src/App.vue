@@ -8,10 +8,7 @@
           <li>
             <router-link :to="{ name: 'Home' }">Home</router-link>
           </li>
-          <li><a href="#">Control</a></li>
-          <div class="uk-navbar-dropdown">
-            not implemented!
-          </div>
+          <li><router-link :to="{ name: 'Control' }">Control</router-link></li>
           <li><a href="#">Live</a></li>
           <div class="uk-navbar-dropdown">
             not implemented!

@@ -99,6 +99,19 @@ async fn tests(
         }
     }
 }
+#[handler]
+async fn control(
+    red_client: Data<&redis::Client>,
+) -> String {
+    match lib::all_running_tests(red_client).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
 
 #[handler]
 async fn stop_test(
@@ -163,13 +176,78 @@ async fn download_test(
 }
 
 #[handler]
+async fn stop_script(
+    Path((project_id, script_id)): Path<(String, String)>,
+    red_client: Data<&redis::Client>,
+) -> String {
+    match lib::stop_script(&project_id, &script_id, red_client).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn delete_worker() -> String {
+    //remove from redis
+    "Ok".to_string()
+}
+
+#[handler]
+async fn delete_projects(
+    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
+    red_client: Data<&redis::Client>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
+) -> String {
+    match lib::delete_projects(projects_to_be_deleted, red_client, main_sender).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn check_script(
+    Path((project_id, script_id)): Path<(String, String)>,
+) -> String {
+    match lib::check_script(&project_id, &script_id) {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn preview_script(
+    Path((project_id, script_id)): Path<(String, String)>,
+) -> String {
+    match lib::preview_script(&project_id, &script_id) {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
 async fn ws(
     ws: WebSocket,
     main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
     connected_clients: Data<&Arc<AtomicU32>>,
     information_thread_running: Data<&Arc<Mutex<bool>>>,
     //red_client: Data<&redis::Client>,
-    red_manager: Data<&shared::Manager>,
+    red_manager: Data<&shared::manager::Manager>,
     installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
 ) -> impl IntoResponse {
     let mut receiver = main_sender.subscribe();
@@ -399,70 +477,6 @@ async fn subscribe(
     })
 }
 
-#[handler]
-async fn stop_script(
-    Path((project_id, script_id)): Path<(String, String)>,
-    red_client: Data<&redis::Client>,
-) -> String {
-    match lib::stop_script(&project_id, &script_id, red_client).await {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
-                .unwrap();
-        }
-    }
-}
-
-#[handler]
-async fn delete_worker() -> String {
-    //remove from redis
-    "Ok".to_string()
-}
-
-#[handler]
-async fn delete_projects(
-    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
-    red_client: Data<&redis::Client>,
-    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
-) -> String {
-    match lib::delete_projects(projects_to_be_deleted, red_client, main_sender).await {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
-                .unwrap();
-        }
-    }
-}
-
-#[handler]
-async fn check_script(
-    Path((project_id, script_id)): Path<(String, String)>,
-) -> String {
-    match lib::check_script(&project_id, &script_id) {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
-                .unwrap();
-        }
-    }
-}
-
-#[handler]
-async fn preview_script(
-    Path((project_id, script_id)): Path<(String, String)>,
-) -> String {
-    match lib::preview_script(&project_id, &script_id) {
-        Ok(response) => response,
-        Err(err) => {
-            // Server error
-            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
-                .unwrap();
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
@@ -560,7 +574,7 @@ async fn main() -> Result<(), std::io::Error> {
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
     //redis manager
-    let manager = shared::Manager::new(red_client.clone()).await;
+    let manager = shared::manager::Manager::new(red_client.clone()).await;
     //reset subs on master start
     loop {
         if let Ok(mut connection) = red_client.get_connection() {
@@ -704,6 +718,7 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/projects", get(projects))
         .at("/project/:project_id", get(project_scripts))
         .at("/tests/:project_id/:script_id", get(tests))
+        .at("/control", get(control))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",
             post(stop_test),

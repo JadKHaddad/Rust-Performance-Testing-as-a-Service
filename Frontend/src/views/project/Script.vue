@@ -145,6 +145,19 @@ export default {
         }
       };
     },
+    start_from_modal() {
+      const test_info = {
+        users: parseInt(this.users),
+        spawn_rate: parseInt(this.spawnRate),
+        workers: parseInt(this.workers),
+        host: this.host,
+        time: parseInt(this.time),
+        description: this.description,
+      };
+      this.start(test_info);
+      return false;
+    },
+
     start(test_info) {
       fetch(`/api/worker/start_test/${this.pid}/${this.id}`, {
         method: "POST",
@@ -179,18 +192,6 @@ export default {
           }
         })
         .catch(() => { });
-    },
-    start_from_modal() {
-      const test_info = {
-        users: parseInt(this.users),
-        spawn_rate: parseInt(this.spawnRate),
-        workers: parseInt(this.workers),
-        host: this.host,
-        time: parseInt(this.time),
-        description: this.description,
-      };
-      this.start(test_info);
-      return false;
     },
     stop(test_id) {
       fetch(`/api/master/stop_test/${this.pid}/${this.id}/${test_id}`, {

@@ -33,7 +33,7 @@ async fn start_test(
     running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
     red_client: Data<&redis::Client>,
-    red_manager: Data<&shared::Manager>,
+    red_manager: Data<&shared::manager::Manager>,
     ip: Data<&String>,
 ) -> String {
     let id = SystemTime::now()
@@ -255,7 +255,7 @@ async fn main() -> Result<(), std::io::Error> {
     let red_client =
         redis::Client::open(format!("redis://{}:{}/", redis_host, redis_port)).unwrap();
     //redis manager
-    let manager = shared::Manager::new(red_client.clone()).await;
+    let manager = shared::manager::Manager::new(red_client.clone()).await;
 
     lib::register(&red_client, &worker_name);
 
