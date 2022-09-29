@@ -16,6 +16,7 @@ body {
     height: 100%;
     width: 100%;
 }
+
 /*end of main*/
 
 /*helpers*/
@@ -192,19 +193,22 @@ input.checkbox-input:checked~.checkbox {
 .uk-spinner {
     color: #1e87f0;
 }
+
 /*end of spinner*/
 
 /*check*/
-.check-content{
+.check-content {
     white-space: pre-line;
     text-align: left;
 }
+
 /*end of check*/
 
 /*notifications*/
 .uk-notification-message {
     font-size: inherit;
 }
+
 /*end of notifications*/
 
 /*slider*/
@@ -214,18 +218,18 @@ input.checkbox-input:checked~.checkbox {
     display: inline-block;
     width: 50px;
     height: 20px;
-  }
-  
-  /* Hide default HTML checkbox */
-  .switch input {
+}
+
+/* Hide default HTML checkbox */
+.switch input {
     opacity: 0;
     width: 0;
     height: 0;
-  }
+}
 
-  
-  /* The slider */
-  .slider {
+
+/* The slider */
+.slider {
     position: absolute;
     cursor: pointer;
     top: 0;
@@ -238,8 +242,8 @@ input.checkbox-input:checked~.checkbox {
     height: 20px;
     width: 50px;
 }
-  
-  .slider:before {
+
+.slider:before {
     position: absolute;
     content: "";
     height: 14px;
@@ -251,42 +255,71 @@ input.checkbox-input:checked~.checkbox {
     -webkit-transition: .4s;
     transition: .4s;
 }
-  
-  input:checked + .slider {
+
+input:checked+.slider {
     background-color: #1e87f0;
-  }
-  
-  input:focus + .slider {
+}
+
+input:focus+.slider {
     box-shadow: 0 0 1px #1e87f0;
-  }
-  
-  input:checked + .slider:before {
+}
+
+input:checked+.slider:before {
     -webkit-transform: translateX(26px);
     -ms-transform: translateX(26px);
     transform: translateX(26px);
-  }
-  
-  /* Rounded sliders */
-  .slider.round {
+}
+
+/* Rounded sliders */
+.slider.round {
     border-radius: 34px;
-  }
-  
-  .slider.round:before {
+}
+
+.slider.round:before {
     border-radius: 50%;
-  }
+}
+
 /*end of slider*/
+
+.canvasjs-chart-credit {
+    display: none;
+}
 
 .uk-table tbody tr {
     transition: background-color 0s ease-in;
 }
 
 .navigation-h {
-    cursor: pointer; 
+    cursor: pointer;
 }
 
-.code{
+/*code*/
+.code {
     text-align: left;
     padding: 20px;
     border: none;
     border-radius: 0;
 }
+/*end of code*/
+
+/*scrollbar*/
+/* width */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    background: #f8f8f8;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+/*end of scrollbar*/

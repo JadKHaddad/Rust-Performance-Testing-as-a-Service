@@ -20,19 +20,21 @@
       >
         <thead>
           <tr>
-            <th class="text">{{ test.id }}</th>
-            <th class="text">{{ test.info.users }}</th>
-            <th class="text">{{ test.info.spawn_rate }}</th>
-            <th class="text">{{ test.info.workers }}</th>
-            <th class="text">{{ test.info.host }}</th>
-            <th class="text">{{ test.info.time }}</th>
-            <th></th>
-            <th></th>
-            <th></th>
-            <th></th>
+            <th class="text">ID {{ test.id }}</th>
+            <th class="text">USERS {{ test.info.users }}</th>
+            <th class="text">SPAWN RATE {{ test.info.spawn_rate }}</th>
+            <th class="text">WORKERS {{ test.info.workers ? test.info.workers : 0 }}</th>
+            <th class="text">HOST {{ test.info.host }}</th>
+            <th class="text">TIME {{ test.info.time }}s</th>
+
             <th><div v-if="test.status == 0" uk-spinner></div></th>
           </tr>
         </thead>
+      </table>
+      <table
+        class="uk-table uk-table-small uk-table-striped uk-table-responsive"
+      >
+
         <thead>
           <tr>
             <th class="text">Type</th>
