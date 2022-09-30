@@ -99,6 +99,21 @@ async fn tests(
         }
     }
 }
+
+#[handler]
+async fn stats(
+    Path((project_id, script_id, test_id)): Path<(String, String, String)>,
+) -> String {
+    match lib::stats(&project_id, &script_id, &test_id) {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
 #[handler]
 async fn control(red_client: Data<&redis::Client>) -> String {
     match lib::all_running_tests(red_client).await {
@@ -728,6 +743,7 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/projects", get(projects))
         .at("/project/:project_id", get(project_scripts))
         .at("/tests/:project_id/:script_id", get(tests))
+        .at("/stats/:project_id/:script_id/:test_id", get(stats))
         .at("/control", get(control))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",

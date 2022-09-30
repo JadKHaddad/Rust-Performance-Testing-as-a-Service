@@ -519,7 +519,8 @@ pub async fn tests(
         //get info
         let info = shared::get_info(project_id, script_id, &test_id);
         //get history
-        let history = shared::get_results_history(project_id, script_id, &test_id);
+        let history = None;
+        //let history = shared::get_results_history(project_id, script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id,
             project_id: project_id.to_owned(),
@@ -534,6 +535,29 @@ pub async fn tests(
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
 }
+
+pub fn stats(
+    project_id: &str,
+    script_id: &str,
+    test_id: &str
+) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "stats",
+        error: None,
+        content: None,
+    };
+    let history = shared::get_results_history(&project_id, &script_id, &test_id);
+    if history.is_none(){
+        response.success = false;
+        response.error = Some("Could not get history");
+    }
+    let content = history;
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
 
 pub async fn all_running_tests(red_client: Data<&redis::Client>) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
@@ -568,7 +592,8 @@ pub async fn all_running_tests(red_client: Data<&redis::Client>) -> Result<Strin
         //get info
         let info = shared::get_info(&project_id, &script_id, &test_id);
         //get history
-        let history = shared::get_results_history(&project_id, &script_id, &test_id);
+        let history = None;
+        //let history = shared::get_results_history(&project_id, &script_id, &test_id);
         content.tests.push(shared::models::Test {
             id: test_id.to_owned(),
             project_id: project_id.to_owned(),

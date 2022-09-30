@@ -225,8 +225,10 @@ pub async fn start_test(
                     Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
                         .current_dir(shared::get_a_project_dir(&project_id))
                         .args(&worker_args)
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        // .stdout(Stdio::inherit())
+                        // .stderr(Stdio::inherit())
                         .spawn()?,
                 );
             }
@@ -241,8 +243,10 @@ pub async fn start_test(
                 Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
                     .current_dir(shared::get_a_project_dir(&project_id))
                     .args(&args)
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    // .stdout(Stdio::inherit())
+                    // .stderr(Stdio::inherit())
                     .spawn()?,
                 children,
                 task_id.clone(),
@@ -252,8 +256,10 @@ pub async fn start_test(
                 Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
                     .current_dir(shared::get_a_project_dir(&project_id))
                     .args(&args)
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    // .stdout(Stdio::inherit())
+                    // .stderr(Stdio::inherit())
                     .spawn()?,
                 task_id.clone(),
             )
@@ -333,8 +339,10 @@ pub async fn start_test(
                                 worker_id_flag
                             ),
                         ])
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        // .stdout(Stdio::inherit())
+                        // .stderr(Stdio::inherit())
                         .spawn()?,
                 );
             }
@@ -348,8 +356,10 @@ pub async fn start_test(
                             command, port, workers
                         ),
                     ])
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    // .stdout(Stdio::inherit())
+                    // .stderr(Stdio::inherit())
                     .spawn()?,
                 children,
                 task_id.clone(),
@@ -359,8 +369,10 @@ pub async fn start_test(
                 Command::new("bash")
                     .current_dir(shared::get_a_project_dir(&project_id))
                     .args(&["-c", &command])
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    // .stdout(Stdio::inherit())
+                    // .stderr(Stdio::inherit())
                     .spawn()?,
                 task_id.clone(),
             )
@@ -478,7 +490,7 @@ pub async fn start_test(
                                             cmd.kill_children();
                                         }
                                         None => {
-                                            println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!",shared::get_date_and_time(), id);
+                                            println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!", shared::get_date_and_time(), id);
                                         }
                                     }
                                     //remove from redis //TODO! why are we getting a new connection on every iteration?
@@ -499,14 +511,14 @@ pub async fn start_test(
                             if wanted_scripts.contains(global_script_id)
                                 || wanted_scripts.contains(shared::CONTROL_SUB_STRING)
                             {
-                                println!(
-                                    "[{}] SCRIPT WANTED: {}",
-                                    shared::get_date_and_time(),
-                                    global_script_id
-                                );
+                                // println!(
+                                //     "[{}] SCRIPT WANTED: {}",
+                                //     shared::get_date_and_time(),
+                                //     global_script_id
+                                // );
                                 let results = shared::get_results(project_id, script_id, test_id);
-                                let last_history =
-                                    shared::get_last_result_history(project_id, script_id, test_id);
+                                let last_history = None;
+                                // let last_history shared::get_last_result_history(project_id, script_id, test_id);
                                 let test_info = models::websocket::tests::TestInfo {
                                     id: test_id.to_owned(),
                                     results: results,

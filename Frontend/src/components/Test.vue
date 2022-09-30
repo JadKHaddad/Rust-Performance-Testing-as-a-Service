@@ -1,18 +1,21 @@
 <template>
   <div class="test-container">
-    <div class="uk-overflow-auto">
-      <div class="uk-grid-small uk-child-width-1-4@s uk-text-center" uk-grid>
+    <div class="uk-overflow-auto test-table-container">
+      <div class="uk-grid-small uk-child-width-1-5@s uk-text-center" uk-grid>
         <div class="uk-width-auto@m">
-          <button class="uk-button uk-button-danger" type="button" @click="stop_me()">Stop</button>
+          <button class="uk-button uk-button-danger" type="button" @click="stopMe()">Stop</button>
         </div>
         <div class="uk-width-auto@m">
-          <button class="uk-button uk-button-danger" type="button" @click="delete_me()">Delete</button>
+          <button class="uk-button uk-button-danger" type="button" @click="deleteMe()">Delete</button>
         </div>
         <div class="uk-width-auto@m">
-          <button class="uk-button uk-button-primary" type="button" @click="restart_me()">Restart</button>
+          <button class="uk-button uk-button-primary" type="button" @click="restartMe()">Restart</button>
         </div>
         <div class="uk-width-auto@m">
-          <button class="uk-button uk-button-primary" type="button" @click="download_me()">Download</button>
+          <button class="uk-button uk-button-primary" type="button" @click="downloadMe()">Download</button>
+        </div>
+        <div class="uk-width-auto@m">
+          <button class="uk-button uk-button-primary" type="button" @click="showStats()">Stats</button>
         </div>
       </div>
       <table class="uk-table uk-table-small uk-table-striped uk-table-responsive">
@@ -64,14 +67,7 @@
         </tbody>
       </table>
     </div>
-
-    <br />
-    <br />
-    <br />
-    <div :id="test.id + '-chartContainer'" style="height: 370px; width: 100%"></div>
-    <br />
-    <br />
-    <br />
+    <div v-if="showStatsBool" :id="test.id + '-chartContainer'" style="height: 370px; width: 100%"></div>
   </div>
 </template>
 
@@ -81,35 +77,18 @@ export default {
   props: ["test", "darkTheme"],
   watch: {
     darkTheme: function (newVal, oldVal) {
-      this.chart.options.theme = newVal ? "dark1" : "light1";
-      this.chart.render();
+      if (this.chart) {
+        this.chart.options.theme = newVal ? "dark1" : "light1";
+        this.chart.render();
+      }
     },
-    test: {
-      handler(newVal) {
-        const lastHistory = newVal.last_history;
-        if (lastHistory != null) {
-          const date = new Date(parseInt(lastHistory.timestamp) * 1000);
-          this.total_median_response_time.dataPoints.push({
-            x: date,
-            y: parseInt(lastHistory.total_median_response_time),
-          });
-          this.total_average_response_time.dataPoints.push({
-            x: date,
-            y: parseInt(lastHistory.total_average_response_time),
-          });
-          this.total_min_response_time.dataPoints.push({
-            x: date,
-            y: parseInt(lastHistory.total_min_response_time),
-          });
-          this.total_max_response_time.dataPoints.push({
-            x: date,
-            y: parseInt(lastHistory.total_max_response_time),
-          });
-          this.chart.render();
-        }
-      },
-      deep: true,
-    },
+    // test: {
+    //   handler(newVal) {
+    //     const lastHistory = newVal.last_history;
+    //     this.updateChart(lastHistory);
+    //   },
+    //   deep: true,
+    // },
   },
   data() {
     return {
@@ -138,21 +117,57 @@ export default {
         showInLegend: true,
         dataPoints: [],
       },
+      showStatsBool: false,
     };
   },
 
   methods: {
-    stop_me() {
+    updateChart(lastHistory) {
+      if (lastHistory != null) {
+        const date = new Date(parseInt(lastHistory.timestamp) * 1000);
+        this.total_median_response_time.dataPoints.push({
+          x: date,
+          y: parseInt(lastHistory.total_median_response_time),
+        });
+        this.total_average_response_time.dataPoints.push({
+          x: date,
+          y: parseInt(lastHistory.total_average_response_time),
+        });
+        this.total_min_response_time.dataPoints.push({
+          x: date,
+          y: parseInt(lastHistory.total_min_response_time),
+        });
+        this.total_max_response_time.dataPoints.push({
+          x: date,
+          y: parseInt(lastHistory.total_max_response_time),
+        });
+        this.chart.render();
+      }
+    },
+    stopMe() {
       this.$emit("stop_me");
     },
-    delete_me() {
+    deleteMe() {
       this.$emit("delete_me");
     },
-    restart_me() {
+    restartMe() {
       this.$emit("restart_me");
     },
-    download_me() {
+    downloadMe() {
       this.$emit("download_me");
+    },
+    showStats() {
+      //get the data
+      fetch(`/api/master/stats/${this.test.info.project_id}/${this.test.info.script_id}/${this.test.id}`)
+        .then((data) => data.json())
+        .then((data) => {
+          this.showStatsBool = true;
+          this.$nextTick(function () {
+            this.setupChart(data.content)
+          })
+        })
+        .catch();
+
     },
     toggleDataSeries(e) {
       if (typeof e.dataSeries.visible === "undefined" || e.dataSeries.visible) {
@@ -162,10 +177,10 @@ export default {
       }
       this.chart.render();
     },
-    setupChart() {
-      if (this.test.history != null && this.test.history.length > 0) {
-        for (var i = 0; i < this.test.history.length; i++) {
-          const record = this.test.history[i];
+    setupChart(history) {
+      if (history != null && history.length > 0) {
+        for (var i = 0; i < history.length; i++) {
+          const record = history[i];
           const date = new Date(parseInt(record.timestamp) * 1000);
           this.total_median_response_time.dataPoints.push({
             x: date,
@@ -187,6 +202,7 @@ export default {
       }
       var theme = "light1";
       if (this.darkTheme) theme = "dark1";
+
       this.chart = new CanvasJS.Chart(this.test.id + "-chartContainer", {
         animationEnabled: true,
         zoomEnabled: true,
@@ -219,7 +235,7 @@ export default {
     },
   },
   mounted() {
-    this.setupChart();
+    //this.setupChart(this.test.history); //this has been removed as it is really slow
   },
 };
 </script>
