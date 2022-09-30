@@ -6,24 +6,13 @@ networks:
     name: network
 
 services:
-  # builder:
-  #   container_name: builder
-  #   image: builder
-  #   build:
-  #     context: ../
-  #     dockerfile: ./Dockerfiles/Dockerfile.builder
-  # runner:
-  #   container_name: runner
-  #   image: runner
-  #   build:
-  #     context: ../
-  #     dockerfile: ./Dockerfiles/Dockerfile.runner
   redis:
     container_name: redis
     image: redis:latest
     networks: 
       - network
     restart: on-failure
+
   master:
     container_name: master
     build:
@@ -40,8 +29,9 @@ services:
     networks: 
       - network
     restart: on-failure
+
   worker-1:
-    container_name: worker_1
+    container_name: worker-1
     build:
       context: ../
       dockerfile: ./Dockerfiles/Dockerfile.worker-release
@@ -50,7 +40,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - MASTER_IP=master:3000
-      - WORKER_NAME=worker_1:5000
+      - WORKER_NAME=worker-1:5000
     volumes:
       - ./Performance-Testing-Data:/home/app/Backend/Performance-Testing-Data
     ports:
@@ -58,8 +48,9 @@ services:
     networks: 
       - network
     restart: on-failure
+
   worker-2:
-    container_name: worker_2
+    container_name: worker-2
     build:
       context: ../
       dockerfile: ./Dockerfiles/Dockerfile.worker-release
@@ -68,7 +59,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - MASTER_IP=master:3000
-      - WORKER_NAME=worker_2:5000
+      - WORKER_NAME=worker-2:5000
     volumes:
       - ./Performance-Testing-Data:/home/app/Backend/Performance-Testing-Data
     ports:
@@ -76,6 +67,7 @@ services:
     networks: 
       - network
     restart: on-failure
+
   frontend:
     container_name: frontend
     build:
@@ -87,6 +79,7 @@ services:
     networks: 
       - network
     restart: on-failure
+
   loadbalancer:
     container_name: loadbalancer
     build:
@@ -98,6 +91,7 @@ services:
     networks: 
       - network
     restart: on-failure
+    
   entrypoint:
     container_name: entrypoint
     build:

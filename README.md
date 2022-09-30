@@ -101,9 +101,11 @@ spec:
 ## Architecture
 ![architecture](https://github.com/JadKHaddad/Rust-Performance-Testing-as-a-Service/blob/main/Assets/architecture.png?raw=true)
 
-## Run with Docker-Compose
+## Run with Docker-Compose (2 Workers)
 
 ```sh
+docker-compose -f Dockerfiles/Docker-compose-helpers.yaml build
+
 docker-compose -f Dockerfiles/Docker-compose.yaml up
 ```
 * Entrypoint is ```host:8000```

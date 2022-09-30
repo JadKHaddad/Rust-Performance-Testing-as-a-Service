@@ -493,8 +493,8 @@ pub async fn tests(
         match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
             Ok(dir) => dir,
             Err(_) => {
-                response.success = false;
-                response.error = Some("Could not read a directory");
+                response.error = Some("Could not read results directory");
+                response.content = Some(content);
                 let response = serde_json::to_string(&response).unwrap();
                 return Ok(response);
             }
