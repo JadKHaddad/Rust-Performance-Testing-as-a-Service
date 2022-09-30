@@ -144,7 +144,7 @@ pub async fn start_test(
         response.success = false;
         return Ok(serde_json::to_string(&response).unwrap());
     }
-    
+
     //run
     let cmd = if cfg!(target_os = "windows") {
         let mut args = Vec::new();
@@ -279,7 +279,7 @@ pub async fn start_test(
             if let Some(config) = config {
                 if let Some(enb) = config.enable_worker_id {
                     enable_worker_id = enb;
-                } 
+                }
             }
 
             let port;
@@ -305,8 +305,8 @@ pub async fn start_test(
             let mut children = Vec::with_capacity(workers as usize);
             for i in 0..workers {
                 let worker_id_flag = if enable_worker_id {
-                    format!("--worker-id={}", i+1)
-                }else{
+                    format!("--worker-id={}", i + 1)
+                } else {
                     String::new()
                 };
 
@@ -420,10 +420,9 @@ pub async fn start_test(
     let _: () = red_connection
         .srem(shared::LOCKED_PROJECTS, &project_id)
         .unwrap_or_default();
-    
+
     //run the garbage collector
-    if let Ok(mut currently_running_tests_mutex) = currently_running_tests.lock()
-    {
+    if let Ok(mut currently_running_tests_mutex) = currently_running_tests.lock() {
         if !*currently_running_tests_mutex {
             *currently_running_tests_mutex = true;
             println!(
@@ -435,19 +434,24 @@ pub async fn start_test(
             let mut red_manager = red_manager.clone();
             tokio::spawn(async move {
                 loop {
-                    let mut tests_info_map: HashMap<String, Vec<models::websocket::tests::TestInfo>> =
-                        HashMap::new();
+                    let mut tests_info_map: HashMap<
+                        String,
+                        Vec<models::websocket::tests::TestInfo>,
+                    > = HashMap::new();
                     {
                         let mut tokio_tests_guard = tokio_running_tests.write();
                         if tokio_tests_guard.len() < 1 {
-                            if let Ok(mut lock) = tokio_currently_running_tests.lock(){
+                            if let Ok(mut lock) = tokio_currently_running_tests.lock() {
                                 *lock = false;
                                 println!(
                                     "[{}] SCRIPTS GARBAGE COLLECTOR: Terminating!",
                                     shared::get_date_and_time()
                                 );
-                            }else{
-                                eprintln!("[{}] ERROR: SCRIPTS GARBAGE COLLECTOR: failed to lock", shared::get_date_and_time());
+                            } else {
+                                eprintln!(
+                                    "[{}] ERROR: SCRIPTS GARBAGE COLLECTOR: failed to lock",
+                                    shared::get_date_and_time()
+                                );
                             }
                             break;
                         }
@@ -477,7 +481,7 @@ pub async fn start_test(
                                             println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!",shared::get_date_and_time(), id);
                                         }
                                     }
-                                    //remove from redis
+                                    //remove from redis //TODO! why are we getting a new connection on every iteration?
                                     if let Ok(mut connection) = red_client.get_connection() {
                                         let _: () = connection
                                             .srem(shared::RUNNING_TESTS, &id)
@@ -491,8 +495,10 @@ pub async fn start_test(
                                     eprintln!("[{}] ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}",shared::get_date_and_time(), id, e);
                                 }
                             }
-                            //check if the script is wanted and save results in redis
-                            if wanted_scripts.contains(global_script_id) {
+                            //check if the script is wanted and save results
+                            if wanted_scripts.contains(global_script_id)
+                                || wanted_scripts.contains(shared::CONTROL_SUB_STRING)
+                            {
                                 println!(
                                     "[{}] SCRIPT WANTED: {}",
                                     shared::get_date_and_time(),
@@ -513,7 +519,8 @@ pub async fn start_test(
                                         .unwrap()
                                         .push(test_info);
                                 } else {
-                                    tests_info_map.insert(global_script_id.to_owned(), vec![test_info]);
+                                    tests_info_map
+                                        .insert(global_script_id.to_owned(), vec![test_info]);
                                 }
                             }
                         }
@@ -556,8 +563,11 @@ pub async fn start_test(
                 shared::get_date_and_time()
             );
         }
-    }else{
-        eprintln!("[{}] ERROR: WORKER: Test start failed to lock", shared::get_date_and_time());
+    } else {
+        eprintln!(
+            "[{}] ERROR: WORKER: Test start failed to lock",
+            shared::get_date_and_time()
+        );
         Err("Could not lock. System error")?;
     }
     response.content = Some(started_test);

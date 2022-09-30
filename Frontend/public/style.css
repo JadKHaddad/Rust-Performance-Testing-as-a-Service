@@ -300,6 +300,7 @@ input:checked+.slider:before {
     border: none;
     border-radius: 0;
 }
+
 /*end of code*/
 
 /*scrollbar*/
@@ -322,4 +323,21 @@ input:checked+.slider:before {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
 /*end of scrollbar*/
+
+/*control*/
+.control-test-path>a {
+    color: #999;
+    text-transform: uppercase;
+    transition: .1s ease-in-out;
+    transition-property: color, background-color;
+}
+
+.control-test-path {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/*end of control*/

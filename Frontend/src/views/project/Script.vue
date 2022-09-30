@@ -1,11 +1,11 @@
 <template>
   <div>
-    <div  class="uk-grid-small uk-child-width-1-4@s uk-flex-center uk-text-center" uk-grid>
+    <div class="uk-grid-small uk-child-width-1-4@s uk-flex-center uk-text-center" uk-grid>
       <div class="uk-width-auto@m">
         <button class="uk-button uk-button-primary" type="button" uk-toggle="target: #start-modal">
           Start
         </button>
-      </div>	
+      </div>
       <div class="uk-width-auto@m">
         <button class="uk-button uk-button-primary" type="button" @click="preview_script">
           Preview
@@ -21,11 +21,11 @@
           Stop All
         </button>
       </div>
-      </div>
+    </div>
     <div id="start-modal" uk-modal ref="start-modal">
       <div class="uk-modal-dialog uk-modal-body" :class="{
-      dark: darkTheme,
-    }">
+        dark: darkTheme,
+      }">
         <form>
           <div class="uk-margin">
             <input class="uk-input" type="text" placeholder="Users" v-model="users" />
@@ -41,7 +41,8 @@
             <input id="host" class="uk-input" type="text" placeholder="Host" v-model="host" />
           </div>
           <div class="uk-margin">
-            <label class="uk-form-label text" for="time">If time is not set, the test will not stop automatically</label>
+            <label class="uk-form-label text" for="time">If time is not set, the test will not stop
+              automatically</label>
             <input id="time" class="uk-input" type="text" placeholder="Time is seconds" v-model="time" />
           </div>
           <div class="uk-margin">
@@ -54,10 +55,10 @@
       </div>
     </div>
 
-    <h3 class="text" >Project: {{ pid }} | Script: {{ id }}</h3>
+    <h3 class="text">Project: {{ pid }} | Script: {{ id }}</h3>
 
-    <Test v-for="test in reversedTests" :key="test.id" :test="test" :darkTheme="darkTheme" @stop_me="stop(test.id)" @delete_me="del(test.id)"
-      @restart_me="restart(test.info)" @download_me="download(test.id)" />
+    <Test v-for="test in reversedTests" :key="test.id" :test="test" :darkTheme="darkTheme" @stop_me="stop(test.id)"
+      @delete_me="del(test.id)" @restart_me="restart(test.info)" @download_me="download(test.id)" />
   </div>
 </template>
 
@@ -99,7 +100,7 @@ export default {
     },
     connenctWebsocket() {
       var wsProtocol = "ws";
-      if (location.protocol == 'https:'){
+      if (location.protocol == 'https:') {
         wsProtocol = "wss";
       }
       this.ws = new WebSocket(
@@ -253,7 +254,7 @@ export default {
         .catch(() => { });
       return false;
     },
-    preview_script(){
+    preview_script() {
       this.$router.push({ name: 'Preview', params: { pid: this.pid, id: this.id } })
     },
     check_script() {
@@ -267,7 +268,7 @@ export default {
       .then((data) => {
         this.tests = data.content.tests;
         const config = data.content.config
-        if (config){
+        if (config) {
           this.users = config.users;
           this.spawnRate = config.spawn_rate;
           this.workers = config.workers;
@@ -284,4 +285,5 @@ export default {
 </script>
 
 <style>
+
 </style>

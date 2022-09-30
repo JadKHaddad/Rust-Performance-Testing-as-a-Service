@@ -21,8 +21,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 //use models::websocket::WebSocketMessage;
 
 #[handler]
-async fn health(ip: Data<&String>,) -> String {
-    let ip =ip.clone();
+async fn health(ip: Data<&String>) -> String {
+    let ip = ip.clone();
     format!("[{}] OK", ip)
 }
 

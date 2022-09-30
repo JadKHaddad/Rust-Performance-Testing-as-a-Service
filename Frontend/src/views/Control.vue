@@ -1,8 +1,26 @@
 <template>
   <div>
-    Control
-    <Test v-for="test in reversedTests" :key="test.id" :test="test" :darkTheme="darkTheme" @stop_me="stop(test.info)" @delete_me="del(test.info)"
-      @restart_me="restart(test.info)" @download_me="download(test.info)" />
+    <div v-for="test in reversedTests" :key="test.id">
+      <div class="text control-test-path">
+        <router-link :to="{
+          name: 'Project',
+          params: { pid: test.info.project_id},
+        }">
+          {{ test.info.project_id }}
+        </router-link>
+        <span uk-icon="triangle-right"></span>
+        <router-link :to="{
+          name: 'Script',
+          params: { pid: test.info.project_id, id: test.info.script_id },
+        }">
+          {{ test.info.script_id }}
+        </router-link>
+      </div>
+
+      <Test :test="test" :darkTheme="darkTheme" @stop_me="stop(test.info)" @delete_me="del(test.info)"
+        @restart_me="restart(test.info)" @download_me="download(test.info)" />
+    </div>
+
   </div>
 </template>
 
@@ -21,10 +39,53 @@ export default {
     };
   },
   methods: { // TODO methods are so similar to Script.vue. Maybe we can merge them?
-    connenctWebsocket() {
-      //TODO
+    connenctWebsocket() { //TODO: SAME AS SCRIPT.VUE
+      var wsProtocol = "ws";
+      if (location.protocol == 'https:') {
+        wsProtocol = "wss";
+      }
+      this.ws = new WebSocket(
+        `${wsProtocol}://${location.host}/api/master/subscribe/CONTROL/CONTROL`
+      );
+      this.ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const event_type = data.event_type;
+        if (event_type === "UPDATE") {
+          const testsResults = data.event.tests_info;
+          for (var i = 0; i < testsResults.length; i++) {
+            let incomingTest = testsResults[i];
+            let test = this.tests.find((test) => test.id === incomingTest.id);
+            if (test) {
+              test.results = incomingTest.results;
+              test.status = incomingTest.status;
+              test.last_history = incomingTest.last_history;
+            }
+          }
+          return;
+        }
+        if (event_type === "TEST_STOPPED") {
+          const id = data.event.id;
+          let test = this.tests.find((test) => test.id === id);
+          if (test) {
+            test.status = 1;
+          }
+        }
+        if (event_type === "TEST_STARTED") {
+          const new_test = data.event;
+          let test = this.tests.find((test) => test.id === new_test.id);
+          if (!test) {
+            this.tests.push(new_test);
+          }
+          return;
+        }
+        if (event_type === "TEST_DELETED") {
+          const id = data.event.id;
+          this.tests = this.tests.filter((test) => test.id !== id);
+          return;
+        }
+      };
     },
-    restart(test_info) {
+    restart(test_info) { //TODO: SAME AS SCRIPT.VUE
       fetch(`/api/worker/start_test/${test_info.project_id}/${test_info.script_id}`, {
         method: "POST",
         headers: {
@@ -58,7 +119,7 @@ export default {
         })
         .catch(() => { });
     },
-    stop(test_info) {
+    stop(test_info) { //TODO: SAME AS SCRIPT.VUE
       fetch(`/api/master/stop_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "POST",
       })
@@ -73,9 +134,9 @@ export default {
             console.log(data.error);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     },
-    del(test_info) {
+    del(test_info) { //TODO: SAME AS SCRIPT.VUE
       fetch(`/api/master/delete_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "POST",
       })
@@ -89,7 +150,7 @@ export default {
         })
         .catch();
     },
-    download(test_info) {
+    download(test_info) { //TODO: SAME AS SCRIPT.VUE
       fetch(`/api/master/download_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "GET",
       })
@@ -98,10 +159,10 @@ export default {
           var objectUrl = URL.createObjectURL(blob);
           window.location.href = objectUrl;
         })
-        .catch(() => {});
+        .catch(() => { });
     },
   },
-  computed: {
+  computed: { //TODO: SAME AS SCRIPT.VUE
     reversedTests() {
       return this.tests.reverse();
     },
@@ -115,9 +176,13 @@ export default {
       })
       .catch();
   },
+  unmounted() { //TODO: SAME AS SCRIPT.VUE
+    this.ws.close();
+  },
 };
 
 </script>
 
 <style>
+
 </style>

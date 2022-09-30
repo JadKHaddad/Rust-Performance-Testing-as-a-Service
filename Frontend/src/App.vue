@@ -8,7 +8,9 @@
           <li>
             <router-link :to="{ name: 'Home' }">Home</router-link>
           </li>
-          <li><router-link :to="{ name: 'Control' }">Control</router-link></li>
+          <li>
+            <router-link :to="{ name: 'Control' }">Control</router-link>
+          </li>
           <li><a href="#">Live</a></li>
           <div class="uk-navbar-dropdown">
             not implemented!
@@ -112,7 +114,7 @@ export default {
     },
     connenctWebsocket() {
       var wsProtocol = "ws";
-      if (location.protocol == 'https:'){
+      if (location.protocol == 'https:') {
         wsProtocol = "wss";
       }
 

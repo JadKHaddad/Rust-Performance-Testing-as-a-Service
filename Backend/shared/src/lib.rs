@@ -4,7 +4,6 @@ use port_scanner::local_port_available;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-
 pub const DATA_DIR: &str = "Performance-Testing-Data";
 //pub const DOWNLOADS_DIR: &str = "downloads";
 pub const PROJECTS_DIR: &str = "projects";
@@ -19,6 +18,7 @@ pub const RUNNING_TESTS: &str = "RUNNING_TESTS";
 pub const LOCKED_PROJECTS: &str = "LOCKED_PROJECTS";
 //redis registered workers
 pub const REGISTERED_WORKERS: &str = "REGISTERED_WORKERS";
+pub const CONTROL_SUB_STRING: &str = "CONTROL";
 
 //events
 pub const INFORMATION: &str = "INFORMATION";
@@ -28,10 +28,10 @@ pub const TEST_STOPPED: &str = "TEST_STOPPED";
 pub const TEST_DELETED: &str = "TEST_DELETED";
 pub const PROJECT_DELETED: &str = "PROJECT_DELETED";
 
+pub mod manager;
 pub mod models;
 pub mod plot;
 pub mod zip;
-pub mod manager;
 
 pub fn get_a_free_port() -> Result<u16, String> {
     let mut port = 5000;
@@ -390,5 +390,3 @@ pub fn delete_test(
     }
     return Ok(());
 }
-
-

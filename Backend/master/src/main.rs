@@ -100,9 +100,7 @@ async fn tests(
     }
 }
 #[handler]
-async fn control(
-    red_client: Data<&redis::Client>,
-) -> String {
+async fn control(red_client: Data<&redis::Client>) -> String {
     match lib::all_running_tests(red_client).await {
         Ok(response) => response,
         Err(err) => {
@@ -166,10 +164,8 @@ async fn download_test(
                 shared::get_date_and_time(),
                 test_id
             );
-        },
-        _ => {
-
         }
+        _ => {}
     }
     shared::zip::zip_folder(&test_dir.to_str().unwrap(), &zip_file_str).unwrap();
     Ok(req.create_response(&zip_file_str, true)?)
@@ -213,9 +209,7 @@ async fn delete_projects(
 }
 
 #[handler]
-async fn check_script(
-    Path((project_id, script_id)): Path<(String, String)>,
-) -> String {
+async fn check_script(Path((project_id, script_id)): Path<(String, String)>) -> String {
     match lib::check_script(&project_id, &script_id) {
         Ok(response) => response,
         Err(err) => {
@@ -227,9 +221,7 @@ async fn check_script(
 }
 
 #[handler]
-async fn preview_script(
-    Path((project_id, script_id)): Path<(String, String)>,
-) -> String {
+async fn preview_script(Path((project_id, script_id)): Path<(String, String)>) -> String {
     match lib::preview_script(&project_id, &script_id) {
         Ok(response) => response,
         Err(err) => {
@@ -383,7 +375,14 @@ async fn subscribe(
     other_ws.on_upgrade(move |socket| async move {
         //let mut red_connection = red_client.get_connection().unwrap();
         let (mut sink, mut stream) = socket.split();
-        let script_id = shared::encode_script_id(&project_id, &script_id);
+        let script_id = if project_id == shared::CONTROL_SUB_STRING
+            && script_id == shared::CONTROL_SUB_STRING
+        {
+            shared::CONTROL_SUB_STRING.to_string()
+        } else {
+            shared::encode_script_id(&project_id, &script_id)
+        };
+
         let tokio_listener_script_id = script_id.clone();
         let script_id_debug = script_id.clone();
         let id = SystemTime::now()
@@ -477,7 +476,6 @@ async fn subscribe(
     })
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args: Vec<String> = std::env::args().collect();
@@ -557,7 +555,7 @@ async fn main() -> Result<(), std::io::Error> {
     //clients
     let connected_clients = Arc::new(AtomicU32::new(0));
     let information_thread_running = Arc::new(Mutex::new(false));
-    
+
     //set poem on debug
     // if std::env::var_os("RUST_LOG").is_none() {
     //     std::env::set_var("RUST_LOG", "poem=debug");
@@ -628,6 +626,7 @@ async fn main() -> Result<(), std::io::Error> {
                             || redis_message.event_type == shared::TEST_STOPPED
                             || redis_message.event_type == shared::TEST_STARTED
                         {
+                            let control_message = redis_message.message.clone();
                             let subscriptions_guard = pubsub_subscriptions.read();
                             //println!("{:?}", subscriptions_guard);
                             if let Some(sender) = &subscriptions_guard.get(&redis_message.id) {
@@ -637,13 +636,24 @@ async fn main() -> Result<(), std::io::Error> {
                                         shared::get_date_and_time()
                                     );
                                 };
-                            } else {
-                                eprintln!(
-                                "[{}] REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
-                                shared::get_date_and_time(),
-                                redis_message.id
-                            );
                             }
+                            if let Some(sender) =
+                                &subscriptions_guard.get(shared::CONTROL_SUB_STRING)
+                            {
+                                if sender.1.send(control_message).is_err() {
+                                    eprintln!(
+                                        "[{}] REDIS CHANNEL THREAD: No clients are connected!",
+                                        shared::get_date_and_time()
+                                    );
+                                };
+                            }
+                            //else {
+                            //     eprintln!(
+                            //     "[{}] REDIS CHANNEL THREAD: test [{}] was not found in running tests!",
+                            //     shared::get_date_and_time(),
+                            //     redis_message.id
+                            // );
+                            // }
                         }
                     }
                 } else {
@@ -651,7 +661,7 @@ async fn main() -> Result<(), std::io::Error> {
                         "[{}] MASTER: PUBSUB THREAD: Could not get message!",
                         shared::get_date_and_time()
                     );
-                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    std::thread::sleep(std::time::Duration::from_secs(1));
                     break;
                 }
             }
@@ -729,7 +739,10 @@ async fn main() -> Result<(), std::io::Error> {
         )
         .at("/stop_script/:project_id/:script_id", post(stop_script))
         .at("/check_script/:project_id/:script_id", post(check_script))
-        .at("/preview_script/:project_id/:script_id",post(preview_script))
+        .at(
+            "/preview_script/:project_id/:script_id",
+            post(preview_script),
+        )
         .at("/delete_projects", post(delete_projects))
         .at(
             "/download_test/:project_id/:script_id/:test_id",

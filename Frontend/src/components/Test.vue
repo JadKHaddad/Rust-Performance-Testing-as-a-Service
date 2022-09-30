@@ -1,40 +1,37 @@
 <template>
   <div class="test-container">
     <div class="uk-overflow-auto">
-      <div  class="uk-grid-small uk-child-width-1-4@s uk-text-center" uk-grid>
+      <div class="uk-grid-small uk-child-width-1-4@s uk-text-center" uk-grid>
         <div class="uk-width-auto@m">
           <button class="uk-button uk-button-danger" type="button" @click="stop_me()">Stop</button>
         </div>
         <div class="uk-width-auto@m">
-        <button class="uk-button uk-button-danger" type="button" @click="delete_me()">Delete</button>
-      </div>
+          <button class="uk-button uk-button-danger" type="button" @click="delete_me()">Delete</button>
+        </div>
         <div class="uk-width-auto@m">
-        <button class="uk-button uk-button-primary" type="button" @click="restart_me()">Restart</button>
-      </div>
+          <button class="uk-button uk-button-primary" type="button" @click="restart_me()">Restart</button>
+        </div>
         <div class="uk-width-auto@m">
-        <button class="uk-button uk-button-primary" type="button" @click="download_me()">Download</button>
+          <button class="uk-button uk-button-primary" type="button" @click="download_me()">Download</button>
+        </div>
       </div>
-      </div>
-      <table
-        class="uk-table uk-table-small uk-table-striped uk-table-responsive"
-      >
+      <table class="uk-table uk-table-small uk-table-striped uk-table-responsive">
         <thead>
           <tr>
-            <th class="text">ID {{ test.id }}</th>
-            <th class="text">USERS {{ test.info.users }}</th>
-            <th class="text">SPAWN RATE {{ test.info.spawn_rate }}</th>
-            <th class="text">WORKERS {{ test.info.workers ? test.info.workers : 0 }}</th>
-            <th class="text">HOST {{ test.info.host }}</th>
-            <th class="text">TIME {{ test.info.time }}s</th>
+            <th class="text">ID: {{ test.id }}</th>
+            <th class="text">USERS: {{ test.info.users }}</th>
+            <th class="text">SPAWN RATE: {{ test.info.spawn_rate }}</th>
+            <th class="text">WORKERS: {{ test.info.workers ? test.info.workers : 0 }}</th>
+            <th class="text">HOST: {{ test.info.host }}</th>
+            <th class="text">TIME: {{ test.info.time ? test.info.time : 0 }} s</th>
 
-            <th><div v-if="test.status == 0" uk-spinner></div></th>
+            <th>
+              <div v-if="test.status == 0" uk-spinner></div>
+            </th>
           </tr>
         </thead>
       </table>
-      <table
-        class="uk-table uk-table-small uk-table-striped uk-table-responsive"
-      >
-
+      <table class="uk-table uk-table-small uk-table-striped uk-table-responsive">
         <thead>
           <tr>
             <th class="text">Type</th>
@@ -46,8 +43,8 @@
             <th class="text">Min Res Time</th>
             <th class="text">Max Res Time</th>
             <th class="text">Avg Content Size</th>
-            <th class="text">Requests/s</th>
-            <th class="text">Failures/s</th>
+            <th class="text">R/s</th>
+            <th class="text">F/s</th>
           </tr>
         </thead>
         <tbody>
@@ -71,10 +68,7 @@
     <br />
     <br />
     <br />
-    <div
-      :id="test.id + '-chartContainer'"
-      style="height: 370px; width: 100%"
-    ></div>
+    <div :id="test.id + '-chartContainer'" style="height: 370px; width: 100%"></div>
     <br />
     <br />
     <br />
@@ -231,4 +225,5 @@ export default {
 </script>
 
 <style>
+
 </style>

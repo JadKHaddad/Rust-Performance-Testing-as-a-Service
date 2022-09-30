@@ -111,7 +111,7 @@ pub async fn upload(
             check = false;
             continue;
         }
-        if !exists{
+        if !exists {
             let full_file_name = shared::get_temp_dir().join(file_name);
             let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
             std::fs::create_dir_all(full_file_name_prefix)?;
@@ -168,14 +168,15 @@ pub async fn upload(
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
-            .spawn(){
-                cmd_
-            }else{
-                std::fs::remove_dir_all(project_temp_dir)?;
-                response.error = Some("System Error");
-                response.success = false;
-                return Ok(serde_json::to_string(&response).unwrap());
-            }
+            .spawn()
+        {
+            cmd_
+        } else {
+            std::fs::remove_dir_all(project_temp_dir)?;
+            response.error = Some("System Error");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
     } else {
         let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
         if let Ok(cmd_) = Command::new("bash")
@@ -190,14 +191,15 @@ pub async fn upload(
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
-            .spawn(){
-                cmd_
-            }else{
-                std::fs::remove_dir_all(project_temp_dir)?;
-                response.error = Some("System Error");
-                response.success = false;
-                return Ok(serde_json::to_string(&response).unwrap());
-            }
+            .spawn()
+        {
+            cmd_
+        } else {
+            std::fs::remove_dir_all(project_temp_dir)?;
+            response.error = Some("System Error");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
     };
     let mut installing_tasks_guard = installing_tasks.write();
     let project_name = project_temp_dir.file_name().ok_or("Upload Error")?;
@@ -217,18 +219,22 @@ pub async fn upload(
             tokio::spawn(async move {
                 loop {
                     let mut to_be_deleted: Vec<String> = Vec::new();
-                    let mut installing_projects: Vec<models::websocket::projects::Project> = Vec::new();
+                    let mut installing_projects: Vec<models::websocket::projects::Project> =
+                        Vec::new();
                     {
                         let mut tokio_tasks_guard = tokio_installing_tasks.write();
                         if tokio_tasks_guard.len() < 1 {
-                            if let Ok(mut lock) = tokio_currently_installing_projects.lock(){
+                            if let Ok(mut lock) = tokio_currently_installing_projects.lock() {
                                 *lock = false;
                                 println!(
                                     "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
                                     shared::get_date_and_time()
                                 );
-                            }else{
-                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: failed to lock", shared::get_date_and_time());
+                            } else {
+                                eprintln!(
+                                    "[{}] ERROR: PROJECTS GARBAGE COLLECTOR: failed to lock",
+                                    shared::get_date_and_time()
+                                );
                             }
                             break;
                         }
@@ -254,7 +260,8 @@ pub async fn upload(
                                                     let err = child_stream_to_vec(stderr);
                                                     if let Ok(error_string) = str::from_utf8(&err) {
                                                         to_be_deleted.push(id.to_owned());
-                                                        project.error = Some(error_string.to_owned());
+                                                        project.error =
+                                                            Some(error_string.to_owned());
                                                         println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", shared::get_date_and_time(), id, error_string);
                                                     }
                                                 }
@@ -325,7 +332,7 @@ pub async fn upload(
                             istalling_projects: installing_projects,
                         },
                     };
-    
+
                     if main_sender
                         .send(serde_json::to_string(&websocket_message).unwrap())
                         .is_err()
@@ -344,9 +351,12 @@ pub async fn upload(
                 shared::get_date_and_time()
             );
         }
-    }
-    else{
-        eprintln!("[{}] ERROR: MASTER: Project [{:#?}] failed to lock", shared::get_date_and_time(), project_name);
+    } else {
+        eprintln!(
+            "[{}] ERROR: MASTER: Project [{:#?}] failed to lock",
+            shared::get_date_and_time(),
+            project_name
+        );
         Err("Could not lock. System error")?;
     }
     Ok(serde_json::to_string(&response).unwrap())
@@ -397,7 +407,7 @@ pub async fn projects() -> Result<String, Box<dyn Error>> {
             let extension = Path::new(&script_name).extension();
             if let Some(extension) = extension {
                 if extension != "py" {
-                    continue
+                    continue;
                 }
             }
             scripts.push(script_name);
@@ -437,11 +447,11 @@ pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>>
             .ok_or("Parse Error")?
             .to_owned();
         let extension = Path::new(&script_name).extension();
-            if let Some(extension) = extension {
-                if extension != "py" {
-                    continue
-                }
+        if let Some(extension) = extension {
+            if extension != "py" {
+                continue;
             }
+        }
         content.scripts.push(script_name);
     }
 
@@ -475,7 +485,10 @@ pub async fn tests(
         } else {
             HashSet::new()
         };
-    let mut content = shared::models::http::tests::Content { tests: Vec::new() , config: shared::get_config(&project_id, &script_id)};
+    let mut content = shared::models::http::tests::Content {
+        tests: Vec::new(),
+        config: shared::get_config(&project_id, &script_id),
+    };
     let script_dir =
         match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
             Ok(dir) => dir,
@@ -522,9 +535,7 @@ pub async fn tests(
     Ok(response)
 }
 
-pub async fn all_running_tests(
-    red_client: Data<&redis::Client>,
-) -> Result<String, Box<dyn Error>> {
+pub async fn all_running_tests(red_client: Data<&redis::Client>) -> Result<String, Box<dyn Error>> {
     let mut response = shared::models::http::Response {
         success: true,
         message: "Tests",
@@ -545,7 +556,10 @@ pub async fn all_running_tests(
         } else {
             HashSet::new()
         };
-    let mut content = shared::models::http::tests::Content { tests: Vec::new() , config: None};
+    let mut content = shared::models::http::tests::Content {
+        tests: Vec::new(),
+        config: None,
+    };
     for running_test in running_tests {
         let (project_id, script_id, test_id) = shared::decode_test_id(&running_test);
         //get results
@@ -1053,10 +1067,7 @@ pub fn check_script<'a>(project_id: &'a str, script_id: &'a str) -> Result<Strin
         );
         Command::new("bash")
             .current_dir(shared::get_a_project_dir(&project_id))
-            .args(&[
-                "-c",
-                &command,
-            ])
+            .args(&["-c", &command])
             .stdout(Stdio::inherit())
             .stderr(Stdio::piped())
             .spawn()?
@@ -1079,7 +1090,7 @@ pub fn check_script<'a>(project_id: &'a str, script_id: &'a str) -> Result<Strin
 }
 
 pub fn preview_script(project_id: &str, script_id: &str) -> Result<String, Box<dyn Error>> {
-    let script_content =  shared::read_script_content(project_id, script_id);
+    let script_content = shared::read_script_content(project_id, script_id);
     let response = models::http::Response::<String> {
         success: true,
         message: "Test preview",
