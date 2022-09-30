@@ -144,6 +144,12 @@ export default {
         this.chart.render();
       }
     },
+    resetChartData(){
+      this.total_median_response_time.dataPoints = [];
+      this.total_average_response_time.dataPoints = [];
+      this.total_min_response_time.dataPoints = [];
+      this.total_max_response_time.dataPoints = [];
+    },
     stopMe() {
       this.$emit("stop_me");
     },
@@ -163,6 +169,7 @@ export default {
         .then((data) => {
           this.showStatsBool = true;
           this.$nextTick(function () {
+            this.resetChartData();  
             this.setupChart(data.content)
           })
         })
