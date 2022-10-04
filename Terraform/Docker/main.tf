@@ -14,12 +14,13 @@ provider "docker" {
 }
 
 locals {
-  root_path_tmp = "/${replace(abspath(path.root), ":", "")}"
-  root_path     = replace(local.root_path_tmp, "////", "/")
-  context_path  = "../"
-  dockerfiles_path = "Dockerfiles"
-  data_path = "${local.root_path}/../Dockerfiles/Performance-Testing-Data"
+  root_path_tmp       = "/${replace(abspath(path.root), ":", "")}"
+  root_path           = replace(local.root_path_tmp, "////", "/")
+  context_path        = "../../"
+  dockerfiles_path    = "Dockerfiles"
+  data_path           = "${local.root_path}/../../Dockerfiles/Performance-Testing-Data"
   container_data_path = "/home/app/Backend/Performance-Testing-Data"
+  docker_registry     = "localhost:32000"
 }
 
 resource "docker_network" "network" {
@@ -29,7 +30,6 @@ resource "docker_network" "network" {
 resource "docker_image" "redis" {
   name         = "redis:latest"
   keep_locally = false
-
 }
 
 resource "docker_container" "redis" {
@@ -41,7 +41,7 @@ resource "docker_container" "redis" {
 }
 
 resource "docker_image" "master" {
-  name         = "localhost:32000/master-release:latest"
+  name         = "${local.docker_registry}/master-release:latest"
   keep_locally = true
   build {
     path       = local.context_path
@@ -68,7 +68,7 @@ resource "docker_container" "master" {
 }
 
 resource "docker_image" "worker" {
-  name         = "localhost:32000/worker-release"
+  name         = "${local.docker_registry}/worker-release"
   keep_locally = true
   build {
     path       = local.context_path
@@ -121,7 +121,7 @@ resource "docker_container" "worker-2" {
 }
 
 resource "docker_image" "frontend" {
-  name         = "localhost:32000/frontend"
+  name         = "${local.docker_registry}/frontend"
   keep_locally = true
   build {
     path       = local.context_path
@@ -142,7 +142,7 @@ resource "docker_container" "frontend" {
 }
 
 resource "docker_image" "loadbalancer" {
-  name         = "localhost:32000/loadbalancer"
+  name         = "${local.docker_registry}/loadbalancer"
   keep_locally = true
   build {
     path       = local.context_path
@@ -163,11 +163,11 @@ resource "docker_container" "loadbalancer" {
 }
 
 resource "docker_image" "entrypoint" {
-  name         = "localhost:32000/entrypoint"
+  name         = "${local.docker_registry}/entrypoint"
   keep_locally = true
   build {
     path       = local.context_path
-    dockerfile ="${local.dockerfiles_path}/Dockerfile.entrypoint"
+    dockerfile = "${local.dockerfiles_path}/Dockerfile.entrypoint"
   }
 }
 
