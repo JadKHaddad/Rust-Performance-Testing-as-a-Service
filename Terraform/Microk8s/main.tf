@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "= 2.13.1"
+    }
+  }
+}
+
 provider "kubernetes" {
   config_path = "/var/snap/microk8s/current/credentials/client.config"
 }
@@ -86,8 +95,8 @@ locals {
       name = "frontend-deployment"
     },
   }
-  registry = "localhost:32000"
-  session_affinity = "None"
+  registry          = "localhost:32000"
+  session_affinity  = "None"
   image_pull_policy = "Always"
   available_workers = {
     worker_1 = {
@@ -104,6 +113,9 @@ resource "kubernetes_namespace" "performance_testing" {
 }
 
 resource "kubernetes_persistent_volume_claim" "pv_claim" {
+  depends_on = [
+    kubernetes_persistent_volume.pv_volume
+  ]
   metadata {
     name      = "pv-claim"
     namespace = kubernetes_namespace.performance_testing.metadata.0.name
@@ -146,7 +158,7 @@ resource "kubernetes_config_map" "configmap" {
     namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   data = {
-    redis_host = kubernetes_service.redis_service.metadata.0.name
+    redis_host = local.services.redis.name
     master_ip  = "${local.services.master.name}:${local.ports.master.service.port}"
   }
 }
@@ -167,7 +179,6 @@ resource "kubernetes_service" "redis_service" {
       protocol    = "TCP"
       target_port = local.ports.redis.service.target_port
     }
-    type = "LoadBalancer"
   }
 }
 
@@ -226,11 +237,14 @@ resource "kubernetes_service" "master_service" {
       protocol    = "TCP"
       target_port = local.ports.master.service.target_port
     }
-    type = "LoadBalancer"
   }
 }
 
 resource "kubernetes_deployment" "master_deployment" {
+  depends_on = [
+    kubernetes_persistent_volume.pv_volume,
+    kubernetes_config_map.configmap
+  ]
   metadata {
     name      = local.deployments.master.name
     namespace = kubernetes_namespace.performance_testing.metadata.0.name
@@ -308,7 +322,6 @@ resource "kubernetes_service" "worker_loadbalancer" {
       protocol    = "TCP"
       target_port = local.ports.workers.loadbalancer.target_port
     }
-    type = "LoadBalancer"
   }
 }
 
@@ -329,11 +342,14 @@ resource "kubernetes_service" "workers_service" {
       protocol    = "TCP"
       target_port = local.ports.workers.service.target_port
     }
-    type = "LoadBalancer"
   }
 }
 
 resource "kubernetes_deployment" "workers_deployment" {
+  depends_on = [
+    kubernetes_persistent_volume.pv_volume,
+    kubernetes_config_map.configmap
+  ]
   for_each = local.available_workers
   metadata {
     name      = "worker-${index(keys(local.available_workers), each.key) + 1}-deployment"
@@ -426,7 +442,6 @@ resource "kubernetes_service" "frontend_service" {
       protocol    = "TCP"
       target_port = local.ports.frontend.service.target_port
     }
-    type = "LoadBalancer"
   }
 }
 

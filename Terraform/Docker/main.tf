@@ -2,7 +2,7 @@ terraform {
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 2.21.0"
+      version = "2.22.0"
     }
   }
 }
@@ -81,6 +81,10 @@ resource "docker_image" "runner" {
 }
 
 resource "docker_image" "master" {
+  depends_on = [
+    docker_image.runner,
+    docker_image.builder
+  ]
   name         = "${local.docker_registry}/master-release:latest"
   keep_locally = true
   build {
@@ -109,6 +113,10 @@ resource "docker_container" "master" {
 }
 
 resource "docker_image" "worker" {
+  depends_on = [
+    docker_image.runner,
+    docker_image.builder
+  ]
   name         = "${local.docker_registry}/worker-release:latest"
   keep_locally = true
   build {
@@ -173,6 +181,9 @@ resource "docker_image" "loadbalancer" {
 }
 
 resource "docker_container" "loadbalancer" {
+  depends_on = [
+    docker_container.workers
+  ]
   image = docker_image.loadbalancer.image_id
   name  = "loadbalancer"
   ports {
@@ -195,6 +206,11 @@ resource "docker_image" "entrypoint" {
 }
 
 resource "docker_container" "entrypoint" {
+  depends_on = [
+    docker_container.master,
+    docker_container.loadbalancer,
+    docker_container.frontend
+  ]
   image = docker_image.entrypoint.image_id
   name  = "entrypoint"
   ports {
