@@ -21,8 +21,6 @@ locals {
   data_path           = "${local.root_path}/../../Dockerfiles/Performance-Testing-Data"
   container_data_path = "/home/app/Backend/Performance-Testing-Data"
   docker_registry     = "localhost:32000"
-
-
 }
 
 resource "docker_network" "network" {
@@ -82,7 +80,7 @@ resource "docker_container" "master" {
     container_path = local.container_data_path
     host_path      = local.data_path
   }
-  env = ["REDIS_HOST=redis"]
+  env = ["REDIS_HOST=${docker_container.redis.name}"]
   networks_advanced {
     name = docker_network.network.name
   }
@@ -111,8 +109,8 @@ resource "docker_container" "worker-1" {
     host_path      = local.data_path
   }
   env = [
-    "REDIS_HOST=redis",
-    "MASTER_IP=master:3000",
+    "REDIS_HOST=${docker_container.redis.name}",
+    "MASTER_IP=${docker_container.master.name}:${docker_container.master.ports[0].internal}",
     "WORKER_NAME=worker-1:5000"
   ]
   networks_advanced {
@@ -134,8 +132,8 @@ resource "docker_container" "worker-2" {
     host_path      = local.data_path
   }
   env = [
-    "REDIS_HOST=redis",
-    "MASTER_IP=master:3000",
+    "REDIS_HOST=${docker_container.redis.name}",
+    "MASTER_IP=${docker_container.master.name}:${docker_container.master.ports[0].internal}",
     "WORKER_NAME=worker-2:5000"
   ]
   networks_advanced {
