@@ -11,7 +11,7 @@ services:
     image: redis:latest
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
 
   master:
     container_name: master
@@ -28,7 +28,7 @@ services:
       - "3000:3000"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
 
   worker-1:
     container_name: worker-1
@@ -47,7 +47,7 @@ services:
       - "5001:5000"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
 
   worker-2:
     container_name: worker-2
@@ -66,7 +66,7 @@ services:
       - "5002:5000"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
 
   frontend:
     container_name: frontend
@@ -78,7 +78,7 @@ services:
       - "7000:80"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
 
   loadbalancer:
     container_name: loadbalancer
@@ -90,7 +90,7 @@ services:
       - "5000:80"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped
     
   entrypoint:
     container_name: entrypoint
@@ -102,4 +102,4 @@ services:
       - "8000:80"
     networks: 
       - network
-    restart: on-failure
+    restart: unless-stopped

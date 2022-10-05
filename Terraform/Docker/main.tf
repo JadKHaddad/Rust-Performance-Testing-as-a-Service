@@ -2,7 +2,7 @@ terraform {
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = "~> 2.15.0"
+      version = "~> 2.21.0"
     }
   }
 }
@@ -21,6 +21,8 @@ locals {
   data_path           = "${local.root_path}/../../Dockerfiles/Performance-Testing-Data"
   container_data_path = "/home/app/Backend/Performance-Testing-Data"
   docker_registry     = "localhost:32000"
+
+
 }
 
 resource "docker_network" "network" {
@@ -33,10 +35,29 @@ resource "docker_image" "redis" {
 }
 
 resource "docker_container" "redis" {
-  image = docker_image.redis.latest
+  image = docker_image.redis.image_id
   name  = "redis"
   networks_advanced {
     name = docker_network.network.name
+  }
+  restart = "unless-stopped"
+}
+
+resource "docker_image" "builder" {
+  name         = "builder:latest"
+  keep_locally = true
+  build {
+    path       = local.context_path
+    dockerfile = "${local.dockerfiles_path}/Dockerfile.builder"
+  }
+}
+
+resource "docker_image" "runner" {
+  name         = "runner:latest"
+  keep_locally = true
+  build {
+    path       = local.context_path
+    dockerfile = "${local.dockerfiles_path}/Dockerfile.runner"
   }
 }
 
@@ -51,7 +72,7 @@ resource "docker_image" "master" {
 
 resource "docker_container" "master" {
   user  = "root"
-  image = docker_image.master.latest
+  image = docker_image.master.image_id
   name  = "master"
   ports {
     internal = 3000
@@ -65,10 +86,11 @@ resource "docker_container" "master" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
 
 resource "docker_image" "worker" {
-  name         = "${local.docker_registry}/worker-release"
+  name         = "${local.docker_registry}/worker-release:latest"
   keep_locally = true
   build {
     path       = local.context_path
@@ -78,7 +100,7 @@ resource "docker_image" "worker" {
 
 resource "docker_container" "worker-1" {
   user  = "root"
-  image = docker_image.worker.latest
+  image = docker_image.worker.image_id
   name  = "worker-1"
   ports {
     internal = 5000
@@ -96,11 +118,12 @@ resource "docker_container" "worker-1" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
 
 resource "docker_container" "worker-2" {
   user  = "root"
-  image = docker_image.worker.latest
+  image = docker_image.worker.image_id
   name  = "worker-2"
   ports {
     internal = 5000
@@ -118,10 +141,11 @@ resource "docker_container" "worker-2" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
 
 resource "docker_image" "frontend" {
-  name         = "${local.docker_registry}/frontend"
+  name         = "${local.docker_registry}/frontend:latest"
   keep_locally = true
   build {
     path       = local.context_path
@@ -130,7 +154,7 @@ resource "docker_image" "frontend" {
 }
 
 resource "docker_container" "frontend" {
-  image = docker_image.frontend.latest
+  image = docker_image.frontend.image_id
   name  = "frontend"
   ports {
     internal = 80
@@ -139,10 +163,11 @@ resource "docker_container" "frontend" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
 
 resource "docker_image" "loadbalancer" {
-  name         = "${local.docker_registry}/loadbalancer"
+  name         = "${local.docker_registry}/loadbalancer:latest"
   keep_locally = true
   build {
     path       = local.context_path
@@ -151,7 +176,7 @@ resource "docker_image" "loadbalancer" {
 }
 
 resource "docker_container" "loadbalancer" {
-  image = docker_image.loadbalancer.latest
+  image = docker_image.loadbalancer.image_id
   name  = "loadbalancer"
   ports {
     internal = 80
@@ -160,10 +185,11 @@ resource "docker_container" "loadbalancer" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
 
 resource "docker_image" "entrypoint" {
-  name         = "${local.docker_registry}/entrypoint"
+  name         = "${local.docker_registry}/entrypoint:latest"
   keep_locally = true
   build {
     path       = local.context_path
@@ -172,7 +198,7 @@ resource "docker_image" "entrypoint" {
 }
 
 resource "docker_container" "entrypoint" {
-  image = docker_image.entrypoint.latest
+  image = docker_image.entrypoint.image_id
   name  = "entrypoint"
   ports {
     internal = 80
@@ -181,4 +207,5 @@ resource "docker_container" "entrypoint" {
   networks_advanced {
     name = docker_network.network.name
   }
+  restart = "unless-stopped"
 }
