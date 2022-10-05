@@ -544,3 +544,5 @@ resource "kubernetes_ingress_v1" "ingress" {
     }
   }
 }
+
+# TDOD!: build and push the images

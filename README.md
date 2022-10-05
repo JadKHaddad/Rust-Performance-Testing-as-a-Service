@@ -110,6 +110,9 @@ docker-compose -f Dockerfiles/Docker-compose.yaml up
 ```
 * Entrypoint is ```host:8000```
 
+## Deploy with Terraform (2 Workers)
+* Todo
+
 ## Contributors
 * Jad K. Haddad <jadkhaddad@gmail.com>
 
