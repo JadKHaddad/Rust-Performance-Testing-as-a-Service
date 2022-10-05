@@ -2,16 +2,111 @@ provider "kubernetes" {
   config_path = "/var/snap/microk8s/current/credentials/client.config"
 }
 
-resource "kubernetes_namespace" "performance-testing" {
+locals {
+  namespace = "performance-testing"
+  ports = {
+    redis = {
+      service = {
+        port        = 6379
+        target_port = 6379
+      }
+      container = {
+        container_port = 6379
+      }
+    }
+    master = {
+      service = {
+        port        = 3000
+        target_port = 3000
+      }
+      container = {
+        container_port = 3000
+      }
+    }
+    workers = {
+      service = {
+        port        = 5000
+        target_port = 5000
+      }
+      loadbalancer = {
+        port        = 5000
+        target_port = 5000
+      }
+      container = {
+        container_port = 5000
+      }
+    }
+    frontend = {
+      service = {
+        port        = 80
+        target_port = 80
+      }
+      container = {
+        container_port = 80
+      }
+    }
+  }
+  consts = {
+    redis_host  = "REDIS_HOST"
+    master_ip   = "MASTER_IP"
+    worker_name = "WORKER_NAME"
+  }
+  paths = {
+    container = {
+      mount_path = "/home/app/Backend/Performance-Testing-Data"
+    },
+    pv = {
+      host_path = "/kubernetes/performance-testing/Performance-Testing-Data"
+    }
+  }
+  services = {
+    redis = {
+      name = "redis-service"
+    },
+    master = {
+      name = "master-service"
+    },
+    frontend = {
+      name = "frontend-service"
+    },
+    workers = {
+      loadbalancer = {
+        name = "worker-loadbalancer"
+      }
+    }
+  }
+  deployments = {
+    redis = {
+      name = "redis-deployment"
+    },
+    master = {
+      name = "master-deployment"
+    },
+    frontend = {
+      name = "frontend-deployment"
+    },
+  }
+  registry = "localhost:32000"
+  session_affinity = "None"
+  image_pull_policy = "Always"
+  available_workers = {
+    worker_1 = {
+    },
+    worker_2 = {
+    }
+  }
+}
+
+resource "kubernetes_namespace" "performance_testing" {
   metadata {
-    name = "performance-testing"
+    name = local.namespace
   }
 }
 
 resource "kubernetes_persistent_volume_claim" "pv_claim" {
   metadata {
     name      = "pv-claim"
-    namespace = "performance-testing"
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     storage_class_name = "manual"
@@ -39,7 +134,7 @@ resource "kubernetes_persistent_volume" "pv_volume" {
     access_modes = ["ReadWriteOnce"]
     persistent_volume_source {
       host_path {
-        path = "/kubernetes/performance-testing/Performance-Testing-Data"
+        path = local.paths.pv.host_path
       }
     }
   }
@@ -48,29 +143,29 @@ resource "kubernetes_persistent_volume" "pv_volume" {
 resource "kubernetes_config_map" "configmap" {
   metadata {
     name      = "configmap"
-    namespace = "performance-testing"
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   data = {
-    redis_host = "redis-service"
-    master_ip  = "master-service:3000"
+    redis_host = kubernetes_service.redis_service.metadata.0.name
+    master_ip  = "${local.services.master.name}:${local.ports.master.service.port}"
   }
 }
 
 resource "kubernetes_service" "redis_service" {
   metadata {
-    name      = "redis-service"
-    namespace = "performance-testing"
+    name      = local.services.redis.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     selector = {
       app = kubernetes_deployment.redis_deployment.metadata.0.labels.app
     }
-    session_affinity = "None"
+    session_affinity = local.session_affinity
     port {
       name        = "http"
-      port        = 6379
+      port        = local.ports.redis.service.port
       protocol    = "TCP"
-      target_port = 6379
+      target_port = local.ports.redis.service.target_port
     }
     type = "LoadBalancer"
   }
@@ -78,8 +173,8 @@ resource "kubernetes_service" "redis_service" {
 
 resource "kubernetes_deployment" "redis_deployment" {
   metadata {
-    name      = "redis-deployment"
-    namespace = "performance-testing"
+    name      = local.deployments.redis.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
     labels = {
       app = "redis"
     }
@@ -105,9 +200,9 @@ resource "kubernetes_deployment" "redis_deployment" {
         container {
           image             = "redis"
           name              = "redis"
-          image_pull_policy = "Always"
+          image_pull_policy = local.image_pull_policy
           port {
-            container_port = 6379
+            container_port = local.ports.redis.container.container_port
           }
         }
       }
@@ -117,19 +212,19 @@ resource "kubernetes_deployment" "redis_deployment" {
 
 resource "kubernetes_service" "master_service" {
   metadata {
-    name      = "master-service"
-    namespace = "performance-testing"
+    name      = local.services.master.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     selector = {
       app = kubernetes_deployment.master_deployment.metadata.0.labels.app
     }
-    session_affinity = "None"
+    session_affinity = local.session_affinity
     port {
       name        = "http"
-      port        = 3000
+      port        = local.ports.master.service.port
       protocol    = "TCP"
-      target_port = 3000
+      target_port = local.ports.master.service.target_port
     }
     type = "LoadBalancer"
   }
@@ -137,8 +232,8 @@ resource "kubernetes_service" "master_service" {
 
 resource "kubernetes_deployment" "master_deployment" {
   metadata {
-    name      = "master-deployment"
-    namespace = "performance-testing"
+    name      = local.deployments.master.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
     labels = {
       app = "master"
     }
@@ -169,23 +264,23 @@ resource "kubernetes_deployment" "master_deployment" {
           }
         }
         container {
-          image             = "localhost:32000/master-release:latest"
+          image             = "${local.registry}/master-release:latest"
           name              = "master"
-          image_pull_policy = "Always"
+          image_pull_policy = local.image_pull_policy
           port {
-            container_port = 3000
+            container_port = local.ports.master.container.container_port
           }
           env {
             name = "REDIS_HOST"
             value_from {
               config_map_key_ref {
-                name = "configmap"
+                name = kubernetes_config_map.configmap.metadata.0.name
                 key  = "redis_host"
               }
             }
           }
           volume_mount {
-            mount_path = "/home/app/Backend/Performance-Testing-Data"
+            mount_path = local.paths.container.mount_path
             name       = "task-pv-storage"
           }
           security_context {
@@ -199,63 +294,65 @@ resource "kubernetes_deployment" "master_deployment" {
 
 resource "kubernetes_service" "worker_loadbalancer" {
   metadata {
-    name      = "worker-loadbalancer"
-    namespace = "performance-testing"
+    name      = local.services.workers.loadbalancer.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     selector = {
       label = "worker"
     }
-    session_affinity = "None"
+    session_affinity = local.session_affinity
     port {
       name        = "http"
-      port        = 5000
+      port        = local.ports.workers.loadbalancer.port
       protocol    = "TCP"
-      target_port = 5000
+      target_port = local.ports.workers.loadbalancer.target_port
     }
     type = "LoadBalancer"
   }
 }
 
-resource "kubernetes_service" "worker_1_service" {
+resource "kubernetes_service" "workers_service" {
+  for_each = local.available_workers
   metadata {
-    name      = "worker-1-service"
-    namespace = "performance-testing"
+    name      = "worker-${index(keys(local.available_workers), each.key) + 1}-service"
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     selector = {
-      app = kubernetes_deployment.worker_1_deployment.metadata.0.labels.app
+      app = kubernetes_deployment.workers_deployment[each.key].metadata.0.labels.app
     }
-    session_affinity = "None"
+    session_affinity = local.session_affinity
     port {
       name        = "http"
-      port        = 5000
+      port        = local.ports.workers.service.port
       protocol    = "TCP"
-      target_port = 5000
+      target_port = local.ports.workers.service.target_port
     }
     type = "LoadBalancer"
   }
 }
 
-resource "kubernetes_deployment" "worker_1_deployment" {
+resource "kubernetes_deployment" "workers_deployment" {
+  for_each = local.available_workers
   metadata {
-    name      = "worker-1-deployment"
-    namespace = "performance-testing"
+    name      = "worker-${index(keys(local.available_workers), each.key) + 1}-deployment"
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
     labels = {
-      app = "worker-1"
+      app = "worker-${index(keys(local.available_workers), each.key) + 1}"
     }
   }
   spec {
     replicas = 1
     selector {
       match_labels = {
-        app = "worker-1"
+        app = "worker-${index(keys(local.available_workers), each.key) + 1}"
       }
     }
     template {
       metadata {
         labels = {
-          app   = "worker-1"
+          app   = "worker-${index(keys(local.available_workers), each.key) + 1}"
           label = "worker"
         }
       }
@@ -272,36 +369,36 @@ resource "kubernetes_deployment" "worker_1_deployment" {
           }
         }
         container {
-          image             = "localhost:32000/worker-release:latest"
-          name              = "worker-1"
-          image_pull_policy = "Always"
+          image             = "${local.registry}/worker-release:latest"
+          name              = "worker-${index(keys(local.available_workers), each.key) + 1}"
+          image_pull_policy = local.image_pull_policy
           port {
-            container_port = 5000
+            container_port = local.ports.workers.container.container_port
           }
           env {
-            name = "REDIS_HOST"
+            name = local.consts.redis_host
             value_from {
               config_map_key_ref {
-                name = "configmap"
+                name = kubernetes_config_map.configmap.metadata.0.name
                 key  = "redis_host"
               }
             }
           }
           env {
-            name = "MASTER_IP"
+            name = local.consts.master_ip
             value_from {
               config_map_key_ref {
-                name = "configmap"
+                name = kubernetes_config_map.configmap.metadata.0.name
                 key  = "master_ip"
               }
             }
           }
           env {
-            name  = "WORKER_NAME"
-            value = "worker-1-service:5000"
+            name  = local.consts.worker_name
+            value = "worker-${index(keys(local.available_workers), each.key) + 1}-service:5000"
           }
           volume_mount {
-            mount_path = "/home/app/Backend/Performance-Testing-Data"
+            mount_path = local.paths.container.mount_path
             name       = "task-pv-storage"
           }
           security_context {
@@ -313,23 +410,21 @@ resource "kubernetes_deployment" "worker_1_deployment" {
   }
 }
 
-## worker2 ##
-
 resource "kubernetes_service" "frontend_service" {
   metadata {
-    name      = "frontend-service"
-    namespace = "performance-testing"
+    name      = local.services.frontend.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     selector = {
       app = kubernetes_deployment.frontend_deployment.metadata.0.labels.app
     }
-    session_affinity = "None"
+    session_affinity = local.session_affinity
     port {
       name        = "http"
-      port        = 80
+      port        = local.ports.frontend.service.port
       protocol    = "TCP"
-      target_port = 80
+      target_port = local.ports.frontend.service.target_port
     }
     type = "LoadBalancer"
   }
@@ -337,8 +432,8 @@ resource "kubernetes_service" "frontend_service" {
 
 resource "kubernetes_deployment" "frontend_deployment" {
   metadata {
-    name      = "frontend-deployment"
-    namespace = "performance-testing"
+    name      = local.deployments.frontend.name
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
     labels = {
       app = "frontend"
     }
@@ -358,11 +453,11 @@ resource "kubernetes_deployment" "frontend_deployment" {
       }
       spec {
         container {
-          image             = "localhost:32000/frontend:latest"
+          image             = "${local.registry}/frontend:latest"
           name              = "frontend"
-          image_pull_policy = "Always"
+          image_pull_policy = local.image_pull_policy
           port {
-            container_port = 80
+            container_port = local.ports.frontend.container.container_port
           }
         }
       }
@@ -377,7 +472,7 @@ resource "kubernetes_ingress_v1" "ingress" {
       "nginx.ingress.kubernetes.io/rewrite-target" = "/$1"
       "kubernetes.io/ingress.class"                = "public"
     }
-    namespace = "performance-testing"
+    namespace = kubernetes_namespace.performance_testing.metadata.0.name
   }
   spec {
     rule {
@@ -389,7 +484,7 @@ resource "kubernetes_ingress_v1" "ingress" {
             service {
               name = kubernetes_service.master_service.metadata.0.name
               port {
-                number = 3000
+                number = kubernetes_service.master_service.spec.0.port.0.port
               }
             }
           }
@@ -401,7 +496,7 @@ resource "kubernetes_ingress_v1" "ingress" {
             service {
               name = kubernetes_service.master_service.metadata.0.name
               port {
-                number = 3000
+                number = kubernetes_service.master_service.spec.0.port.0.port
               }
             }
           }
@@ -413,7 +508,7 @@ resource "kubernetes_ingress_v1" "ingress" {
             service {
               name = kubernetes_service.worker_loadbalancer.metadata.0.name
               port {
-                number = 5000
+                number = kubernetes_service.worker_loadbalancer.spec.0.port.0.port
               }
             }
           }
@@ -425,7 +520,7 @@ resource "kubernetes_ingress_v1" "ingress" {
             service {
               name = kubernetes_service.frontend_service.metadata.0.name
               port {
-                number = 80
+                number = kubernetes_service.frontend_service.spec.0.port.0.port
               }
             }
           }

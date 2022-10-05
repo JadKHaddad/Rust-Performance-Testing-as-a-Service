@@ -26,6 +26,7 @@ locals {
     master_internal_port       = 3000
     master_external_port       = 3000
     worker_internal_port       = 5000
+    worker_external_port       = 5000
     frontend_internal_port     = 80
     frontend_external_port     = 7000
     loadbalancer_internal_port = 80
@@ -34,9 +35,13 @@ locals {
     entrypoint_external_port   = 8000
   }
   docker_registry     = "localhost:32000"
-
-
   container_restart_policy = "unless-stopped"
+  available_workers = {
+    worker_1 = {
+    },
+    worker_2 = {
+    }
+  }
 }
 
 resource "docker_network" "network" {
@@ -112,13 +117,14 @@ resource "docker_image" "worker" {
   }
 }
 
-resource "docker_container" "worker_1" {
+resource "docker_container" "workers" {
+  for_each = local.available_workers
   user  = "root"
   image = docker_image.worker.image_id
-  name  = "worker-1"
+  name  = "worker-${index(keys(local.available_workers), each.key) + 1}"
   ports {
     internal = local.ports.worker_internal_port
-    external = 5001
+    external = local.ports.worker_external_port + index(keys(local.available_workers), each.key) + 1
   }
   volumes {
     container_path = local.paths.container_data_path
@@ -126,31 +132,8 @@ resource "docker_container" "worker_1" {
   }
   env = [
     "REDIS_HOST=${docker_container.redis.name}",
-    "MASTER_IP=${docker_container.master.name}:${docker_container.master.ports[0].internal}",
-    "WORKER_NAME=worker-1:${local.ports.worker_internal_port}"
-  ]
-  networks_advanced {
-    name = docker_network.network.name
-  }
-  restart = local.container_restart_policy
-}
-
-resource "docker_container" "worker_2" {
-  user  = "root"
-  image = docker_image.worker.image_id
-  name  = "worker-2"
-  ports {
-    internal = local.ports.worker_internal_port
-    external = 5002
-  }
-  volumes {
-    container_path = local.paths.container_data_path
-    host_path      = local.paths.data_path
-  }
-  env = [
-    "REDIS_HOST=${docker_container.redis.name}",
-    "MASTER_IP=${docker_container.master.name}:${docker_container.master.ports[0].internal}",
-    "WORKER_NAME=worker-2:${local.ports.worker_internal_port}"
+    "MASTER_IP=${docker_container.master.name}:${docker_container.master.ports.0.internal}",
+    "WORKER_NAME=worker-${index(keys(local.available_workers), each.key) + 1}:${local.ports.worker_internal_port}"
   ]
   networks_advanced {
     name = docker_network.network.name
