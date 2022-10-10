@@ -1,4 +1,7 @@
 locals {
+  root_path_tmp = "/${replace(abspath(path.root), ":", "")}"
+  root_path     = replace(local.root_path_tmp, "////", "/")
+  is_linux      = length(regexall("/home/", lower(abspath(path.root)))) > 0
   ports = {
     redis = {
       service = {
@@ -50,6 +53,10 @@ locals {
     container = {
       mount_path = "/home/app/Backend/Performance-Testing-Data"
     },
+    image = { 
+      context_path        = "../../"
+      dockerfiles_path    = "Dockerfiles"
+    }
   }
   services = {
     redis = {
@@ -79,5 +86,4 @@ locals {
     },
   }
   session_affinity = "None"
-
 }

@@ -3,10 +3,10 @@ resource "docker_image" "master" {
     docker_image.runner,
     docker_image.builder
   ]
-  name         = "${var.docker_registry}/master-release:latest"
+  name         = "${var.registry}/master-release:latest"
   keep_locally = true
   build {
-    path       = local.image.paths.context_path
+    path       = local.paths.image.context_path
     dockerfile = "${local.paths.image.dockerfiles_path}/Dockerfile.master-release"
   }
   provisioner "local-exec" {
