@@ -1,3 +1,19 @@
+resource "docker_image" "master" {
+  depends_on = [
+    docker_image.runner,
+    docker_image.builder
+  ]
+  name         = "${var.docker_registry}/master-release:latest"
+  keep_locally = true
+  build {
+    path       = local.image.paths.context_path
+    dockerfile = "${local.paths.image.dockerfiles_path}/Dockerfile.master-release"
+  }
+  provisioner "local-exec" {
+    command = "docker image push ${docker_image.master.image_id}"
+  }
+}
+
 resource "kubernetes_service" "master_service" {
   metadata {
     name      = local.services.master.name
@@ -19,6 +35,7 @@ resource "kubernetes_service" "master_service" {
 
 resource "kubernetes_deployment" "master_deployment" {
   depends_on = [
+    docker_image.master,
     kubernetes_persistent_volume.pv_volume,
     kubernetes_config_map.configmap
   ]

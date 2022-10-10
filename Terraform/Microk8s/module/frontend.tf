@@ -12,7 +12,6 @@ resource "kubernetes_service" "frontend_service" {
       name     = "http"
       protocol = "TCP"
       port     = local.ports.frontend.service.port
-
       target_port = local.ports.frontend.service.target_port
     }
   }
