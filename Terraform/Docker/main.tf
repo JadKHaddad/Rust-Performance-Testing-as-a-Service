@@ -7,10 +7,13 @@ terraform {
   }
 }
 
-provider "docker" {
-  host = "npipe:////.//pipe//docker_engine" # windows
-  # host = "unix:///var/run/docker.sock" # linux
+variable "docker_host" {
+  type = string
+  default = "unix:///var/run/docker.sock" # linux
+}
 
+provider "docker" {
+  host = var.docker_host
 }
 
 locals {
@@ -41,6 +44,7 @@ locals {
     },
     worker_2 = {
     }
+    # for adding a new worker you will need to update the loadbalancer endpoints
   }
 }
 
