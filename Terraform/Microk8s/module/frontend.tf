@@ -52,7 +52,7 @@ resource "kubernetes_deployment" "frontend_deployment" {
       }
       spec {
         container {
-          image             = docker_image.frontend.image_id
+          image             = docker_image.frontend.name
           name              = "frontend"
           image_pull_policy = var.image_pull_policy
           port {

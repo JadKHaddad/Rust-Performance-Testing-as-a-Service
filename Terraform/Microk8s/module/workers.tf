@@ -90,7 +90,7 @@ resource "kubernetes_deployment" "workers_deployment" {
           }
         }
         container {
-          image             = docker_image.worker.image_id
+          image             = docker_image.worker.name
           name              = "worker-${count.index + 1}"
           image_pull_policy = var.image_pull_policy
           port {

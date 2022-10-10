@@ -67,7 +67,7 @@ resource "kubernetes_deployment" "master_deployment" {
           }
         }
         container {
-          image             = docker_image.master.image_id
+          image             = docker_image.master.name
           name              = "master"
           image_pull_policy = var.image_pull_policy
           port {
