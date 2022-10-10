@@ -19,4 +19,4 @@ provider "docker" {
   host = local.is_linux ? "unix:///var/run/docker.sock" : "npipe:////.//pipe//docker_engine"
 }
 
-# TDOD!: build and push the images
+# TODO: apply on bare metal. (delete everything, images and pods.. then apply) 
