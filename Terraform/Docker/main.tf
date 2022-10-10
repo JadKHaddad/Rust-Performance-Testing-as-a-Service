@@ -7,18 +7,14 @@ terraform {
   }
 }
 
-variable "docker_host" {
-  type = string
-  default = "unix:///var/run/docker.sock" # linux
-}
-
 provider "docker" {
-  host = var.docker_host
+  host = local.is_linux ? "unix:///var/run/docker.sock" : "npipe:////.//pipe//docker_engine"
 }
 
 locals {
-  root_path_tmp       = "/${replace(abspath(path.root), ":", "")}"
-  root_path           = replace(local.root_path_tmp, "////", "/")
+  root_path_tmp = "/${replace(abspath(path.root), ":", "")}"
+  root_path     = replace(local.root_path_tmp, "////", "/")
+  is_linux      = length(regexall("/home/", lower(abspath(path.root)))) > 0
   paths = {
     context_path        = "../../"
     dockerfiles_path    = "Dockerfiles"
@@ -37,7 +33,7 @@ locals {
     entrypoint_internal_port   = 80
     entrypoint_external_port   = 8000
   }
-  docker_registry     = "localhost:32000"
+  docker_registry          = "localhost:32000"
   container_restart_policy = "unless-stopped"
   available_workers = {
     worker_1 = {
@@ -131,9 +127,9 @@ resource "docker_image" "worker" {
 
 resource "docker_container" "workers" {
   for_each = local.available_workers
-  user  = "root"
-  image = docker_image.worker.image_id
-  name  = "worker-${index(keys(local.available_workers), each.key) + 1}"
+  user     = "root"
+  image    = docker_image.worker.image_id
+  name     = "worker-${index(keys(local.available_workers), each.key) + 1}"
   ports {
     internal = local.ports.worker_internal_port
     external = local.ports.worker_external_port + index(keys(local.available_workers), each.key) + 1

@@ -1,1 +1,0 @@
-docker_host = "npipe:////.//pipe//docker_engine" # windows
