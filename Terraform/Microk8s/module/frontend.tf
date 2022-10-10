@@ -1,3 +1,15 @@
+resource "docker_image" "frontend" {
+  name         = "${var.registry}/frontend:latest"
+  keep_locally = true
+  build {
+    path       = local.paths.image.context_path
+    dockerfile = "${local.paths.image.dockerfiles_path}/Dockerfile.frontend"
+  }
+  provisioner "local-exec" {
+    command = "docker image push ${self.name}"
+  }
+}
+
 resource "kubernetes_service" "frontend_service" {
   metadata {
     name      = local.services.frontend.name
@@ -40,7 +52,7 @@ resource "kubernetes_deployment" "frontend_deployment" {
       }
       spec {
         container {
-          image             = "${var.registry}/frontend:latest"
+          image             = docker_image.frontend.image_id
           name              = "frontend"
           image_pull_policy = var.image_pull_policy
           port {

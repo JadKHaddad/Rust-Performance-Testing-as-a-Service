@@ -1,3 +1,19 @@
+resource "docker_image" "worker" {
+  depends_on = [
+    docker_image.runner,
+    docker_image.builder
+  ]
+  name         = "${var.registry}/worker-release:latest"
+  keep_locally = true
+  build {
+    path       = local.paths.image.context_path
+    dockerfile = "${local.paths.image.dockerfiles_path}/Dockerfile.worker-release"
+  }
+  provisioner "local-exec" {
+    command = "docker image push ${self.name}"
+  }
+}
+
 resource "kubernetes_service" "worker_loadbalancer" {
   metadata {
     name      = local.services.workers.loadbalancer.name
@@ -39,10 +55,6 @@ resource "kubernetes_service" "workers_service" {
 }
 
 resource "kubernetes_deployment" "workers_deployment" {
-  depends_on = [
-    kubernetes_persistent_volume.pv_volume,
-    kubernetes_config_map.configmap
-  ]
   count = var.worker_count
   metadata {
     name      = "worker-${count.index + 1}-deployment"
@@ -78,7 +90,7 @@ resource "kubernetes_deployment" "workers_deployment" {
           }
         }
         container {
-          image             = "${var.registry}/worker-release:latest"
+          image             = docker_image.worker.image_id
           name              = "worker-${count.index + 1}"
           image_pull_policy = var.image_pull_policy
           port {
