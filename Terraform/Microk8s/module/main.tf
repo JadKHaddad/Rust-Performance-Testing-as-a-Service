@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "kubernetes" {
-  config_path = "/var/snap/microk8s/current/credentials/client.config"
+  config_path = var.k8s_config_path
 }
 
 locals {
@@ -91,8 +91,13 @@ locals {
       name = "frontend-deployment"
     },
   }
-  session_affinity  = "None"
+  session_affinity = "None"
 
+}
+
+variable "k8s_config_path" {
+  type    = string
+  default = "/var/snap/microk8s/current/credentials/client.config"
 }
 
 variable "namespace" {
@@ -107,17 +112,17 @@ variable "pv_local_path" {
 }
 
 variable "worker_count" {
-    type = number
-    default = 2
+  type    = number
+  default = 2
 }
 
 variable "registry" {
-  type = string
+  type    = string
   default = "localhost:32000"
 }
 
 variable "image_pull_policy" {
-  type = string
+  type    = string
   default = "Always"
 }
 
@@ -348,7 +353,7 @@ resource "kubernetes_service" "workers_service" {
   }
   spec {
     selector = {
-      app = kubernetes_deployment.workers_deployment[count.index].metadata.0.labels.app
+      app = "worker-${count.index + 1}"
     }
     session_affinity = local.session_affinity
     port {

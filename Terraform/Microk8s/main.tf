@@ -1,15 +1,22 @@
 module "module" {
   source = "./module"
-  namespace = var.namespace
-  pv_local_path = var.pv_local_path
-  worker_count = var.worker_count
-  registry = var.registry
+
+  k8s_config_path   = var.k8s_config_path
+  namespace         = var.namespace
+  pv_local_path     = var.pv_local_path
+  worker_count      = var.worker_count
+  registry          = var.registry
   image_pull_policy = var.image_pull_policy
 }
 
+variable "k8s_config_path" {
+  type    = string
+  default = "/var/snap/microk8s/current/credentials/client.config"
+}
+
 variable "namespace" {
-  type        = string
-  default     = "performance-testing"
+  type    = string
+  default = "performance-testing"
 }
 
 variable "pv_local_path" {
@@ -18,16 +25,16 @@ variable "pv_local_path" {
 }
 
 variable "worker_count" {
-    type = number
-    default = 2
+  type    = number
+  default = 2
 }
 
 variable "registry" {
-  type = string
+  type    = string
   default = "localhost:32000"
 }
 
 variable "image_pull_policy" {
-  type = string
+  type    = string
   default = "Always"
 }
