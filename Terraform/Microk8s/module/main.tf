@@ -18,5 +18,3 @@ provider "kubernetes" {
 provider "docker" {
   host = local.is_linux ? "unix:///var/run/docker.sock" : "npipe:////.//pipe//docker_engine"
 }
-
-# TODO: apply on bare metal. (delete everything, images and pods.. then apply) 
