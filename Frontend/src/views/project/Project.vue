@@ -41,7 +41,7 @@ export default {
   },
   methods: {
     getScripts() {
-      fetch(`/api/master/project/${this.pid}`)
+      fetch(`/api/project/${this.pid}`)
         .then((data) => data.json())
         .then((data) => {
           if (data.success) {

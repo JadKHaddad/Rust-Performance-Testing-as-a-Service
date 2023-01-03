@@ -2335,6 +2335,7 @@ dependencies = [
  "parking_lot",
  "poem",
  "redis",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

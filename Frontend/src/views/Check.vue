@@ -18,7 +18,7 @@ export default {
   },
   created() {
     this.loading = true;
-    fetch(`/api/master/check_script/${this.pid}/${this.id}`, {
+    fetch(`/api/check_script/${this.pid}/${this.id}`, {
       method: "POST",
     })
       .then((data) => data.json())

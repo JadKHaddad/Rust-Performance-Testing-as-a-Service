@@ -12,7 +12,7 @@ export default {
   name: "Preview",
   props: ["pid", "id"],
   mounted() {
-    fetch(`/api/master/preview_script/${this.pid}/${this.id}`, {
+    fetch(`/api/preview_script/${this.pid}/${this.id}`, {
       method: "POST",
     })
       .then((data) => data.json())

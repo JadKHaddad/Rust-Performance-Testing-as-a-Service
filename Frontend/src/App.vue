@@ -118,7 +118,7 @@ export default {
         wsProtocol = "wss";
       }
 
-      this.ws = new WebSocket(`${wsProtocol}://${location.host}/api/master/ws`);
+      this.ws = new WebSocket(`${wsProtocol}://${location.host}/api/ws`);
       this.ws.onopen = () => { };
       this.ws.onclose = () => { };
       this.ws.onmessage = (event) => {
@@ -142,7 +142,7 @@ export default {
             let project = istalling_projects[i];
             if (project.status === 1) {
               //get scripts
-              fetch(`/api/master/project/${project.id}`)
+              fetch(`/api/project/${project.id}`)
                 .then((data) => data.json())
                 .then((data) => {
                   if (data.success) {

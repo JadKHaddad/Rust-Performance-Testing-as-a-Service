@@ -1,12 +1,14 @@
 use crate::models;
 pub mod task;
 use parking_lot::RwLock;
-use poem::web::{Data, Json};
-use redis::Commands;
+use poem::web::{Data, Json, Multipart};
 use std::error::Error;
 use std::fs::canonicalize;
-use std::io::Write;
+use std::io::{Read, Write};
 
+use std::path::PathBuf;
+use std::process::Child;
+use std::str;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -16,15 +18,357 @@ use std::{
 };
 use tokio::time::sleep;
 
+fn child_stream_to_vec<R>(mut stream: R) -> Vec<u8>
+where
+    R: Read + Send + 'static,
+{
+    let mut vec = Vec::new();
+    loop {
+        let mut buf = [0];
+        match stream.read(&mut buf) {
+            Err(err) => {
+                eprintln!(
+                    "[{}] [{}] Error reading from stream: {}",
+                    shared::get_date_and_time(),
+                    line!(),
+                    err
+                );
+                break;
+            }
+            Ok(got) => {
+                if got == 0 {
+                    break;
+                } else if got == 1 {
+                    vec.push(buf[0])
+                } else {
+                    eprintln!(
+                        "[{}] [{}] Unexpected number of bytes: {}",
+                        shared::get_date_and_time(),
+                        line!(),
+                        got
+                    );
+                    break;
+                }
+            }
+        }
+    }
+    vec
+}
+
+fn move_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(&src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            move_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    std::fs::remove_dir_all(src)?;
+    Ok(())
+}
+
+pub async fn upload(
+    mut multipart: Multipart,
+    installing_tasks: Data<&Arc<RwLock<HashMap<String, Child>>>>,
+    currently_installing_projects: Data<&Arc<Mutex<bool>>>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Uploading project",
+        error: None,
+        content: None,
+    };
+    let mut project_temp_dir = PathBuf::new();
+    let mut env_dir = PathBuf::new();
+    let mut exists = false;
+    let mut check = true;
+    while let Ok(Some(field)) = multipart.next_field().await {
+        if exists && check {
+            continue;
+        }
+        //println!("{:?}", field);
+        let file_name = field
+            .file_name()
+            .map(ToString::to_string)
+            .ok_or("Upload Error")?;
+        let re = regex::Regex::new(r"\s+").unwrap();
+        let file_name = re.replace_all(&file_name, "_").into_owned();
+        let project_name = Path::new(&file_name)
+            .components()
+            .next()
+            .ok_or("Upload Error")?;
+        project_temp_dir = shared::get_temp_dir().join(&project_name);
+        let project_dir = shared::get_projects_dir().join(&project_name);
+        env_dir = shared::get_environments_dir().join(&project_name);
+        if (project_temp_dir.exists() && check) || project_dir.exists() && check {
+            response.error = Some("Project already exists");
+            response.success = false;
+            exists = true;
+            check = false;
+            continue;
+        }
+        if !exists {
+            let full_file_name = shared::get_temp_dir().join(file_name);
+            let full_file_name_prefix = full_file_name.parent().ok_or("Upload Error")?;
+            std::fs::create_dir_all(full_file_name_prefix)?;
+            let mut file = std::fs::File::create(full_file_name)?;
+            if let Ok(bytes) = field.bytes().await {
+                file.write(&bytes)?;
+            }
+        }
+        check = false;
+    }
+    if exists {
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    // check if locust Folder exists and contains files
+    let locust_dir = project_temp_dir.join("locust");
+    if !locust_dir.exists() {
+        response.error = Some("Locust folder empty or does not exist");
+        response.success = false;
+        //delete folder
+        std::fs::remove_dir_all(project_temp_dir)?;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    // check if requirements.txt exists
+    let requirements_file = project_temp_dir.join("requirements.txt");
+    if !requirements_file.exists() {
+        response.error = Some("No requirements.txt found");
+        response.success = false;
+        //delete folder
+        std::fs::remove_dir_all(project_temp_dir)?;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+    // check if requirements.txt contains locust
+    let requirements_file_content = std::fs::read_to_string(&requirements_file)?;
+    if !requirements_file_content.contains("locust") {
+        response.error = Some("requirements.txt does not contain locust");
+        response.success = false;
+        //delete folder
+        std::fs::remove_dir_all(project_temp_dir)?;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+
+    //install
+    let cmd = if cfg!(target_os = "windows") {
+        let pip_location_windows = Path::new(&env_dir).join("Scripts").join("pip3");
+        if let Ok(cmd_) = Command::new("cmd")
+            .args(&[
+                "/c",
+                &format!(
+                    "virtualenv {} && {} install -r {}",
+                    env_dir.to_str().ok_or("Upload Error")?,
+                    pip_location_windows.to_str().ok_or("Upload Error")?,
+                    requirements_file.to_str().ok_or("Upload Error")?
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            cmd_
+        } else {
+            std::fs::remove_dir_all(project_temp_dir)?;
+            response.error = Some("System Error");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
+    } else {
+        let pip_location_linux = Path::new(&env_dir).join("bin").join("pip3");
+        if let Ok(cmd_) = Command::new("bash")
+            .args(&[
+                "-c",
+                &format!(
+                    "virtualenv {} && {} install -r {}",
+                    env_dir.to_str().ok_or("Upload Error")?,
+                    pip_location_linux.to_str().ok_or("Upload Error")?,
+                    requirements_file.to_str().ok_or("Upload Error")?
+                ),
+            ])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            cmd_
+        } else {
+            std::fs::remove_dir_all(project_temp_dir)?;
+            response.error = Some("System Error");
+            response.success = false;
+            return Ok(serde_json::to_string(&response).unwrap());
+        }
+    };
+    let mut installing_tasks_guard = installing_tasks.write();
+    let project_name = project_temp_dir.file_name().ok_or("Upload Error")?;
+
+    installing_tasks_guard.insert(project_name.to_str().ok_or("Upload Error")?.to_owned(), cmd);
+    // run the thread
+    let main_sender = main_sender.clone();
+    if let Ok(mut currently_installing_projects_mutex) = currently_installing_projects.lock() {
+        if !*currently_installing_projects_mutex {
+            *currently_installing_projects_mutex = true;
+            println!(
+                "[{}] PROJECTS GARBAGE COLLECTOR: Running!",
+                shared::get_date_and_time()
+            );
+            let tokio_currently_installing_projects = currently_installing_projects.clone();
+            let tokio_installing_tasks = Arc::clone(&installing_tasks);
+            tokio::spawn(async move {
+                loop {
+                    let mut to_be_deleted: Vec<String> = Vec::new();
+                    let mut installing_projects: Vec<models::websocket::projects::Project> =
+                        Vec::new();
+                    {
+                        let mut tokio_tasks_guard = tokio_installing_tasks.write();
+                        if tokio_tasks_guard.len() < 1 {
+                            if let Ok(mut lock) = tokio_currently_installing_projects.lock() {
+                                *lock = false;
+                                println!(
+                                    "[{}] PROJECTS GARBAGE COLLECTOR: Terminating!",
+                                    shared::get_date_and_time()
+                                );
+                            } else {
+                                eprintln!(
+                                    "[{}] ERROR: PROJECTS GARBAGE COLLECTOR: failed to lock",
+                                    shared::get_date_and_time()
+                                );
+                            }
+                            break;
+                        }
+                        let mut to_be_removed: Vec<String> = Vec::new();
+                        //collect info if a user is connected
+                        for (id, cmd) in tokio_tasks_guard.iter_mut() {
+                            let mut project = models::websocket::projects::Project {
+                                id: id.to_owned(),
+                                status: 0,
+                                error: None,
+                            };
+                            match cmd.try_wait() {
+                                Ok(Some(exit_status)) => {
+                                    // process finished
+                                    to_be_removed.push(id.to_owned());
+                                    project.status = 2;
+                                    // delete on fail
+                                    match exit_status.code() {
+                                        Some(code) => {
+                                            println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with code [{}]!", shared::get_date_and_time(), id, code);
+                                            if code != 0 {
+                                                if let Some(stderr) = cmd.stderr.take() {
+                                                    let err = child_stream_to_vec(stderr);
+                                                    if let Ok(error_string) = str::from_utf8(&err) {
+                                                        to_be_deleted.push(id.to_owned());
+                                                        project.error =
+                                                            Some(error_string.to_owned());
+                                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated with error:\n{:?}", shared::get_date_and_time(), id, error_string);
+                                                    }
+                                                }
+                                            } else {
+                                                project.status = 1; // process finished
+                                                                    // move to installed projects
+                                                match move_dir_all(
+                                                    shared::get_a_temp_dir(id),
+                                                    shared::get_a_project_dir(id),
+                                                ) {
+                                                    Ok(_) => {
+                                                        println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] moved to installed projects!", shared::get_date_and_time(), id);
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}] failed to move to installed projects!\n{:?}", shared::get_date_and_time(), id, e);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        None => {
+                                            println!("[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] terminated by signal!", shared::get_date_and_time(), id);
+                                        }
+                                    }
+                                }
+                                Ok(None) => {
+                                    project.status = 0; // process is running
+                                }
+                                Err(e) => {
+                                    eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: could not wait on child process error: {:?}", shared::get_date_and_time(), id, e);
+                                }
+                            }
+                            installing_projects.push(project);
+                        }
+                        //remove finished
+                        for id in to_be_removed.iter() {
+                            tokio_tasks_guard.remove_entry(id);
+                            println!(
+                                "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] removed!",
+                                shared::get_date_and_time(),
+                                id
+                            );
+                        }
+                    }
+                    //delete not valid
+                    for id in to_be_deleted.iter() {
+                        match std::fs::remove_dir_all(shared::get_a_temp_dir(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: folder could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
+                            }
+                        };
+                        match std::fs::remove_dir_all(shared::get_an_environment_dir(id)) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                eprintln!("[{}] ERROR: PROJECTS GARBAGE COLLECTOR: Project [{}]: environment could not be deleted!\n{:?}",shared::get_date_and_time(),  id, e);
+                            }
+                        };
+                        println!(
+                            "[{}] PROJECTS GARBAGE COLLECTOR: Project [{}] deleted!",
+                            shared::get_date_and_time(),
+                            id
+                        );
+                    }
+                    // send info
+                    let websocket_message = models::websocket::WebSocketMessage {
+                        event_type: "PROJECTS",
+                        event: models::websocket::projects::Event {
+                            istalling_projects: installing_projects,
+                        },
+                    };
+
+                    if main_sender
+                        .send(serde_json::to_string(&websocket_message).unwrap())
+                        .is_err()
+                    {
+                        println!(
+                            "[{}] PROJECTS GARBAGE COLLECTOR: No clients are connected!",
+                            shared::get_date_and_time()
+                        );
+                    }
+                    sleep(Duration::from_secs(3)).await;
+                }
+            });
+        } else {
+            println!(
+                "[{}] PROJECTS GARBAGE COLLECTOR: Already running!",
+                shared::get_date_and_time()
+            );
+        }
+    } else {
+        eprintln!(
+            "[{}] ERROR: MASTER: Project [{:#?}] failed to lock",
+            shared::get_date_and_time(),
+            project_name
+        );
+        Err("Could not lock. System error")?;
+    }
+    Ok(serde_json::to_string(&response).unwrap())
+}
+
 pub async fn start_test(
     project_id: &str,
     script_id: &str,
     mut req: Json<models::http::TestInfo>,
     running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
     currently_running_tests: Data<&Arc<Mutex<bool>>>,
-    red_client: redis::Client,
-    red_manager: Data<&shared::manager::Manager>,
-    ip: Data<&String>,
+    wanted_scripts: Data<&Arc<RwLock<HashSet<String>>>>,
     id: String,
     task_id: String,
 ) -> Result<String, Box<dyn Error>> {
@@ -35,31 +379,6 @@ pub async fn start_test(
         error: None,
         content: None,
     };
-    let red_client = red_client.clone();
-    let mut red_connection;
-    if let Ok(connection) = red_client.get_connection() {
-        red_connection = connection;
-    } else {
-        response.error = Some("Could not connect to database");
-        response.success = false;
-        return Ok(serde_json::to_string(&response).unwrap());
-    }
-    //check if project is locked
-    let locked_projects: std::collections::HashSet<String>;
-    if let Ok(set) = red_connection.smembers(shared::LOCKED_PROJECTS) {
-        locked_projects = set;
-    } else {
-        response.error = Some("Could not connect to database");
-        response.success = false;
-        return Ok(serde_json::to_string(&response).unwrap());
-    };
-
-    if locked_projects.contains(project_id) {
-        //TODO! run in scheduler
-        response.error = Some("Project is currently locked");
-        response.success = false;
-        return Ok(serde_json::to_string(&response).unwrap());
-    }
 
     let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
 
@@ -119,25 +438,9 @@ pub async fn start_test(
         0
     };
 
-    //lock before running
-    if red_connection
-        .sadd::<_, _, ()>(shared::LOCKED_PROJECTS, &project_id)
-        .is_err()
-    {
-        //delete test dir
-        std::fs::remove_dir_all(&test_dir)?;
-        response.error = Some("Could not lock project");
-        response.success = false;
-        return Ok(serde_json::to_string(&response).unwrap());
-    }
-
     let mut running_tests_guard = running_tests.write();
     //checking if the script was not deleted in the meantime after performing the lock
     if !locust_file.exists() {
-        //unlock
-        let _: () = red_connection
-            .srem(shared::LOCKED_PROJECTS, &project_id)
-            .unwrap_or_default();
         //delete test dir
         std::fs::remove_dir_all(&test_dir)?;
         response.error = Some("Script was deleted!");
@@ -183,10 +486,6 @@ pub async fn start_test(
             if let Ok(port_) = shared::get_a_free_port() {
                 port = port_;
             } else {
-                //unlock
-                let _: () = red_connection
-                    .srem(shared::LOCKED_PROJECTS, &project_id)
-                    .unwrap_or_default();
                 //delete test dir
                 std::fs::remove_dir_all(&test_dir)?;
                 response.error = Some("Could not get a free port");
@@ -256,10 +555,10 @@ pub async fn start_test(
                 Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
                     .current_dir(shared::get_a_project_dir(&project_id))
                     .args(&args)
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    // .stdout(Stdio::inherit())
-                    // .stderr(Stdio::inherit())
+                    //.stdout(Stdio::null())
+                    //.stderr(Stdio::null())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
                     .spawn()?,
                 task_id.clone(),
             )
@@ -292,10 +591,6 @@ pub async fn start_test(
             if let Ok(port_) = shared::get_a_free_port() {
                 port = port_;
             } else {
-                //unlock
-                let _: () = red_connection
-                    .srem(shared::LOCKED_PROJECTS, &project_id)
-                    .unwrap_or_default();
                 //delete test dir
                 std::fs::remove_dir_all(&test_dir)?;
                 response.error = Some("Could not get a free port");
@@ -389,15 +684,10 @@ pub async fn start_test(
         time: std::mem::take(&mut req.time),
         description: std::mem::take(&mut req.description),
         id: Some(id.clone()),
-        worker_ip: Some(ip.to_string()),
+        worker_ip: None,
     };
     let mut file = std::fs::File::create(&test_dir.join("info.json"))?;
     file.write(serde_json::to_string(&test_info).unwrap().as_bytes())?;
-
-    // save id in redis
-    let _: () = red_connection
-        .sadd(shared::RUNNING_TESTS, &task_id)
-        .unwrap_or_default();
 
     running_tests_guard.insert(task_id, cmd);
 
@@ -416,24 +706,9 @@ pub async fn start_test(
         event_type: shared::TEST_STARTED,
         event: &started_test,
     };
-    let redis_message = models::redis::RedisMessage {
-        event_type: websocket_message.event_type.to_owned(),
-        id: shared::encode_script_id(&project_id, &script_id),
-        message: serde_json::to_string(&websocket_message).unwrap(),
-    };
-    let _: () = red_connection
-        .publish(
-            "main_channel",
-            serde_json::to_string(&redis_message).unwrap(),
-        )
-        .unwrap_or_default();
-
-    //unlock //TODO! what happens on error?
-    let _: () = red_connection
-        .srem(shared::LOCKED_PROJECTS, &project_id)
-        .unwrap_or_default();
 
     //run the garbage collector
+    let wanted_scripts = wanted_scripts.clone();
     if let Ok(mut currently_running_tests_mutex) = currently_running_tests.lock() {
         if !*currently_running_tests_mutex {
             *currently_running_tests_mutex = true;
@@ -443,7 +718,6 @@ pub async fn start_test(
             );
             let tokio_currently_running_tests = currently_running_tests.clone();
             let tokio_running_tests = Arc::clone(&running_tests);
-            let mut red_manager = red_manager.clone();
             tokio::spawn(async move {
                 loop {
                     let mut tests_info_map: HashMap<
@@ -468,12 +742,7 @@ pub async fn start_test(
                             break;
                         }
                         let mut to_be_removed: Vec<String> = Vec::new();
-                        //collect info if a user is connected
-                        let mut wanted_scripts: HashSet<String> = HashSet::new();
 
-                        if let Ok(set) = red_manager.smembers(shared::SUBS) {
-                            wanted_scripts = set;
-                        }
                         for (id, cmd) in tokio_tests_guard.iter_mut() {
                             let (project_id, script_id, test_id) = shared::decode_test_id(id);
                             let global_script_id = shared::get_global_script_id(id);
@@ -493,12 +762,6 @@ pub async fn start_test(
                                             println!("[{}] SCRIPTS GARBAGE COLLECTOR: Script [{}] terminated by signal!", shared::get_date_and_time(), id);
                                         }
                                     }
-                                    //remove from redis //TODO! why are we getting a new connection on every iteration?
-                                    if let Ok(mut connection) = red_client.get_connection() {
-                                        let _: () = connection
-                                            .srem(shared::RUNNING_TESTS, &id)
-                                            .unwrap_or_default();
-                                    }
                                 }
                                 Ok(None) => {
                                     status = 0; // process is running
@@ -507,32 +770,36 @@ pub async fn start_test(
                                     eprintln!("[{}] ERROR: SCRIPTS GARBAGE COLLECTOR: Script [{}]: could not wait on child process error: {:?}",shared::get_date_and_time(), id, e);
                                 }
                             }
-                            //check if the script is wanted and save results
-                            if wanted_scripts.contains(global_script_id)
-                                || wanted_scripts.contains(shared::CONTROL_SUB_STRING)
                             {
-                                // println!(
-                                //     "[{}] SCRIPT WANTED: {}",
-                                //     shared::get_date_and_time(),
-                                //     global_script_id
-                                // );
-                                let results = shared::get_results(project_id, script_id, test_id);
-                                let last_history = None;
-                                // let last_history shared::get_last_result_history(project_id, script_id, test_id);
-                                let test_info = models::websocket::tests::TestInfo {
-                                    id: test_id.to_owned(),
-                                    results: results,
-                                    status: status,
-                                    last_history: last_history,
-                                };
-                                if tests_info_map.contains_key(global_script_id) {
-                                    tests_info_map
-                                        .get_mut(global_script_id)
-                                        .unwrap()
-                                        .push(test_info);
-                                } else {
-                                    tests_info_map
-                                        .insert(global_script_id.to_owned(), vec![test_info]);
+                                //check if the script is wanted and save results
+                                let wanted_scripts_g = wanted_scripts.read();
+                                if wanted_scripts_g.contains(global_script_id)
+                                    || wanted_scripts_g.contains(shared::CONTROL_SUB_STRING)
+                                {
+                                    // println!(
+                                    //     "[{}] SCRIPT WANTED: {}",
+                                    //     shared::get_date_and_time(),
+                                    //     global_script_id
+                                    // );
+                                    let results =
+                                        shared::get_results(project_id, script_id, test_id);
+                                    let last_history = None;
+                                    // let last_history shared::get_last_result_history(project_id, script_id, test_id);
+                                    let test_info = models::websocket::tests::TestInfo {
+                                        id: test_id.to_owned(),
+                                        results,
+                                        status,
+                                        last_history,
+                                    };
+                                    if tests_info_map.contains_key(global_script_id) {
+                                        tests_info_map
+                                            .get_mut(global_script_id)
+                                            .unwrap()
+                                            .push(test_info);
+                                    } else {
+                                        tests_info_map
+                                            .insert(global_script_id.to_owned(), vec![test_info]);
+                                    }
                                 }
                             }
                         }
@@ -550,21 +817,8 @@ pub async fn start_test(
                     for (script_id, tests_info) in tests_info_map.iter() {
                         let websocket_message = models::websocket::WebSocketMessage {
                             event_type: shared::UPDATE_TEST_INFO,
-                            event: models::websocket::tests::TestInfoEvent {
-                                tests_info: tests_info,
-                            },
+                            event: models::websocket::tests::TestInfoEvent { tests_info },
                         };
-                        let redis_message = models::redis::RedisMessage {
-                            event_type: websocket_message.event_type.to_owned(),
-                            id: script_id.to_owned(),
-                            message: serde_json::to_string(&websocket_message).unwrap(),
-                        };
-                        let _: () = red_manager
-                            .publish(
-                                "main_channel",
-                                serde_json::to_string(&redis_message).unwrap(),
-                            )
-                            .unwrap_or_default();
                     }
                     sleep(Duration::from_secs(2)).await;
                 }
@@ -660,94 +914,6 @@ pub async fn delete_test(
     return Ok(serde_json::to_string(&response).unwrap());
 }
 
-pub fn register(red_client: &redis::Client, worker_ip: &str) {
-    println!(
-        "[{}] WORKER: Registering worker",
-        shared::get_date_and_time()
-    );
-    loop {
-        if let Ok(mut connection) = red_client.get_connection() {
-            if let Ok(()) = connection.sadd(shared::REGISTERED_WORKERS, &worker_ip) {
-                println!("[{}] WORKER: Registered!", shared::get_date_and_time(),);
-                break;
-            }
-        }
-        eprintln!(
-            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
-            shared::get_date_and_time()
-        );
-        std::thread::sleep(std::time::Duration::from_secs(3));
-    }
-}
-
-pub async fn remove_all_running_tests(
-    red_client: &redis::Client,
-    worker_ip: &str,
-) -> Result<(), Box<dyn Error>> {
-    loop {
-        if let Ok(mut connection) = red_client.get_connection() {
-            if let Ok(set) = connection.smembers(shared::RUNNING_TESTS) {
-                let running_tests: std::collections::HashSet<String> = set;
-                let mut success = true;
-                for test_id in running_tests {
-                    //get tests worked ip
-                    let (project_id, script_id, test_id_d) = shared::decode_test_id(&test_id);
-                    let test_worker_ip = shared::get_worker_ip(project_id, script_id, test_id_d)
-                        .ok_or("Id Error")?;
-                    if test_worker_ip == worker_ip {
-                        //notify master
-                        let websocket_message = models::websocket::WebSocketMessage {
-                            event_type: shared::TEST_STOPPED,
-                            event: models::websocket::tests::TestStoppeddEvent {
-                                id: test_id_d.to_owned(),
-                            },
-                        };
-                        let redis_message = models::redis::RedisMessage {
-                            event_type: websocket_message.event_type.to_owned(),
-                            id: shared::encode_script_id(project_id, script_id),
-                            message: serde_json::to_string(&websocket_message).unwrap(),
-                        };
-                        println!(
-                            "[{}] SENDING REDIS MESSAGE: {:?}",
-                            shared::get_date_and_time(),
-                            redis_message
-                        );
-                        //notify and remove from redis
-                        if connection
-                            .publish::<_, _, bool>(
-                                "main_channel",
-                                serde_json::to_string(&redis_message).unwrap(),
-                            )
-                            .is_err()
-                            || connection
-                                .srem::<_, _, bool>(shared::RUNNING_TESTS, &test_id)
-                                .is_err()
-                        {
-                            success = false;
-                            break;
-                        }
-                        println!(
-                            "[{}] OLD RUNNING TEST REMOVED!: [{}] ",
-                            shared::get_date_and_time(),
-                            test_id
-                        );
-                    }
-                }
-                if success {
-                    break;
-                }
-            }
-        }
-        eprintln!(
-            "[{}] WORKER: Could not connect to redis. Trying again in 3 seconds.",
-            shared::get_date_and_time()
-        );
-        std::thread::sleep(std::time::Duration::from_secs(3));
-    }
-
-    Ok(())
-}
-
 pub async fn stop_prefix(
     prefix: &str,
     running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
@@ -792,4 +958,165 @@ pub async fn stop_prefix(
     }
     response.content = Some(stopped_tests);
     return Ok(serde_json::to_string(&response).unwrap());
+}
+
+pub async fn projects() -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Installed Projects",
+        error: None,
+        content: None,
+    };
+    let mut content = models::http::projects::Content {
+        projects: Vec::new(),
+    };
+    let projects_dir = match std::fs::read_dir(shared::get_projects_dir()) {
+        Ok(dir) => dir,
+        Err(_) => {
+            response.content = Some(content);
+            let response = serde_json::to_string(&response).unwrap();
+            return Ok(response);
+        }
+    };
+    for project_dir in projects_dir {
+        let project_name = project_dir?
+            .file_name()
+            .to_str()
+            .ok_or("Parse Error")?
+            .to_owned();
+        let locust_dir = match std::fs::read_dir(shared::get_a_locust_dir(&project_name)) {
+            Ok(dir) => dir,
+            Err(_) => {
+                continue;
+            }
+        };
+        let mut scripts = Vec::new();
+        for script_file in locust_dir {
+            let script_file = script_file?;
+            let metadata = script_file.metadata()?;
+            if metadata.is_dir() {
+                continue;
+            }
+            let script_name = script_file
+                .file_name()
+                .to_str()
+                .ok_or("Parse Error")?
+                .to_owned();
+            let extension = Path::new(&script_name).extension();
+            if let Some(extension) = extension {
+                if extension != "py" {
+                    continue;
+                }
+            }
+            scripts.push(script_name);
+        }
+        content.projects.push(models::http::projects::Project {
+            id: project_name,
+            scripts: scripts,
+        });
+    }
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
+pub async fn project_scripts(project_id: &str) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Project",
+        error: None,
+        content: None,
+    };
+    let mut content = models::http::scripts::Content {
+        scripts: Vec::new(),
+    };
+
+    let locust_dir = std::fs::read_dir(shared::get_a_locust_dir(project_id))?;
+
+    for script_file in locust_dir {
+        let script_file = script_file?;
+        let metadata = script_file.metadata()?;
+        if metadata.is_dir() {
+            continue;
+        }
+        let script_name = script_file
+            .file_name()
+            .to_str()
+            .ok_or("Parse Error")?
+            .to_owned();
+        let extension = Path::new(&script_name).extension();
+        if let Some(extension) = extension {
+            if extension != "py" {
+                continue;
+            }
+        }
+        content.scripts.push(script_name);
+    }
+
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
+pub async fn tests(
+    project_id: &str,
+    script_id: &str,
+    running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Tests",
+        error: None,
+        content: None,
+    };
+
+    let mut content = shared::models::http::tests::Content {
+        tests: Vec::new(),
+        config: shared::get_config(&project_id, &script_id),
+    };
+    let script_dir =
+        match std::fs::read_dir(shared::get_a_script_results_dir(project_id, script_id)) {
+            Ok(dir) => dir,
+            Err(_) => {
+                response.error = Some("Could not read results directory");
+                response.content = Some(content);
+                let response = serde_json::to_string(&response).unwrap();
+                return Ok(response);
+            }
+        };
+    for test_dir in script_dir {
+        let test_dir = test_dir?;
+        if test_dir.metadata()?.is_file() {
+            continue;
+        }
+        let test_id = test_dir
+            .file_name()
+            .to_str()
+            .ok_or("Parse Error")?
+            .to_owned();
+        //get results
+        let results = shared::get_results(project_id, script_id, &test_id);
+        let task_id = shared::encode_test_id(project_id, script_id, &test_id);
+        let mut status = 1;
+        if running_tests.read().contains_key(&task_id) {
+            status = 0;
+        }
+        //get info
+        let info = shared::get_info(project_id, script_id, &test_id);
+        //get history
+        let history = None;
+        //let history = shared::get_results_history(project_id, script_id, &test_id);
+        content.tests.push(shared::models::Test {
+            id: test_id,
+            project_id: project_id.to_owned(),
+            script_id: script_id.to_owned(),
+            status,
+            results,
+            history,
+            info,
+        });
+    }
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
 }

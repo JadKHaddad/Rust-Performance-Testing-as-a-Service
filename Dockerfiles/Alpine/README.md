@@ -1,3 +1,0 @@
-# Dockerfiles - Alpine 
-
-Under development

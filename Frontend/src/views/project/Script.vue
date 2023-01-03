@@ -104,7 +104,7 @@ export default {
         wsProtocol = "wss";
       }
       this.ws = new WebSocket(
-        `${wsProtocol}://${location.host}/api/master/subscribe/${this.pid}/${this.id}`
+        `${wsProtocol}://${location.host}/api/subscribe/${this.pid}/${this.id}`
       );
       this.ws.onopen = () => { };
       this.ws.onclose = () => { };
@@ -160,7 +160,7 @@ export default {
     },
 
     start(test_info) {
-      fetch(`/api/worker/start_test/${this.pid}/${this.id}`, {
+      fetch(`/api/start_test/${this.pid}/${this.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -195,7 +195,7 @@ export default {
         .catch(() => { });
     },
     stop(test_id) {
-      fetch(`/api/master/stop_test/${this.pid}/${this.id}/${test_id}`, {
+      fetch(`/api/stop_test/${this.pid}/${this.id}/${test_id}`, {
         method: "POST",
       })
         .then((data) => data.json())
@@ -212,7 +212,7 @@ export default {
         .catch(() => { });
     },
     del(test_id) {
-      fetch(`/api/master/delete_test/${this.pid}/${this.id}/${test_id}`, {
+      fetch(`/api/delete_test/${this.pid}/${this.id}/${test_id}`, {
         method: "POST",
       })
         .then((data) => data.json())
@@ -230,7 +230,7 @@ export default {
       return false;
     },
     download(test_id) {
-      fetch(`/api/master/download_test/${this.pid}/${this.id}/${test_id}`, {
+      fetch(`/api/download_test/${this.pid}/${this.id}/${test_id}`, {
         method: "GET",
       })
         .then((response) => response.blob())
@@ -241,7 +241,7 @@ export default {
         .catch(() => { });
     },
     stop_all() {
-      fetch(`/api/master/stop_script/${this.pid}/${this.id}`, {
+      fetch(`/api/stop_script/${this.pid}/${this.id}`, {
         method: "POST",
       })
         .then((data) => data.json())
@@ -263,7 +263,7 @@ export default {
   },
   created() {
     this.connenctWebsocket();
-    fetch(`/api/master/tests/${this.pid}/${this.id}`)
+    fetch(`/api/tests/${this.pid}/${this.id}`)
       .then((data) => data.json())
       .then((data) => {
         this.tests = data.content.tests;

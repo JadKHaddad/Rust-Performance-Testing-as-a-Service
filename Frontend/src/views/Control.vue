@@ -45,7 +45,7 @@ export default {
         wsProtocol = "wss";
       }
       this.ws = new WebSocket(
-        `${wsProtocol}://${location.host}/api/master/subscribe/CONTROL/CONTROL`
+        `${wsProtocol}://${location.host}/api/subscribe/CONTROL/CONTROL`
       );
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -86,7 +86,7 @@ export default {
       };
     },
     restart(test_info) { //TODO: SAME AS SCRIPT.VUE
-      fetch(`/api/worker/start_test/${test_info.project_id}/${test_info.script_id}`, {
+      fetch(`/api/start_test/${test_info.project_id}/${test_info.script_id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,7 +120,7 @@ export default {
         .catch(() => { });
     },
     stop(test_info) { //TODO: SAME AS SCRIPT.VUE
-      fetch(`/api/master/stop_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
+      fetch(`/api/stop_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "POST",
       })
         .then((data) => data.json())
@@ -137,7 +137,7 @@ export default {
         .catch(() => { });
     },
     del(test_info) { //TODO: SAME AS SCRIPT.VUE
-      fetch(`/api/master/delete_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
+      fetch(`/api/delete_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "POST",
       })
         .then((data) => data.json())
@@ -151,7 +151,7 @@ export default {
         .catch();
     },
     download(test_info) { //TODO: SAME AS SCRIPT.VUE
-      fetch(`/api/master/download_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
+      fetch(`/api/download_test/${test_info.project_id}/${test_info.script_id}/${test_info.id}`, {
         method: "GET",
       })
         .then((response) => response.blob())
@@ -169,7 +169,7 @@ export default {
   },
   created() {
     this.connenctWebsocket();
-    fetch(`/api/master/control`)
+    fetch(`/api/control`)
       .then((data) => data.json())
       .then((data) => {
         this.tests = data.content.tests;

@@ -125,7 +125,7 @@ export default {
       this.$router.push({ name: 'Project', params: { pid: pid } });
     },
     getProjects() {
-      fetch("/api/master/projects")
+      fetch("/api/projects")
         .then((data) => data.json())
         .then((data) => {
           this.projects = data.content.projects;
@@ -151,7 +151,7 @@ export default {
       axios
         .request({
           method: "post",
-          url: "/api/master/upload",
+          url: "/api/upload",
           data: data,
           onUploadProgress: (progressEvent) => {
             this.percentCompleted = Math.round(
@@ -177,7 +177,7 @@ export default {
           this.hideUploadModal();
         });
 
-      // fetch("/api/master/upload", {
+      // fetch("/api/upload", {
       //   method: "POST",
       //   body: data,
       // })
@@ -199,7 +199,7 @@ export default {
       return false;
     },
     deleteProjects() {
-      fetch(`/api/master/delete_projects`, {
+      fetch(`/api/delete_projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

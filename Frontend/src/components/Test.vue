@@ -164,7 +164,7 @@ export default {
     },
     showStats() {
       //get the data
-      fetch(`/api/master/stats/${this.test.info.project_id}/${this.test.info.script_id}/${this.test.id}`)
+      fetch(`/api/stats/${this.test.info.project_id}/${this.test.info.script_id}/${this.test.id}`)
         .then((data) => data.json())
         .then((data) => {
           this.showStatsBool = true;

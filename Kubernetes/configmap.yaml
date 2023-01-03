@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: configmap
-  namespace: performance-testing
-data:
-  redis_host: redis-service
-  master_ip: master-service:3000
