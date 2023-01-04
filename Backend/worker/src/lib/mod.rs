@@ -1120,3 +1120,266 @@ pub async fn tests(
     let response = serde_json::to_string(&response).unwrap();
     Ok(response)
 }
+
+pub async fn all_running_tests(running_tests: Data<&Arc<RwLock<HashMap<String, task::Task>>>>) -> Result<String, Box<dyn Error>> {
+    let mut response = shared::models::http::Response {
+        success: true,
+        message: "Tests",
+        error: None,
+        content: None,
+    };
+
+    let mut content = shared::models::http::tests::Content {
+        tests: Vec::new(),
+        config: None,
+    };
+    for running_test in running_tests.read().keys() {
+        let (project_id, script_id, test_id) = shared::decode_test_id(running_test);
+        //get results
+        let results = shared::get_results(&project_id, &script_id, &test_id);
+        let status = 0;
+        //get info
+        let info = shared::get_info(&project_id, &script_id, &test_id);
+        //get history
+        let history = None;
+        //let history = shared::get_results_history(&project_id, &script_id, &test_id);
+        content.tests.push(shared::models::Test {
+            id: test_id.to_owned(),
+            project_id: project_id.to_owned(),
+            script_id: script_id.to_owned(),
+            status: status,
+            results: results,
+            history: history,
+            info: info,
+        });
+    }
+    response.content = Some(content);
+    let response = serde_json::to_string(&response).unwrap();
+    Ok(response)
+}
+
+pub async fn delete_projects(
+    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
+) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<HashMap<String, (bool, String)>> {
+        success: true,
+        message: "Delete projects",
+        error: None,
+        content: None,
+    };
+    let mut contents: HashMap<String, (bool, String)> = HashMap::new();
+    let workers: std::collections::HashSet<String>;
+    
+    for project_id in projects_to_be_deleted.project_ids.iter() {
+        
+        //TODO stop project and delete it and notify
+        // let mut stop_project_error = String::new();
+        // let stop_response = stop_project(&project_id, &workers, &mut stop_project_error).await;
+        // if stop_response.success {
+        //     //delete project if all tests are stopped
+        //     let mut delete_project_error = String::new();
+        //     let delete_response = delete_project(&project_id, &mut delete_project_error);
+        //     if delete_response.success {
+        //         contents.insert(
+        //             project_id.to_owned(),
+        //             (true, delete_project_error.to_owned()),
+        //         );
+        //         //notify browser
+        //         let websocket_message = models::websocket::WebSocketMessage {
+        //             event_type: shared::PROJECT_DELETED,
+        //             event: models::websocket::projects::DeletedProject {
+        //                 id: project_id.to_owned(),
+        //             },
+        //         };
+        //         if main_sender
+        //             .send(serde_json::to_string(&websocket_message).unwrap())
+        //             .is_err()
+        //         {
+        //             println!(
+        //                 "[{}] DELETE PROJECT EVENT: No clients are connected!",
+        //                 shared::get_date_and_time()
+        //             );
+        //         }
+        //     } else {
+        //         response.success = false;
+        //         contents.insert(
+        //             project_id.to_owned(),
+        //             (false, delete_project_error.to_owned()),
+        //         );
+        //     }
+        // } else {
+        //     response.success = false;
+        //     contents.insert(
+        //         project_id.to_owned(),
+        //         (false, stop_project_error.to_owned()),
+        //     );
+        // }
+    }
+    response.content = Some(contents);
+    Ok(serde_json::to_string(&response).unwrap())
+}
+
+fn delete_project<'a>(
+    project_id: &str,
+    error: &'a mut String,
+) -> models::http::Response<'a, HashMap<String, String>> {
+    let mut response = models::http::Response::<HashMap<String, String>> {
+        success: true,
+        message: "Delete project",
+        error: None,
+        content: None,
+    };
+    let project_dir = shared::get_a_project_dir(project_id);
+    let env_dir = shared::get_an_environment_dir(project_id);
+    let results_dir = shared::get_a_project_results_dir(project_id);
+    if results_dir.exists() {
+        // match std::fs::remove_dir_all(&results_dir) {
+        //     Ok(_) => {
+        //         println!(
+        //             "[{}] MASTER: DELETE PROJECT [{}]: results directory deleted!",
+        //             shared::get_date_and_time(),
+        //             project_id,
+        //         );
+        //     }
+        //     Err(e) => {
+        //         eprintln!(
+        //             "[{}] MASTER: DELETE PROJECT [{}]: Could not delete results directory: {}\n",
+        //             shared::get_date_and_time(),
+        //             project_id,
+        //             e
+        //         );
+        //         error.push_str("Could not delete results directory\n");
+        //         response.success = false;
+        //     }
+        // }
+    }
+    if env_dir.exists() {
+        match std::fs::remove_dir_all(&env_dir) {
+            Ok(_) => {
+                println!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: environment directory deleted!",
+                    shared::get_date_and_time(),
+                    project_id,
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete environment directory: {}\n",
+                    shared::get_date_and_time(),
+                    project_id,
+                    e
+                );
+                error.push_str("Could not delete environment directory\n");
+                response.success = false;
+            }
+        }
+    }
+    if project_dir.exists() {
+        match std::fs::remove_dir_all(&project_dir) {
+            Ok(_) => {
+                println!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: project directory deleted!",
+                    shared::get_date_and_time(),
+                    project_id,
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "[{}] MASTER: DELETE PROJECT [{}]: Could not delete project directory: {}\n",
+                    shared::get_date_and_time(),
+                    project_id,
+                    e
+                );
+                error.push_str("Could not delete project directory\n");
+                response.success = false;
+            }
+        }
+    }
+    if !response.success {
+        response.error = Some(error);
+    }
+    return response;
+}
+
+pub fn check_script<'a>(project_id: &'a str, script_id: &'a str) -> Result<String, Box<dyn Error>> {
+    let mut response = models::http::Response::<String> {
+        success: true,
+        message: "Test check",
+        error: None,
+        content: None,
+    };
+    let locust_file = shared::get_a_locust_dir(project_id).join(script_id);
+
+    if !locust_file.exists() {
+        response.error = Some("Script not found");
+        response.success = false;
+        return Ok(serde_json::to_string(&response).unwrap());
+    }
+
+    let env_dir = shared::get_an_environment_dir(&project_id);
+    let can_locust_file = canonicalize(&locust_file).unwrap(); //absolute path for commands current dir
+
+    let mut cmd = if cfg!(target_os = "windows") {
+        let args = vec![
+            "-f",
+            can_locust_file.to_str().ok_or("Run Error")?,
+            "--headless",
+            "--users",
+            "1",
+            "--spawn-rate",
+            "1",
+            "--run-time",
+            "3s",
+            "--host",
+            "http://localhost:6000",
+        ];
+        Command::new(Path::new(&env_dir).join("Scripts").join("locust.exe"))
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&args)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?
+    } else {
+        //linux
+        let can_locust_location_linux =
+            canonicalize(Path::new(&env_dir).join("bin").join("locust")).unwrap();
+        let command = format!(
+            "{} -f {} --headless --users 1 --spawn-rate 1 --run-time 3s --host http://localhost:6000",
+            can_locust_location_linux.to_str().ok_or("Run Error")?,
+            can_locust_file.to_str().ok_or("Run Error")?,
+        );
+        Command::new("bash")
+            .current_dir(shared::get_a_project_dir(&project_id))
+            .args(&["-c", &command])
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::piped())
+            .spawn()?
+    };
+
+    cmd.wait()?;
+
+    //locust prints everything to stderr :)
+    let mut content_string = String::new();
+    if let Some(stderr) = cmd.stderr.take() {
+        let err = child_stream_to_vec(stderr);
+        if let Ok(error_string) = str::from_utf8(&err) {
+            content_string.push_str(error_string);
+        }
+    }
+
+    response.content = Some(content_string);
+
+    return Ok(serde_json::to_string(&response).unwrap());
+}
+
+pub fn preview_script(project_id: &str, script_id: &str) -> Result<String, Box<dyn Error>> {
+    let script_content = shared::read_script_content(project_id, script_id);
+    let response = models::http::Response::<String> {
+        success: true,
+        message: "Test preview",
+        error: None,
+        content: script_content,
+    };
+    return Ok(serde_json::to_string(&response).unwrap());
+}

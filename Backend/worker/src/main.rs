@@ -420,6 +420,33 @@ async fn tests(
     }
 }
 
+#[handler]
+async fn control(running_tests: Data<&Arc<RwLock<HashMap<String, lib::task::Task>>>>) -> String {
+    match lib::all_running_tests(running_tests).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
+#[handler]
+async fn delete_projects(
+    projects_to_be_deleted: Json<models::http::projects::ProjectIds>,
+    main_sender: Data<&tokio::sync::broadcast::Sender<String>>,
+) -> String {
+    match lib::delete_projects(projects_to_be_deleted, main_sender).await {
+        Ok(response) => response,
+        Err(err) => {
+            // Server error
+            return serde_json::to_string(&models::http::ErrorResponse::new(&err.to_string()))
+                .unwrap();
+        }
+    }
+}
+
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), std::io::Error> {
     //main sender
@@ -451,6 +478,7 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/projects", get(projects))
         .at("/project/:project_id", get(project_scripts))
         .at("/tests/:project_id/:script_id", get(tests))
+        .at("/control", get(control))
         .at("/start_test/:project_id/:script_id", post(start_test))
         .at(
             "/stop_test/:project_id/:script_id/:test_id",
@@ -460,6 +488,7 @@ async fn main() -> Result<(), std::io::Error> {
             "/delete_test/:project_id/:script_id/:test_id",
             post(delete_test),
         )
+        .at("/delete_projects", post(delete_projects))
         .at("/stop_script/:project_id/:script_id", post(stop_script))
         .at("/stop_project/:project_id", post(stop_project))
         .with(AddData::new(running_tests))

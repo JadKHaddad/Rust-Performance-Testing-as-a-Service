@@ -6,3 +6,4 @@
 **/debug-builds
 *.bkp
 .vscode
+**/__pycache__
